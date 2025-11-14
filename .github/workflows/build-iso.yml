@@ -99,6 +99,7 @@ jobs:
         }
         
     - name: Verify build output
+      if: success()
       run: |
         echo "Checking build output..."
         ls -la output/ || {
@@ -116,6 +117,7 @@ jobs:
         fi
         
     - name: Generate checksums
+      if: success()
       run: |
         if [ -d output ] && [ -f output/*.iso ]; then
           cd output
@@ -129,6 +131,7 @@ jobs:
         fi
         
     - name: Get ISO info
+      if: success()
       id: iso_info
       run: |
         ISO_FILE=$(ls output/*.iso | head -1)
@@ -137,12 +140,14 @@ jobs:
         echo "iso_size=$ISO_SIZE" >> $GITHUB_OUTPUT
         
     - name: Configure AWS credentials
+      if: success()
       uses: aws-actions/configure-aws-credentials@v4
       with:
         role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
         aws-region: ${{ env.AWS_REGION }}
         
     - name: Upload ISO to S3
+      if: success()
       run: |
         # Upload ISO
         aws s3 cp output/*.iso s3://${{ env.ISO_BUCKET }}/${{ env.VERSION }}/ \
@@ -157,6 +162,7 @@ jobs:
         echo "${{ env.VERSION }}" | aws s3 cp - s3://${{ env.ISO_BUCKET }}/latest.txt
         
     - name: Generate presigned URL
+      if: success()
       id: presigned_url
       run: |
         ISO_FILE=$(basename output/*.iso)
@@ -164,6 +170,7 @@ jobs:
         echo "presigned_url=$PRESIGNED_URL" >> $GITHUB_OUTPUT
         
     - name: Create build summary
+      if: success()
       run: |
         cat >> $GITHUB_STEP_SUMMARY << EOF
         # 🎉 NubiferOS ISO Build Complete!

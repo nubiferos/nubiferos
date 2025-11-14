@@ -345,8 +345,16 @@ install_pulumi() {
         sh pulumi-install.sh && \
         rm -f pulumi-install.sh"
     
-    # Move to system path
-    chroot_exec "mv /root/.pulumi/bin/pulumi /usr/local/bin/"
+    # Move to system path (check both possible locations)
+    chroot_exec "if [ -f /root/.pulumi/bin/pulumi ]; then \
+        mv /root/.pulumi/bin/pulumi /usr/local/bin/; \
+    elif [ -f \$HOME/.pulumi/bin/pulumi ]; then \
+        mv \$HOME/.pulumi/bin/pulumi /usr/local/bin/; \
+    else \
+        echo 'ERROR: Pulumi binary not found in expected locations'; \
+        find / -name pulumi -type f 2>/dev/null || true; \
+        exit 1; \
+    fi"
     
     log "INFO" "✓ Pulumi installed"
 }
