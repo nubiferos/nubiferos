@@ -1,0 +1,170 @@
+name: Build NubiferOS ISO
+
+on:
+  push:
+    branches: [ main, develop ]
+    tags:
+      - 'v*'
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:  # Allow manual trigger
+
+# Required for OIDC authentication
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  ISO_BUCKET: nubiferos-releases  # Change this to your S3 bucket name
+  AWS_REGION: us-east-1  # Change to your preferred region
+
+jobs:
+  build-iso:
+    runs-on: ubuntu-latest
+    
+    # Use a larger runner if available (optional, costs extra)
+    # runs-on: ubuntu-latest-8-cores
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Free up disk space
+      run: |
+        # Remove unnecessary packages to free up space
+        sudo rm -rf /usr/share/dotnet
+        sudo rm -rf /usr/local/lib/android
+        sudo rm -rf /opt/ghc
+        sudo rm -rf /opt/hostedtoolcache/CodeQL
+        sudo docker image prune --all --force
+        df -h
+        
+    - name: Install build dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          debootstrap \
+          squashfs-tools \
+          xorriso \
+          isolinux \
+          syslinux-efi \
+          grub-pc-bin \
+          grub-efi-amd64-bin \
+          mtools \
+          dosfstools \
+          wget \
+          curl \
+          git
+          
+    - name: Set up build environment
+      run: |
+        # Create necessary directories
+        sudo mkdir -p /var/cache/apt/archives
+        
+        # Get version from brand config
+        VERSION=$(grep 'BRAND_VERSION=' brand/brand.conf | cut -d'"' -f2)
+        echo "VERSION=$VERSION" >> $GITHUB_ENV
+        
+        # Set ISO filename
+        TIMESTAMP=$(date +%Y%m%d-%H%M%S)
+        ISO_NAME="nubiferos-${VERSION}-${TIMESTAMP}-amd64.iso"
+        echo "ISO_NAME=$ISO_NAME" >> $GITHUB_ENV
+        
+    - name: Build ISO
+      run: |
+        sudo ./build-nubiferos.sh
+        
+    - name: Generate checksums
+      run: |
+        cd output
+        sha256sum *.iso > SHA256SUMS
+        md5sum *.iso > MD5SUMS
+        
+    - name: Get ISO info
+      id: iso_info
+      run: |
+        ISO_FILE=$(ls output/*.iso | head -1)
+        ISO_SIZE=$(du -h "$ISO_FILE" | cut -f1)
+        echo "iso_file=$ISO_FILE" >> $GITHUB_OUTPUT
+        echo "iso_size=$ISO_SIZE" >> $GITHUB_OUTPUT
+        
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+        aws-region: ${{ env.AWS_REGION }}
+        
+    - name: Upload ISO to S3
+      run: |
+        # Upload ISO
+        aws s3 cp output/*.iso s3://${{ env.ISO_BUCKET }}/${{ env.VERSION }}/ \
+          --storage-class INTELLIGENT_TIERING \
+          --metadata "version=${{ env.VERSION }},build-date=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+        
+        # Upload checksums
+        aws s3 cp output/SHA256SUMS s3://${{ env.ISO_BUCKET }}/${{ env.VERSION }}/
+        aws s3 cp output/MD5SUMS s3://${{ env.ISO_BUCKET }}/${{ env.VERSION }}/
+        
+        # Create a "latest" pointer for this version
+        echo "${{ env.VERSION }}" | aws s3 cp - s3://${{ env.ISO_BUCKET }}/latest.txt
+        
+    - name: Generate presigned URL
+      id: presigned_url
+      run: |
+        ISO_FILE=$(basename output/*.iso)
+        PRESIGNED_URL=$(aws s3 presign s3://${{ env.ISO_BUCKET }}/${{ env.VERSION }}/$ISO_FILE --expires-in 604800)
+        echo "presigned_url=$PRESIGNED_URL" >> $GITHUB_OUTPUT
+        
+    - name: Create build summary
+      run: |
+        cat >> $GITHUB_STEP_SUMMARY << EOF
+        # 🎉 NubiferOS ISO Build Complete!
+        
+        ## Build Information
+        - **Version**: ${{ env.VERSION }}
+        - **ISO Name**: ${{ env.ISO_NAME }}
+        - **ISO Size**: ${{ steps.iso_info.outputs.iso_size }}
+        - **Build Date**: $(date -u +"%Y-%m-%d %H:%M:%S UTC")
+        - **Commit**: ${{ github.sha }}
+        
+        ## Download
+        - **S3 Location**: s3://${{ env.ISO_BUCKET }}/${{ env.VERSION }}/
+        - **Download URL** (valid for 7 days): 
+          \`\`\`
+          ${{ steps.presigned_url.outputs.presigned_url }}
+          \`\`\`
+        
+        ## Checksums
+        \`\`\`
+        $(cat output/SHA256SUMS)
+        \`\`\`
+        
+        ## Next Steps
+        1. Download the ISO using the presigned URL above
+        2. Verify checksums
+        3. Test in VirtualBox or on hardware
+        4. Report any issues
+        EOF
+        
+    - name: Upload artifacts (backup)
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: nubiferos-iso-${{ env.VERSION }}
+        path: |
+          output/*.iso
+          output/SHA256SUMS
+          output/MD5SUMS
+        retention-days: 7  # Keep for 7 days as backup
+        
+    - name: Comment on PR (if applicable)
+      if: github.event_name == 'pull_request'
+      uses: actions/github-script@v7
+      with:
+        script: |
+          github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: `## 🎉 ISO Build Complete!\n\n**Version**: ${{ env.VERSION }}\n**Size**: ${{ steps.iso_info.outputs.iso_size }}\n\nDownload from S3: \`s3://${{ env.ISO_BUCKET }}/${{ env.VERSION }}/\``
+          })
