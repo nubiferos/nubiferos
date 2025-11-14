@@ -1,0 +1,693 @@
+{
+  "title": "NubiferOS Cloud Bookmarks",
+  "children": [
+    {
+      "title": "AWS",
+      "children": [
+        {
+          "title": "AWS Console",
+          "url": "https://console.aws.amazon.com/"
+        },
+        {
+          "title": "AWS SSO Portal",
+          "url": "https://aws.amazon.com/console/"
+        },
+        {
+          "title": "AWS Documentation",
+          "url": "https://docs.aws.amazon.com/"
+        },
+        {
+          "title": "AWS Service Health Dashboard",
+          "url": "https://health.aws.amazon.com/health/status"
+        },
+        {
+          "title": "AWS Cost Explorer",
+          "url": "https://console.aws.amazon.com/cost-management/home"
+        },
+        {
+          "title": "AWS CloudWatch",
+          "url": "https://console.aws.amazon.com/cloudwatch/"
+        },
+        {
+          "title": "AWS IAM",
+          "url": "https://console.aws.amazon.com/iam/"
+        },
+        {
+          "title": "AWS EC2",
+          "url": "https://console.aws.amazon.com/ec2/"
+        },
+        {
+          "title": "AWS S3",
+          "url": "https://console.aws.amazon.com/s3/"
+        },
+        {
+          "title": "AWS Lambda",
+          "url": "https://console.aws.amazon.com/lambda/"
+        },
+        {
+          "title": "AWS RDS",
+          "url": "https://console.aws.amazon.com/rds/"
+        },
+        {
+          "title": "AWS EKS",
+          "url": "https://console.aws.amazon.com/eks/"
+        },
+        {
+          "title": "AWS CloudFormation",
+          "url": "https://console.aws.amazon.com/cloudformation/"
+        },
+        {
+          "title": "AWS Systems Manager",
+          "url": "https://console.aws.amazon.com/systems-manager/"
+        },
+        {
+          "title": "AWS CLI Reference",
+          "url": "https://awscli.amazonaws.com/v2/documentation/api/latest/index.html"
+        },
+        {
+          "title": "AWS SDK Documentation",
+          "url": "https://aws.amazon.com/developer/tools/"
+        },
+        {
+          "title": "AWS re:Post (Community)",
+          "url": "https://repost.aws/"
+        }
+      ]
+    },
+    {
+      "title": "Azure",
+      "children": [
+        {
+          "title": "Azure Portal",
+          "url": "https://portal.azure.com/"
+        },
+        {
+          "title": "Azure DevOps",
+          "url": "https://dev.azure.com/"
+        },
+        {
+          "title": "Azure Documentation",
+          "url": "https://docs.microsoft.com/azure/"
+        },
+        {
+          "title": "Azure Status",
+          "url": "https://status.azure.com/"
+        },
+        {
+          "title": "Azure Cost Management",
+          "url": "https://portal.azure.com/#blade/Microsoft_Azure_CostManagement/Menu/overview"
+        },
+        {
+          "title": "Azure Active Directory",
+          "url": "https://portal.azure.com/#blade/Microsoft_AAD_IAM/ActiveDirectoryMenuBlade/Overview"
+        },
+        {
+          "title": "Azure Virtual Machines",
+          "url": "https://portal.azure.com/#blade/HubsExtension/BrowseResource/resourceType/Microsoft.Compute%2FVirtualMachines"
+        },
+        {
+          "title": "Azure Storage",
+          "url": "https://portal.azure.com/#blade/HubsExtension/BrowseResource/resourceType/Microsoft.Storage%2FStorageAccounts"
+        },
+        {
+          "title": "Azure Functions",
+          "url": "https://portal.azure.com/#blade/HubsExtension/BrowseResource/resourceType/Microsoft.Web%2Fsites/kind/functionapp"
+        },
+        {
+          "title": "Azure Kubernetes Service",
+          "url": "https://portal.azure.com/#blade/HubsExtension/BrowseResource/resourceType/Microsoft.ContainerService%2FmanagedClusters"
+        },
+        {
+          "title": "Azure CLI Reference",
+          "url": "https://docs.microsoft.com/cli/azure/"
+        }
+      ]
+    },
+    {
+      "title": "Google Cloud",
+      "children": [
+        {
+          "title": "GCP Console",
+          "url": "https://console.cloud.google.com/"
+        },
+        {
+          "title": "GCP Documentation",
+          "url": "https://cloud.google.com/docs"
+        },
+        {
+          "title": "GCP Status Dashboard",
+          "url": "https://status.cloud.google.com/"
+        },
+        {
+          "title": "GCP Billing",
+          "url": "https://console.cloud.google.com/billing"
+        },
+        {
+          "title": "GCP IAM",
+          "url": "https://console.cloud.google.com/iam-admin"
+        },
+        {
+          "title": "GCP Compute Engine",
+          "url": "https://console.cloud.google.com/compute"
+        },
+        {
+          "title": "GCP Cloud Storage",
+          "url": "https://console.cloud.google.com/storage"
+        },
+        {
+          "title": "GCP Cloud Functions",
+          "url": "https://console.cloud.google.com/functions"
+        },
+        {
+          "title": "GCP Kubernetes Engine",
+          "url": "https://console.cloud.google.com/kubernetes"
+        },
+        {
+          "title": "gcloud CLI Reference",
+          "url": "https://cloud.google.com/sdk/gcloud/reference"
+        }
+      ]
+    },
+    {
+      "title": "Infrastructure as Code",
+      "children": [
+        {
+          "title": "Terraform Registry",
+          "url": "https://registry.terraform.io/"
+        },
+        {
+          "title": "Terraform Documentation",
+          "url": "https://www.terraform.io/docs"
+        },
+        {
+          "title": "Terraform AWS Provider",
+          "url": "https://registry.terraform.io/providers/hashicorp/aws/latest/docs"
+        },
+        {
+          "title": "Terraform Azure Provider",
+          "url": "https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs"
+        },
+        {
+          "title": "Terraform GCP Provider",
+          "url": "https://registry.terraform.io/providers/hashicorp/google/latest/docs"
+        },
+        {
+          "title": "Terraform Best Practices",
+          "url": "https://www.terraform-best-practices.com/"
+        },
+        {
+          "title": "Pulumi Documentation",
+          "url": "https://www.pulumi.com/docs/"
+        },
+        {
+          "title": "Pulumi Registry",
+          "url": "https://www.pulumi.com/registry/"
+        },
+        {
+          "title": "Ansible Documentation",
+          "url": "https://docs.ansible.com/"
+        },
+        {
+          "title": "Ansible Galaxy",
+          "url": "https://galaxy.ansible.com/"
+        },
+        {
+          "title": "AWS CDK Documentation",
+          "url": "https://docs.aws.amazon.com/cdk/"
+        },
+        {
+          "title": "Bicep Documentation",
+          "url": "https://learn.microsoft.com/azure/azure-resource-manager/bicep/"
+        }
+      ]
+    },
+    {
+      "title": "Kubernetes",
+      "children": [
+        {
+          "title": "Kubernetes Documentation",
+          "url": "https://kubernetes.io/docs/"
+        },
+        {
+          "title": "Kubernetes API Reference",
+          "url": "https://kubernetes.io/docs/reference/kubernetes-api/"
+        },
+        {
+          "title": "Helm Documentation",
+          "url": "https://helm.sh/docs/"
+        },
+        {
+          "title": "Helm Hub",
+          "url": "https://artifacthub.io/"
+        },
+        {
+          "title": "kubectl Cheat Sheet",
+          "url": "https://kubernetes.io/docs/reference/kubectl/cheatsheet/"
+        },
+        {
+          "title": "k9s Documentation",
+          "url": "https://k9scli.io/"
+        },
+        {
+          "title": "Kustomize Documentation",
+          "url": "https://kustomize.io/"
+        },
+        {
+          "title": "CNCF Landscape",
+          "url": "https://landscape.cncf.io/"
+        },
+        {
+          "title": "EKS Best Practices",
+          "url": "https://aws.github.io/aws-eks-best-practices/"
+        },
+        {
+          "title": "AKS Documentation",
+          "url": "https://learn.microsoft.com/azure/aks/"
+        },
+        {
+          "title": "GKE Documentation",
+          "url": "https://cloud.google.com/kubernetes-engine/docs"
+        }
+      ]
+    },
+    {
+      "title": "Containers & Docker",
+      "children": [
+        {
+          "title": "Docker Documentation",
+          "url": "https://docs.docker.com/"
+        },
+        {
+          "title": "Docker Hub",
+          "url": "https://hub.docker.com/"
+        },
+        {
+          "title": "Docker Compose Docs",
+          "url": "https://docs.docker.com/compose/"
+        },
+        {
+          "title": "Podman Documentation",
+          "url": "https://docs.podman.io/"
+        },
+        {
+          "title": "Amazon ECR",
+          "url": "https://console.aws.amazon.com/ecr/"
+        },
+        {
+          "title": "Azure Container Registry",
+          "url": "https://portal.azure.com/#blade/HubsExtension/BrowseResource/resourceType/Microsoft.ContainerRegistry%2Fregistries"
+        },
+        {
+          "title": "Google Container Registry",
+          "url": "https://console.cloud.google.com/gcr"
+        },
+        {
+          "title": "GitHub Container Registry",
+          "url": "https://github.com/features/packages"
+        },
+        {
+          "title": "Trivy Documentation",
+          "url": "https://aquasecurity.github.io/trivy/"
+        }
+      ]
+    },
+    {
+      "title": "Developer Resources",
+      "children": [
+        {
+          "title": "GitHub",
+          "url": "https://github.com/"
+        },
+        {
+          "title": "GitHub CLI Docs",
+          "url": "https://cli.github.com/manual/"
+        },
+        {
+          "title": "GitLab",
+          "url": "https://gitlab.com/"
+        },
+        {
+          "title": "GitLab CLI Docs",
+          "url": "https://gitlab.com/gitlab-org/cli"
+        },
+        {
+          "title": "Stack Overflow",
+          "url": "https://stackoverflow.com/"
+        },
+        {
+          "title": "DevDocs (API Documentation)",
+          "url": "https://devdocs.io/"
+        },
+        {
+          "title": "Can I Use (Browser Compatibility)",
+          "url": "https://caniuse.com/"
+        },
+        {
+          "title": "Regex101 (Regex Tester)",
+          "url": "https://regex101.com/"
+        },
+        {
+          "title": "JSON Formatter",
+          "url": "https://jsonformatter.org/"
+        },
+        {
+          "title": "YAML Validator",
+          "url": "https://www.yamllint.com/"
+        }
+      ]
+    },
+    {
+      "title": "Monitoring & Observability",
+      "children": [
+        {
+          "title": "Grafana Documentation",
+          "url": "https://grafana.com/docs/"
+        },
+        {
+          "title": "Grafana Cloud",
+          "url": "https://grafana.com/"
+        },
+        {
+          "title": "Prometheus Documentation",
+          "url": "https://prometheus.io/docs/"
+        },
+        {
+          "title": "Prometheus Query Examples",
+          "url": "https://prometheus.io/docs/prometheus/latest/querying/examples/"
+        },
+        {
+          "title": "Loki Documentation",
+          "url": "https://grafana.com/docs/loki/"
+        },
+        {
+          "title": "Datadog",
+          "url": "https://app.datadoghq.com/"
+        },
+        {
+          "title": "Datadog Docs",
+          "url": "https://docs.datadoghq.com/"
+        },
+        {
+          "title": "New Relic",
+          "url": "https://one.newrelic.com/"
+        },
+        {
+          "title": "New Relic Docs",
+          "url": "https://docs.newrelic.com/"
+        }
+      ]
+    },
+    {
+      "title": "Security & Compliance",
+      "children": [
+        {
+          "title": "AWS Security Hub",
+          "url": "https://console.aws.amazon.com/securityhub/"
+        },
+        {
+          "title": "Azure Security Center",
+          "url": "https://portal.azure.com/#blade/Microsoft_Azure_Security/SecurityMenuBlade/0"
+        },
+        {
+          "title": "GCP Security Command Center",
+          "url": "https://console.cloud.google.com/security"
+        },
+        {
+          "title": "Trivy Documentation",
+          "url": "https://aquasecurity.github.io/trivy/"
+        },
+        {
+          "title": "OWASP",
+          "url": "https://owasp.org/"
+        },
+        {
+          "title": "OWASP ZAP Documentation",
+          "url": "https://www.zaproxy.org/docs/"
+        },
+        {
+          "title": "CVE Database",
+          "url": "https://cve.mitre.org/"
+        },
+        {
+          "title": "Snyk Documentation",
+          "url": "https://docs.snyk.io/"
+        },
+        {
+          "title": "HashiCorp Vault Docs",
+          "url": "https://developer.hashicorp.com/vault/docs"
+        },
+        {
+          "title": "SOPS Documentation",
+          "url": "https://github.com/mozilla/sops"
+        }
+      ]
+    },
+    {
+      "title": "CI/CD & GitOps",
+      "children": [
+        {
+          "title": "GitHub Actions Docs",
+          "url": "https://docs.github.com/actions"
+        },
+        {
+          "title": "GitLab CI/CD Docs",
+          "url": "https://docs.gitlab.com/ee/ci/"
+        },
+        {
+          "title": "Azure Pipelines Docs",
+          "url": "https://learn.microsoft.com/azure/devops/pipelines/"
+        },
+        {
+          "title": "ArgoCD Documentation",
+          "url": "https://argo-cd.readthedocs.io/"
+        },
+        {
+          "title": "Flux Documentation",
+          "url": "https://fluxcd.io/docs/"
+        },
+        {
+          "title": "Tekton Documentation",
+          "url": "https://tekton.dev/docs/"
+        },
+        {
+          "title": "Jenkins Documentation",
+          "url": "https://www.jenkins.io/doc/"
+        },
+        {
+          "title": "Skaffold Documentation",
+          "url": "https://skaffold.dev/docs/"
+        }
+      ]
+    },
+    {
+      "title": "Project Management",
+      "children": [
+        {
+          "title": "Jira",
+          "url": "https://www.atlassian.com/software/jira"
+        },
+        {
+          "title": "Jira CLI Documentation",
+          "url": "https://github.com/go-jira/jira"
+        },
+        {
+          "title": "Linear",
+          "url": "https://linear.app/"
+        },
+        {
+          "title": "Linear CLI Documentation",
+          "url": "https://developers.linear.app/docs/cli"
+        },
+        {
+          "title": "GitHub Issues",
+          "url": "https://github.com/issues"
+        },
+        {
+          "title": "GitHub Projects",
+          "url": "https://github.com/projects"
+        },
+        {
+          "title": "GitLab Issues",
+          "url": "https://gitlab.com/dashboard/issues"
+        },
+        {
+          "title": "Azure Boards",
+          "url": "https://dev.azure.com/"
+        },
+        {
+          "title": "Plane (Open Source)",
+          "url": "https://plane.so/"
+        },
+        {
+          "title": "Taiga (Open Source)",
+          "url": "https://www.taiga.io/"
+        }
+      ]
+    },
+    {
+      "title": "Testing & Quality",
+      "children": [
+        {
+          "title": "k6 Documentation",
+          "url": "https://k6.io/docs/"
+        },
+        {
+          "title": "Locust Documentation",
+          "url": "https://docs.locust.io/"
+        },
+        {
+          "title": "Newman Documentation",
+          "url": "https://learning.postman.com/docs/running-collections/using-newman-cli/"
+        },
+        {
+          "title": "Selenium Documentation",
+          "url": "https://www.selenium.dev/documentation/"
+        },
+        {
+          "title": "Playwright Documentation",
+          "url": "https://playwright.dev/docs/intro"
+        },
+        {
+          "title": "Cypress Documentation",
+          "url": "https://docs.cypress.io/"
+        },
+        {
+          "title": "Pytest Documentation",
+          "url": "https://docs.pytest.org/"
+        },
+        {
+          "title": "Robot Framework Docs",
+          "url": "https://robotframework.org/robotframework/"
+        },
+        {
+          "title": "SonarQube Docs",
+          "url": "https://docs.sonarqube.org/"
+        }
+      ]
+    },
+    {
+      "title": "Databases",
+      "children": [
+        {
+          "title": "PostgreSQL Documentation",
+          "url": "https://www.postgresql.org/docs/"
+        },
+        {
+          "title": "MySQL Documentation",
+          "url": "https://dev.mysql.com/doc/"
+        },
+        {
+          "title": "MongoDB Documentation",
+          "url": "https://www.mongodb.com/docs/"
+        },
+        {
+          "title": "Redis Documentation",
+          "url": "https://redis.io/docs/"
+        },
+        {
+          "title": "DynamoDB Documentation",
+          "url": "https://docs.aws.amazon.com/dynamodb/"
+        },
+        {
+          "title": "Azure Cosmos DB Docs",
+          "url": "https://learn.microsoft.com/azure/cosmos-db/"
+        },
+        {
+          "title": "Cloud SQL (GCP) Docs",
+          "url": "https://cloud.google.com/sql/docs"
+        }
+      ]
+    },
+    {
+      "title": "IDE Extensions",
+      "children": [
+        {
+          "title": "VS Code Marketplace",
+          "url": "https://marketplace.visualstudio.com/vscode"
+        },
+        {
+          "title": "AWS Toolkit for VS Code",
+          "url": "https://docs.aws.amazon.com/toolkit-for-vscode/"
+        },
+        {
+          "title": "Azure Tools for VS Code",
+          "url": "https://code.visualstudio.com/docs/azure/extensions"
+        },
+        {
+          "title": "Google Cloud Code",
+          "url": "https://cloud.google.com/code/docs"
+        },
+        {
+          "title": "Terraform VS Code Extension",
+          "url": "https://marketplace.visualstudio.com/items?itemName=HashiCorp.terraform"
+        },
+        {
+          "title": "Docker VS Code Extension",
+          "url": "https://marketplace.visualstudio.com/items?itemName=ms-azuretools.vscode-docker"
+        },
+        {
+          "title": "Kubernetes VS Code Extension",
+          "url": "https://marketplace.visualstudio.com/items?itemName=ms-kubernetes-tools.vscode-kubernetes-tools"
+        },
+        {
+          "title": "JetBrains Plugin Marketplace",
+          "url": "https://plugins.jetbrains.com/"
+        }
+      ]
+    },
+    {
+      "title": "Learning Resources",
+      "children": [
+        {
+          "title": "AWS Training",
+          "url": "https://aws.amazon.com/training/"
+        },
+        {
+          "title": "Azure Learn",
+          "url": "https://learn.microsoft.com/training/"
+        },
+        {
+          "title": "Google Cloud Skills Boost",
+          "url": "https://www.cloudskillsboost.google/"
+        },
+        {
+          "title": "Terraform Tutorials",
+          "url": "https://developer.hashicorp.com/terraform/tutorials"
+        },
+        {
+          "title": "Kubernetes Tutorials",
+          "url": "https://kubernetes.io/docs/tutorials/"
+        },
+        {
+          "title": "Docker Getting Started",
+          "url": "https://docs.docker.com/get-started/"
+        },
+        {
+          "title": "Linux Academy",
+          "url": "https://acloudguru.com/"
+        }
+      ]
+    },
+    {
+      "title": "NubiferOS",
+      "children": [
+        {
+          "title": "NubiferOS Documentation",
+          "url": "https://docs.nubiferos.org"
+        },
+        {
+          "title": "NubiferOS GitHub",
+          "url": "https://github.com/nubiferos/nubiferos"
+        },
+        {
+          "title": "NubiferOS Discord",
+          "url": "https://discord.gg/nubiferos"
+        },
+        {
+          "title": "Report Issue",
+          "url": "https://github.com/nubiferos/nubiferos/issues"
+        }
+      ]
+    }
+  ]
+}

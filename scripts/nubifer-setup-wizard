@@ -1,0 +1,412 @@
+#!/bin/bash
+# NubiferOS Setup Wizard
+# Guides users through initial setup of GPG, pass, and credential management
+
+set -e
+
+# Colors
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+CYAN='\033[0;36m'
+NC='\033[0m'
+
+log_info() {
+    echo -e "${BLUE}ℹ${NC} $1"
+}
+
+log_success() {
+    echo -e "${GREEN}✓${NC} $1"
+}
+
+log_warning() {
+    echo -e "${YELLOW}⚠${NC} $1"
+}
+
+log_error() {
+    echo -e "${RED}✗${NC} $1"
+}
+
+log_step() {
+    echo -e "${CYAN}▶${NC} $1"
+}
+
+# Check if command exists
+command_exists() {
+    command -v "$1" &> /dev/null
+}
+
+# Check dependencies
+check_dependencies() {
+    log_step "Checking dependencies..."
+    
+    local missing=()
+    
+    if ! command_exists gpg; then
+        missing+=("gnupg")
+    fi
+    
+    if ! command_exists pass; then
+        missing+=("pass")
+    fi
+    
+    if [ ${#missing[@]} -gt 0 ]; then
+        log_error "Missing dependencies: ${missing[*]}"
+        echo ""
+        echo "Install with:"
+        echo "  sudo apt-get install ${missing[*]}"
+        echo ""
+        exit 1
+    fi
+    
+    log_success "All dependencies installed"
+}
+
+# Check if GPG key exists
+check_gpg_key() {
+    if gpg --list-keys 2>/dev/null | grep -q "^pub"; then
+        return 0
+    else
+        return 1
+    fi
+}
+
+# Check if pass is initialized
+check_pass_initialized() {
+    if [ -d "$HOME/.password-store" ] && [ -f "$HOME/.password-store/.gpg-id" ]; then
+        return 0
+    else
+        return 1
+    fi
+}
+
+# Generate GPG key
+generate_gpg_key() {
+    log_step "Generating GPG key..."
+    echo ""
+    
+    echo "Please provide the following information:"
+    echo ""
+    
+    read -p "Your name: " name
+    read -p "Your email: " email
+    
+    echo ""
+    echo "Key configuration:"
+    echo "  Type: RSA 4096-bit"
+    echo "  Expiration: No expiration"
+    echo "  Name: $name"
+    echo "  Email: $email"
+    echo ""
+    
+    read -p "Continue? (y/n) " -n 1 -r
+    echo ""
+    
+    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+        log_error "Setup cancelled"
+        exit 1
+    fi
+    
+    # Generate key non-interactively
+    cat > /tmp/gpg-keygen-batch <<EOF
+%echo Generating GPG key...
+Key-Type: RSA
+Key-Length: 4096
+Subkey-Type: RSA
+Subkey-Length: 4096
+Name-Real: $name
+Name-Email: $email
+Expire-Date: 0
+%no-protection
+%commit
+%echo Done
+EOF
+    
+    log_info "Generating key (this may take a minute)..."
+    gpg --batch --generate-key /tmp/gpg-keygen-batch
+    rm /tmp/gpg-keygen-batch
+    
+    log_success "GPG key generated"
+    
+    # Show key info
+    echo ""
+    log_info "Your GPG key:"
+    gpg --list-keys "$email"
+}
+
+# Initialize pass
+initialize_pass() {
+    log_step "Initializing pass (password-store)..."
+    echo ""
+    
+    # Get GPG key ID
+    local key_id=$(gpg --list-keys --keyid-format LONG | grep ^pub | head -1 | awk '{print $2}' | cut -d'/' -f2)
+    
+    if [ -z "$key_id" ]; then
+        log_error "No GPG key found"
+        exit 1
+    fi
+    
+    log_info "Using GPG key: $key_id"
+    
+    # Initialize pass
+    pass init "$key_id"
+    
+    log_success "pass initialized"
+    
+    # Optional: Initialize git
+    echo ""
+    read -p "Initialize git repository for pass? (recommended for backup) (y/n) " -n 1 -r
+    echo ""
+    
+    if [[ $REPLY =~ ^[Yy]$ ]]; then
+        pass git init
+        log_success "Git repository initialized"
+        log_info "You can add a remote later with: pass git remote add origin <url>"
+    fi
+}
+
+# Setup wizard main menu
+setup_wizard() {
+    echo ""
+    echo "=========================================="
+    echo "  NubiferOS Setup Wizard"
+    echo "=========================================="
+    echo ""
+    
+    # Check current status
+    local has_gpg_key=false
+    local has_pass=false
+    
+    if check_gpg_key; then
+        has_gpg_key=true
+        log_success "GPG key found"
+    else
+        log_warning "No GPG key found"
+    fi
+    
+    if check_pass_initialized; then
+        has_pass=true
+        log_success "pass is initialized"
+    else
+        log_warning "pass not initialized"
+    fi
+    
+    echo ""
+    
+    # If everything is set up
+    if $has_gpg_key && $has_pass; then
+        log_success "Setup complete! You're ready to use NubiferOS credential management."
+        echo ""
+        echo "Next steps:"
+        echo "  1. Add credentials: nubifer-creds add --type aws --name production"
+        echo "  2. List credentials: nubifer-creds list"
+        echo "  3. View documentation: cat docs/CREDENTIAL_SECURITY.md"
+        echo ""
+        return 0
+    fi
+    
+    # Guide through setup
+    echo "Let's set up your credential management system."
+    echo ""
+    
+    if ! $has_gpg_key; then
+        echo "Step 1: Generate GPG key"
+        echo "  This key will encrypt all your credentials."
+        echo "  You'll be asked for your name and email."
+        echo ""
+        read -p "Generate GPG key now? (y/n) " -n 1 -r
+        echo ""
+        
+        if [[ $REPLY =~ ^[Yy]$ ]]; then
+            generate_gpg_key
+            has_gpg_key=true
+        else
+            log_error "GPG key required. Run 'gpg --full-generate-key' manually."
+            exit 1
+        fi
+    fi
+    
+    echo ""
+    
+    if ! $has_pass; then
+        echo "Step 2: Initialize pass"
+        echo "  This sets up the password store using your GPG key."
+        echo ""
+        read -p "Initialize pass now? (y/n) " -n 1 -r
+        echo ""
+        
+        if [[ $REPLY =~ ^[Yy]$ ]]; then
+            initialize_pass
+            has_pass=true
+        else
+            log_error "pass initialization required. Run 'pass init <gpg-key-id>' manually."
+            exit 1
+        fi
+    fi
+    
+    echo ""
+    log_success "Setup complete!"
+    echo ""
+    echo "=========================================="
+    echo "  Next Steps"
+    echo "=========================================="
+    echo ""
+    echo "1. Add your first credential:"
+    echo "   nubifer-creds add --type aws --name production"
+    echo ""
+    echo "2. List credentials:"
+    echo "   nubifer-creds list"
+    echo ""
+    echo "3. Test credential retrieval:"
+    echo "   pass show nubifer/default/cloud/aws/production/access-key-id"
+    echo ""
+    echo "4. Backup your GPG key (IMPORTANT!):"
+    echo "   gpg --export-secret-keys --armor > gpg-backup.asc"
+    echo "   # Store this file securely!"
+    echo ""
+    echo "5. Read the documentation:"
+    echo "   cat docs/CREDENTIAL_SECURITY.md"
+    echo ""
+}
+
+# Backup GPG key
+backup_gpg_key() {
+    log_step "Backing up GPG key..."
+    echo ""
+    
+    local email=$(gpg --list-keys | grep uid | head -1 | grep -oP '<\K[^>]+')
+    
+    if [ -z "$email" ]; then
+        log_error "No GPG key found"
+        exit 1
+    fi
+    
+    local backup_file="$HOME/gpg-private-key-backup-$(date +%Y%m%d).asc"
+    
+    echo "This will export your PRIVATE GPG key."
+    echo "Keep this file VERY secure - it can decrypt all your credentials!"
+    echo ""
+    echo "Backup file: $backup_file"
+    echo ""
+    read -p "Continue? (y/n) " -n 1 -r
+    echo ""
+    
+    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+        log_error "Backup cancelled"
+        exit 1
+    fi
+    
+    gpg --export-secret-keys --armor "$email" > "$backup_file"
+    chmod 600 "$backup_file"
+    
+    log_success "GPG key backed up to: $backup_file"
+    echo ""
+    log_warning "IMPORTANT: Store this file on encrypted USB or secure location!"
+    log_warning "NEVER commit to git or share this file!"
+}
+
+# Show status
+show_status() {
+    echo ""
+    echo "=========================================="
+    echo "  NubiferOS Credential Management Status"
+    echo "=========================================="
+    echo ""
+    
+    # GPG status
+    if check_gpg_key; then
+        log_success "GPG key: Configured"
+        local key_info=$(gpg --list-keys | grep uid | head -1 | sed 's/uid.*\] //')
+        echo "  $key_info"
+    else
+        log_error "GPG key: Not configured"
+    fi
+    
+    echo ""
+    
+    # pass status
+    if check_pass_initialized; then
+        log_success "pass: Initialized"
+        local key_id=$(cat ~/.password-store/.gpg-id)
+        echo "  Using key: $key_id"
+        
+        # Count credentials
+        local cred_count=$(find ~/.password-store/nubifer -name "*.gpg" 2>/dev/null | wc -l)
+        echo "  Credentials stored: $cred_count"
+    else
+        log_error "pass: Not initialized"
+    fi
+    
+    echo ""
+    
+    # Git status
+    if [ -d "$HOME/.password-store/.git" ]; then
+        log_success "Git: Initialized"
+        if git -C "$HOME/.password-store" remote -v 2>/dev/null | grep -q origin; then
+            echo "  Remote configured"
+        else
+            echo "  No remote configured"
+        fi
+    else
+        log_warning "Git: Not initialized (optional)"
+    fi
+    
+    echo ""
+    echo "=========================================="
+}
+
+# Main menu
+main() {
+    check_dependencies
+    
+    case "${1:-setup}" in
+        setup)
+            setup_wizard
+            ;;
+        backup)
+            backup_gpg_key
+            ;;
+        status)
+            show_status
+            ;;
+        help|--help|-h)
+            cat << EOF
+NubiferOS Setup Wizard
+
+Usage: nubifer-setup-wizard [command]
+
+Commands:
+  setup     Run initial setup wizard (default)
+  backup    Backup GPG private key
+  status    Show current setup status
+  help      Show this help message
+
+Examples:
+  nubifer-setup-wizard setup
+  nubifer-setup-wizard backup
+  nubifer-setup-wizard status
+
+The setup wizard will:
+  1. Check for GPG key (generate if needed)
+  2. Initialize pass (password-store)
+  3. Optionally set up git for backups
+  4. Guide you through first credential
+
+After setup, use:
+  nubifer-creds add --type aws --name production
+  nubifer-creds list
+  pass show nubifer/default/cloud/aws/production/access-key-id
+
+EOF
+            ;;
+        *)
+            log_error "Unknown command: $1"
+            echo "Run 'nubifer-setup-wizard help' for usage"
+            exit 1
+            ;;
+    esac
+}
+
+main "$@"

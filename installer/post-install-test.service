@@ -1,0 +1,16 @@
+[Unit]
+Description=NubiferOS Post-Installation Tests
+After=network-online.target
+Wants=network-online.target
+ConditionPathExists=/etc/nubifer/run-post-install-tests
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/nubifer-post-install-tests
+ExecStartPost=/bin/rm -f /etc/nubifer/run-post-install-tests
+StandardOutput=journal+console
+StandardError=journal+console
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target

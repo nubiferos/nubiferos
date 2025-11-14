@@ -1,0 +1,314 @@
+# NubiferOS Kernel Selection
+# Educational installer with clear explanations
+
+kernel_selection:
+  title: "🔧 Kernel Selection"
+  intro: |
+    The Linux kernel is the core of the operating system.
+    It manages hardware, memory, and system resources.
+    
+    NubiferOS offers three kernel options optimized for different needs.
+    We'll help you choose the right one.
+  
+  options:
+    stable:
+      name: "Stable (Recommended)"
+      version: "6.1 LTS"
+      badge: "✓ RECOMMENDED"
+      
+      description: |
+        The Debian stable kernel - tested, reliable, and secure.
+        
+        WHAT IT IS:
+        • Long Term Support (LTS) kernel
+        • Maintained until 2026
+        • Thoroughly tested by Debian team
+        • Used by millions of production systems
+        • Security patches applied automatically
+        
+        BEST FOR:
+        • Cloud management workstations (our focus!)
+        • Production environments
+        • Business-critical systems
+        • Users who value stability over bleeding-edge features
+        • Most users (95% of cases)
+        
+        WHY WE RECOMMEND THIS:
+        Managing cloud infrastructure requires reliability. You don't want
+        your workstation crashing while managing production AWS resources.
+        The stable kernel has been tested extensively and won't surprise you
+        with regressions or compatibility issues.
+        
+        WHAT YOU GET:
+        ✓ Rock-solid stability
+        ✓ Automatic security updates
+        ✓ Excellent hardware support
+        ✓ Full container/Docker support
+        ✓ All cloud tools work perfectly
+        ✓ No unexpected issues
+        
+        WHAT YOU DON'T GET:
+        ✗ Absolute latest features (usually not needed)
+        ✗ Newest hardware support (6-12 months old hardware works fine)
+        
+        TECHNICAL DETAILS:
+        • Kernel version: 6.1.x
+        • Update frequency: Security patches weekly/monthly
+        • Support period: Until December 2026
+        • Patch source: Debian Security Team
+      
+      recommended_for:
+        - "Cloud engineers"
+        - "DevOps professionals"
+        - "System administrators"
+        - "Business users"
+        - "Anyone managing production systems"
+      
+      not_recommended_for:
+        - "Users with brand new hardware (< 6 months old)"
+        - "Users needing cutting-edge features"
+    
+    backports:
+      name: "Backports (Newer)"
+      version: "6.5+"
+      badge: "NEWER HARDWARE"
+      
+      description: |
+        A newer kernel from Debian backports - more features, still tested.
+        
+        WHAT IT IS:
+        • Newer kernel version (6.5 or later)
+        • Backported from Debian testing
+        • Still tested, but less extensively than stable
+        • Updated more frequently
+        • Good balance of new and stable
+        
+        BEST FOR:
+        • Newer hardware (released in last 6 months)
+        • Users needing specific new features
+        • Newer laptop models
+        • Latest AMD/Intel CPUs
+        • Cutting-edge GPUs
+        
+        WHY YOU MIGHT CHOOSE THIS:
+        If you have very new hardware (laptop bought in last 6 months),
+        the stable kernel might not have drivers yet. Backports kernel
+        includes support for newer hardware while still being reasonably
+        tested.
+        
+        WHAT YOU GET:
+        ✓ Support for newer hardware
+        ✓ More recent features
+        ✓ Still relatively stable
+        ✓ Security updates
+        ✓ Better performance on new CPUs
+        
+        WHAT YOU TRADE:
+        ⚠️  Slightly less tested than stable
+        ⚠️  Small chance of regressions
+        ⚠️  Updates more frequent (more reboots)
+        
+        TECHNICAL DETAILS:
+        • Kernel version: 6.5.x or newer
+        • Update frequency: Monthly
+        • Support period: Until next Debian release
+        • Patch source: Debian Backports Team
+        
+        REAL-WORLD EXAMPLE:
+        You bought a 2024 Dell XPS with 14th gen Intel CPU. The stable
+        kernel (from 2022) might not have optimized drivers. Backports
+        kernel will have better support.
+      
+      recommended_for:
+        - "Users with hardware from 2024"
+        - "Latest generation laptops"
+        - "Newest AMD Ryzen or Intel Core CPUs"
+        - "Users needing specific new kernel features"
+      
+      not_recommended_for:
+        - "Production-critical systems"
+        - "Users who prioritize stability above all"
+        - "Hardware older than 1 year"
+    
+    realtime:
+      name: "Real-Time (Specialized)"
+      version: "6.1 RT"
+      badge: "ADVANCED"
+      
+      description: |
+        Real-time kernel for latency-sensitive workloads - specialized use.
+        
+        WHAT IT IS:
+        • Modified kernel with real-time patches
+        • Guarantees response times
+        • Reduces latency and jitter
+        • Used in industrial/embedded systems
+        • More complex, specialized use case
+        
+        BEST FOR:
+        • Audio/video production
+        • Industrial control systems
+        • High-frequency trading
+        • Robotics control
+        • Scientific data acquisition
+        • Users who KNOW they need real-time
+        
+        WHY YOU PROBABLY DON'T NEED THIS:
+        Real-time kernels are for specialized workloads where timing is
+        critical. For cloud management, you don't need microsecond-level
+        timing guarantees. The stable kernel is better for general use.
+        
+        WHAT YOU GET:
+        ✓ Deterministic timing
+        ✓ Low latency guarantees
+        ✓ Reduced jitter
+        ✓ Priority-based scheduling
+        
+        WHAT YOU TRADE:
+        ⚠️  Slightly lower overall throughput
+        ⚠️  More complex configuration
+        ⚠️  Potential compatibility issues
+        ⚠️  Not needed for 99% of users
+        
+        TECHNICAL DETAILS:
+        • Kernel version: 6.1.x with PREEMPT_RT patches
+        • Update frequency: Same as stable
+        • Support period: Same as stable
+        • Patch source: Debian + RT patch set
+        
+        REAL-WORLD EXAMPLE:
+        You're running a music production studio and need to record
+        24 tracks simultaneously with < 5ms latency. Or you're controlling
+        industrial robots that need precise timing. For cloud management?
+        You don't need this.
+      
+      recommended_for:
+        - "Audio engineers"
+        - "Industrial automation"
+        - "Scientific computing with timing requirements"
+        - "Users who explicitly need real-time guarantees"
+      
+      not_recommended_for:
+        - "Cloud management (our primary use case)"
+        - "General desktop use"
+        - "Most users"
+        - "Anyone unsure if they need it"
+
+  decision_helper:
+    title: "🤔 Not Sure Which to Choose?"
+    
+    questions:
+      - question: "When did you buy your computer?"
+        answers:
+          - text: "2023 or earlier"
+            recommendation: "stable"
+            reason: "Stable kernel has excellent support for your hardware"
+          
+          - text: "2024 (this year)"
+            recommendation: "backports"
+            reason: "Backports kernel has better support for newest hardware"
+          
+          - text: "I'm installing in a VM"
+            recommendation: "stable"
+            reason: "VMs don't need cutting-edge hardware support"
+      
+      - question: "What will you primarily use NubiferOS for?"
+        answers:
+          - text: "Managing cloud infrastructure (AWS/Azure/GCP)"
+            recommendation: "stable"
+            reason: "Stability is critical for production cloud management"
+          
+          - text: "Development and testing"
+            recommendation: "stable"
+            reason: "Stable kernel works great for development"
+          
+          - text: "Audio/video production"
+            recommendation: "realtime"
+            reason: "Real-time kernel reduces audio latency"
+          
+          - text: "General use with newest hardware"
+            recommendation: "backports"
+            reason: "Backports supports latest hardware"
+      
+      - question: "How important is absolute stability?"
+        answers:
+          - text: "Critical - I manage production systems"
+            recommendation: "stable"
+            reason: "Stable kernel is the most reliable choice"
+          
+          - text: "Important, but I want newer features"
+            recommendation: "backports"
+            reason: "Backports balances stability and features"
+          
+          - text: "I need specific real-time guarantees"
+            recommendation: "realtime"
+            reason: "Real-time kernel provides timing guarantees"
+
+  comparison_table:
+    title: "📊 Quick Comparison"
+    
+    headers:
+      - "Feature"
+      - "Stable (Recommended)"
+      - "Backports"
+      - "Real-Time"
+    
+    rows:
+      - ["Stability", "★★★★★", "★★★★☆", "★★★★☆"]
+      - ["Hardware Support", "★★★★☆", "★★★★★", "★★★★☆"]
+      - ["Latest Features", "★★★☆☆", "★★★★★", "★★★☆☆"]
+      - ["Cloud Management", "★★★★★", "★★★★★", "★★★☆☆"]
+      - ["Update Frequency", "Low", "Medium", "Low"]
+      - ["Complexity", "Simple", "Simple", "Complex"]
+      - ["Recommended For", "95% of users", "New hardware", "Specialized"]
+
+  final_recommendation:
+    title: "💡 Our Recommendation"
+    message: |
+      For NubiferOS and cloud management, we strongly recommend:
+      
+      ✓ STABLE KERNEL (6.1 LTS)
+      
+      Why? Because:
+      • Cloud management requires reliability
+      • You're managing production infrastructure
+      • Stability > bleeding-edge features
+      • Automatic security updates
+      • Proven track record
+      
+      Choose Backports only if:
+      • You have hardware from 2024
+      • Stable kernel doesn't detect your hardware
+      
+      Choose Real-Time only if:
+      • You KNOW you need real-time guarantees
+      • You have specialized timing requirements
+      
+      You can always change kernels later with:
+        sudo nubifer-kernel-switch
+      
+      What would you like to install?
+
+  post_install_info:
+    title: "ℹ️  After Installation"
+    message: |
+      Your kernel choice is not permanent!
+      
+      You can switch kernels anytime:
+      
+      Switch to backports:
+        sudo nubifer-kernel-switch backports
+      
+      Switch to real-time:
+        sudo nubifer-kernel-switch realtime
+      
+      Switch back to stable:
+        sudo nubifer-kernel-switch stable
+      
+      Check current kernel:
+        uname -r
+      
+      View available kernels:
+        nubifer-kernel-list
+      
+      The system will guide you through the process.

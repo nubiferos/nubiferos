@@ -1,0 +1,9 @@
+# Calamares module for enabling test mode during installation
+
+---
+type: "job"
+name: "test-mode"
+interface: "python"
+script: "test-mode.py"
+
+# This module adds a checkbox to enable post-installation testing

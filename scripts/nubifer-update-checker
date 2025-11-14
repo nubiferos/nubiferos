@@ -1,0 +1,397 @@
+#!/bin/bash
+# NubiferOS Update Checker
+# Checks for updates to cloud CLIs, SDKs, and tools
+
+set -e
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+CACHE_DIR="$HOME/.cache/nubifer-updates"
+CACHE_FILE="$CACHE_DIR/versions.json"
+UPDATE_CHECK_INTERVAL=86400  # 24 hours
+
+# Colors
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m' # No Color
+
+# Create cache directory
+mkdir -p "$CACHE_DIR"
+
+log_info() {
+    echo -e "${BLUE}ℹ${NC} $1"
+}
+
+log_success() {
+    echo -e "${GREEN}✓${NC} $1"
+}
+
+log_warning() {
+    echo -e "${YELLOW}⚠${NC} $1"
+}
+
+log_error() {
+    echo -e "${RED}✗${NC} $1"
+}
+
+# Check if update check is needed
+should_check_updates() {
+    if [ ! -f "$CACHE_FILE" ]; then
+        return 0  # No cache, check updates
+    fi
+    
+    local last_check=$(stat -c %Y "$CACHE_FILE" 2>/dev/null || echo 0)
+    local now=$(date +%s)
+    local diff=$((now - last_check))
+    
+    if [ $diff -gt $UPDATE_CHECK_INTERVAL ]; then
+        return 0  # Cache expired, check updates
+    fi
+    
+    return 1  # Cache valid, skip check
+}
+
+# Get installed version
+get_installed_version() {
+    local tool=$1
+    local version=""
+    
+    case $tool in
+        aws-cli)
+            version=$(aws --version 2>&1 | awk '{print $1}' | cut -d/ -f2)
+            ;;
+        azure-cli)
+            version=$(az version --output json 2>/dev/null | jq -r '."azure-cli"' 2>/dev/null || echo "unknown")
+            ;;
+        gcloud)
+            version=$(gcloud version --format="value(version)" 2>/dev/null || echo "unknown")
+            ;;
+        terraform)
+            version=$(terraform version -json 2>/dev/null | jq -r '.terraform_version' 2>/dev/null || echo "unknown")
+            ;;
+        kubectl)
+            version=$(kubectl version --client --output=json 2>/dev/null | jq -r '.clientVersion.gitVersion' 2>/dev/null | sed 's/v//' || echo "unknown")
+            ;;
+        helm)
+            version=$(helm version --short 2>/dev/null | cut -d+ -f1 | sed 's/v//' || echo "unknown")
+            ;;
+        docker)
+            version=$(docker --version 2>/dev/null | awk '{print $3}' | sed 's/,//' || echo "unknown")
+            ;;
+        *)
+            version="unknown"
+            ;;
+    esac
+    
+    echo "$version"
+}
+
+# Get latest version from GitHub releases
+get_github_latest() {
+    local repo=$1
+    local version=$(curl -s "https://api.github.com/repos/$repo/releases/latest" | jq -r '.tag_name' | sed 's/v//')
+    echo "$version"
+}
+
+# Get latest version from various sources
+get_latest_version() {
+    local tool=$1
+    local version=""
+    
+    case $tool in
+        aws-cli)
+            # AWS CLI doesn't have a simple version API, check GitHub
+            version=$(get_github_latest "aws/aws-cli")
+            ;;
+        azure-cli)
+            # Azure CLI version from PyPI
+            version=$(curl -s https://pypi.org/pypi/azure-cli/json | jq -r '.info.version' 2>/dev/null || echo "unknown")
+            ;;
+        gcloud)
+            # GCP SDK version from release notes
+            version=$(curl -s https://cloud.google.com/sdk/docs/release-notes | grep -oP 'Google Cloud SDK \K[0-9.]+' | head -1 || echo "unknown")
+            ;;
+        terraform)
+            # Terraform from GitHub
+            version=$(get_github_latest "hashicorp/terraform")
+            ;;
+        kubectl)
+            # kubectl from Kubernetes GitHub
+            version=$(get_github_latest "kubernetes/kubernetes")
+            ;;
+        helm)
+            # Helm from GitHub
+            version=$(get_github_latest "helm/helm")
+            ;;
+        docker)
+            # Docker from GitHub
+            version=$(get_github_latest "moby/moby")
+            ;;
+        eksctl)
+            version=$(get_github_latest "weaveworks/eksctl")
+            ;;
+        k9s)
+            version=$(get_github_latest "derailed/k9s")
+            ;;
+        trivy)
+            version=$(get_github_latest "aquasecurity/trivy")
+            ;;
+        *)
+            version="unknown"
+            ;;
+    esac
+    
+    echo "$version"
+}
+
+# Compare versions
+version_gt() {
+    test "$(printf '%s\n' "$@" | sort -V | head -n 1)" != "$1"
+}
+
+# Check single tool
+check_tool() {
+    local tool=$1
+    local installed=$(get_installed_version "$tool")
+    
+    if [ "$installed" = "unknown" ]; then
+        log_warning "$tool: Not installed"
+        return
+    fi
+    
+    log_info "Checking $tool..."
+    local latest=$(get_latest_version "$tool")
+    
+    if [ "$latest" = "unknown" ]; then
+        log_warning "$tool: Could not determine latest version"
+        return
+    fi
+    
+    if version_gt "$latest" "$installed"; then
+        log_warning "$tool: Update available ($installed → $latest)"
+        echo "$tool|$installed|$latest|update" >> "$CACHE_DIR/updates.txt"
+    else
+        log_success "$tool: Up to date ($installed)"
+        echo "$tool|$installed|$latest|current" >> "$CACHE_DIR/updates.txt"
+    fi
+}
+
+# Check all tools
+check_all_tools() {
+    log_info "Checking for updates..."
+    echo ""
+    
+    # Clear previous results
+    > "$CACHE_DIR/updates.txt"
+    
+    # Core cloud CLIs
+    check_tool "aws-cli"
+    check_tool "azure-cli"
+    check_tool "gcloud"
+    
+    # Infrastructure as Code
+    check_tool "terraform"
+    
+    # Container & Kubernetes
+    check_tool "kubectl"
+    check_tool "helm"
+    check_tool "docker"
+    
+    # Additional tools
+    check_tool "eksctl"
+    check_tool "k9s"
+    check_tool "trivy"
+    
+    # Update cache timestamp
+    touch "$CACHE_FILE"
+    
+    echo ""
+    log_info "Update check complete"
+}
+
+# Show update summary
+show_summary() {
+    if [ ! -f "$CACHE_DIR/updates.txt" ]; then
+        log_warning "No update information available. Run: nubifer-update-checker check"
+        return
+    fi
+    
+    local updates_available=$(grep "|update$" "$CACHE_DIR/updates.txt" | wc -l)
+    local up_to_date=$(grep "|current$" "$CACHE_DIR/updates.txt" | wc -l)
+    
+    echo ""
+    echo "=========================================="
+    echo "Update Summary"
+    echo "=========================================="
+    echo "Up to date: $up_to_date"
+    echo "Updates available: $updates_available"
+    echo ""
+    
+    if [ $updates_available -gt 0 ]; then
+        echo "Tools with updates available:"
+        grep "|update$" "$CACHE_DIR/updates.txt" | while IFS='|' read tool installed latest status; do
+            echo "  • $tool: $installed → $latest"
+        done
+        echo ""
+        echo "Run 'nubifer-update-checker update' to update all tools"
+    fi
+    
+    echo "=========================================="
+}
+
+# Update tools
+update_tools() {
+    log_info "Updating tools..."
+    echo ""
+    
+    # Update system packages first
+    log_info "Updating system packages..."
+    sudo apt-get update
+    sudo apt-get upgrade -y
+    
+    # Update cloud CLIs
+    log_info "Updating cloud CLIs..."
+    
+    # AWS CLI
+    if command -v aws &> /dev/null; then
+        log_info "Updating AWS CLI..."
+        curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "/tmp/awscliv2.zip"
+        unzip -q -o /tmp/awscliv2.zip -d /tmp/
+        sudo /tmp/aws/install --update
+        rm -rf /tmp/aws /tmp/awscliv2.zip
+        log_success "AWS CLI updated"
+    fi
+    
+    # Azure CLI
+    if command -v az &> /dev/null; then
+        log_info "Updating Azure CLI..."
+        sudo apt-get install --only-upgrade -y azure-cli
+        log_success "Azure CLI updated"
+    fi
+    
+    # GCP SDK
+    if command -v gcloud &> /dev/null; then
+        log_info "Updating Google Cloud SDK..."
+        gcloud components update --quiet
+        log_success "Google Cloud SDK updated"
+    fi
+    
+    # Terraform
+    if command -v terraform &> /dev/null; then
+        log_info "Updating Terraform..."
+        sudo apt-get install --only-upgrade -y terraform
+        log_success "Terraform updated"
+    fi
+    
+    # kubectl
+    if command -v kubectl &> /dev/null; then
+        log_info "Updating kubectl..."
+        curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+        sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
+        rm kubectl
+        log_success "kubectl updated"
+    fi
+    
+    # Helm
+    if command -v helm &> /dev/null; then
+        log_info "Updating Helm..."
+        curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+        log_success "Helm updated"
+    fi
+    
+    echo ""
+    log_success "All tools updated"
+    
+    # Clear cache to force recheck
+    rm -f "$CACHE_FILE" "$CACHE_DIR/updates.txt"
+}
+
+# Show help
+show_help() {
+    cat << EOF
+NubiferOS Update Checker
+
+Usage: nubifer-update-checker [command]
+
+Commands:
+  check     Check for updates (default)
+  update    Update all tools
+  summary   Show update summary
+  list      List installed tool versions
+  help      Show this help message
+
+Examples:
+  nubifer-update-checker check
+  nubifer-update-checker update
+  nubifer-update-checker summary
+
+Update sources:
+  - AWS CLI: GitHub releases
+  - Azure CLI: PyPI
+  - GCP SDK: Release notes
+  - Terraform: GitHub releases
+  - kubectl: Kubernetes releases
+  - Helm: GitHub releases
+  - Docker: GitHub releases
+
+Cache location: ~/.cache/nubifer-updates/
+Cache duration: 24 hours
+
+EOF
+}
+
+# List installed versions
+list_versions() {
+    echo "=========================================="
+    echo "Installed Tool Versions"
+    echo "=========================================="
+    
+    tools=("aws-cli" "azure-cli" "gcloud" "terraform" "kubectl" "helm" "docker" "eksctl" "k9s" "trivy")
+    
+    for tool in "${tools[@]}"; do
+        version=$(get_installed_version "$tool")
+        if [ "$version" != "unknown" ]; then
+            printf "%-15s %s\n" "$tool:" "$version"
+        fi
+    done
+    
+    echo "=========================================="
+}
+
+# Main
+main() {
+    local command=${1:-check}
+    
+    case $command in
+        check)
+            if should_check_updates || [ "$2" = "--force" ]; then
+                check_all_tools
+                show_summary
+            else
+                log_info "Update check skipped (cache valid)"
+                log_info "Use --force to check anyway"
+                show_summary
+            fi
+            ;;
+        update)
+            update_tools
+            ;;
+        summary)
+            show_summary
+            ;;
+        list)
+            list_versions
+            ;;
+        help|--help|-h)
+            show_help
+            ;;
+        *)
+            log_error "Unknown command: $command"
+            show_help
+            exit 1
+            ;;
+    esac
+}
+
+main "$@"

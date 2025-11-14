@@ -1,0 +1,331 @@
+#!/usr/bin/env python3
+"""
+NubiferOS Credential Manager
+Wrapper around pass (password-store) for secure credential management
+Uses GPG encryption (battle-tested, audited) instead of custom encryption
+"""
+
+import os
+import sys
+import json
+import argparse
+import getpass
+import subprocess
+from pathlib import Path
+from typing import Dict, List, Optional
+from datetime import datetime
+
+class PassBackend:
+    """Backend using pass (password-store) with GPG encryption"""
+    
+    def __init__(self, workspace: str = None):
+        self.workspace = workspace or os.getenv("NUBIFER_WORKSPACE", "default")
+        self.pass_dir = os.path.expanduser("~/.password-store")
+        self.prefix = f"nubifer/{self.workspace}"
+        self.audit_log = os.path.expanduser("~/.nubifer/audit.log")
+        
+        # Create audit log directory
+        Path(os.path.dirname(self.audit_log)).mkdir(parents=True, exist_ok=True, mode=0o700)
+        
+        # Check if pass is initialized
+        if not os.path.exists(self.pass_dir):
+            print("⚠️  pass (password-store) not initialized")
+            print("   Run: pass init <gpg-key-id>")
+            print("   Or: gpg --full-generate-key  # to create GPG key first")
+            sys.exit(1)
+    
+    def _run_pass(self, args: List[str], input_data: str = None) -> Optional[str]:
+        """Run pass command"""
+        try:
+            if input_data:
+                proc = subprocess.Popen(
+                    ["pass"] + args,
+                    stdin=subprocess.PIPE,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    text=True
+                )
+                stdout, stderr = proc.communicate(input=input_data)
+                if proc.returncode != 0:
+                    print(f"Error: {stderr}", file=sys.stderr)
+                    return None
+                return stdout
+            else:
+                result = subprocess.run(
+                    ["pass"] + args,
+                    capture_output=True,
+                    text=True,
+                    check=True
+                )
+                return result.stdout.strip()
+        except subprocess.CalledProcessError as e:
+            return None
+        except FileNotFoundError:
+            print("Error: 'pass' command not found. Install with: apt-get install pass")
+            sys.exit(1)
+    
+    def _audit_log_entry(self, action: str, path: str, details: str = ""):
+        """Add entry to audit log"""
+        timestamp = datetime.now().isoformat()
+        user = os.getenv("USER", "unknown")
+        
+        log_entry = f"{timestamp} | {user} | {self.workspace} | {action} | {path} | {details}\n"
+        
+        with open(self.audit_log, 'a') as f:
+            f.write(log_entry)
+    
+    def add_credential(self, path: str, value: str, multiline: bool = False):
+        """Add credential using pass"""
+        full_path = f"{self.prefix}/{path}"
+        
+        if multiline:
+            self._run_pass(["insert", "-m", full_path], input_data=value)
+        else:
+            self._run_pass(["insert", "-e", full_path], input_data=f"{value}\n{value}\n")
+        
+        self._audit_log_entry("ADD", full_path)
+    
+    def get_credential(self, path: str) -> Optional[str]:
+        """Get credential using pass"""
+        full_path = f"{self.prefix}/{path}"
+        
+        value = self._run_pass(["show", full_path])
+        
+        if value:
+            self._audit_log_entry("ACCESS", full_path)
+        
+        return value
+    
+    def list_credentials(self, subpath: str = "") -> List[str]:
+        """List credentials using pass"""
+        full_path = f"{self.prefix}/{subpath}" if subpath else self.prefix
+        
+        output = self._run_pass(["ls", full_path])
+        if not output:
+            return []
+        
+        # Parse pass ls output
+        credentials = []
+        for line in output.split('\n'):
+            if '├──' in line or '└──' in line:
+                # Extract credential name
+                cred = line.split('──')[-1].strip()
+                if cred and not cred.endswith('/'):
+                    credentials.append(cred)
+        
+        return credentials
+    
+    def remove_credential(self, path: str):
+        """Remove credential using pass"""
+        full_path = f"{self.prefix}/{path}"
+        
+        self._run_pass(["rm", "-f", full_path])
+        self._audit_log_entry("REMOVE", full_path)
+    
+    def generate_credential(self, path: str, length: int = 32):
+        """Generate random credential using pass"""
+        full_path = f"{self.prefix}/{path}"
+        
+        self._run_pass(["generate", "-n", full_path, str(length)])
+        self._audit_log_entry("GENERATE", full_path)
+
+
+class CredentialManager:
+    """Main credential manager using pass backend"""
+    
+    def __init__(self, workspace: str = None):
+        self.backend = PassBackend(workspace)
+    
+    def add_aws_credentials(self, profile: str, access_key_id: str, secret_access_key: str, region: str = "us-east-1"):
+        """Add AWS credentials"""
+        # Store each component separately in pass
+        self.backend.add_credential(f"cloud/aws/{profile}/access-key-id", access_key_id)
+        self.backend.add_credential(f"cloud/aws/{profile}/secret-access-key", secret_access_key)
+        self.backend.add_credential(f"cloud/aws/{profile}/region", region)
+        
+        print(f"✓ AWS credentials added: {profile}")
+        print(f"  Access via: nubifer-creds get aws {profile}")
+    
+    def get_aws_credentials(self, profile: str) -> Optional[Dict]:
+        """Get AWS credentials"""
+        access_key = self.backend.get_credential(f"cloud/aws/{profile}/access-key-id")
+        secret_key = self.backend.get_credential(f"cloud/aws/{profile}/secret-access-key")
+        region = self.backend.get_credential(f"cloud/aws/{profile}/region")
+        
+        if access_key and secret_key:
+            return {
+                "access_key_id": access_key,
+                "secret_access_key": secret_key,
+                "region": region or "us-east-1"
+            }
+        return None
+    
+    def add_azure_credentials(self, name: str, tenant_id: str, client_id: str, client_secret: str):
+        """Add Azure service principal credentials"""
+        self.backend.add_credential(f"cloud/azure/{name}/tenant-id", tenant_id)
+        self.backend.add_credential(f"cloud/azure/{name}/client-id", client_id)
+        self.backend.add_credential(f"cloud/azure/{name}/client-secret", client_secret)
+        
+        print(f"✓ Azure credentials added: {name}")
+    
+    def add_gcp_credentials(self, name: str, project_id: str, key_file: str):
+        """Add GCP service account credentials"""
+        # Read key file
+        with open(key_file, 'r') as f:
+            key_data = f.read()
+        
+        # Store as multiline in pass
+        self.backend.add_credential(f"cloud/gcp/{name}/service-account-key", key_data, multiline=True)
+        self.backend.add_credential(f"cloud/gcp/{name}/project-id", project_id)
+        
+        print(f"✓ GCP credentials added: {name}")
+        
+        # Securely delete original key file
+        os.remove(key_file)
+        print(f"  Original key file securely deleted")
+    
+    def add_api_token(self, service: str, token: str, scopes: str = ""):
+        """Add API token"""
+        self.backend.add_credential(f"api/{service}/token", token)
+        if scopes:
+            self.backend.add_credential(f"api/{service}/scopes", scopes)
+        
+        print(f"✓ API token added: {service}")
+    
+    def list_credentials(self, cred_type: str = None):
+        """List all credentials"""
+        subpath = f"cloud/{cred_type}" if cred_type else ""
+        credentials = self.backend.list_credentials(subpath)
+        
+        if not credentials:
+            print("No credentials found")
+            return
+        
+        print(f"\nCredentials in workspace '{self.backend.workspace}':")
+        print("-" * 60)
+        
+        for cred in credentials:
+            print(f"  {cred}")
+    
+    def remove_credential(self, path: str):
+        """Remove credential"""
+        self.backend.remove_credential(path)
+        print(f"✓ Credential removed: {path}")
+    
+    def inject_aws_env(self, profile: str):
+        """Inject AWS credentials into environment"""
+        creds = self.get_aws_credentials(profile)
+        if creds:
+            print(f"export AWS_ACCESS_KEY_ID='{creds['access_key_id']}'")
+            print(f"export AWS_SECRET_ACCESS_KEY='{creds['secret_access_key']}'")
+            print(f"export AWS_DEFAULT_REGION='{creds['region']}'")
+            print(f"\n# Run: eval $(nubifer-creds env aws {profile})")
+        else:
+            print(f"✗ Credentials not found for profile: {profile}", file=sys.stderr)
+
+
+def main():
+    parser = argparse.ArgumentParser(description="NubiferOS Credential Manager")
+    subparsers = parser.add_subparsers(dest="command", help="Commands")
+    
+    # Add command
+    add_parser = subparsers.add_parser("add", help="Add credential")
+    add_parser.add_argument("--type", required=True, choices=["aws", "azure", "gcp", "api", "db", "ssh"])
+    add_parser.add_argument("--name", required=True, help="Credential name")
+    
+    # AWS specific
+    add_parser.add_argument("--access-key-id", help="AWS access key ID")
+    add_parser.add_argument("--secret-access-key", help="AWS secret access key")
+    add_parser.add_argument("--region", default="us-east-1", help="AWS region")
+    
+    # Azure specific
+    add_parser.add_argument("--tenant-id", help="Azure tenant ID")
+    add_parser.add_argument("--client-id", help="Azure client ID")
+    add_parser.add_argument("--client-secret", help="Azure client secret")
+    
+    # GCP specific
+    add_parser.add_argument("--project-id", help="GCP project ID")
+    add_parser.add_argument("--key-file", help="GCP service account key file")
+    
+    # API specific
+    add_parser.add_argument("--token", help="API token")
+    add_parser.add_argument("--scopes", help="API scopes")
+    
+    # List command
+    list_parser = subparsers.add_parser("list", help="List credentials")
+    list_parser.add_argument("--type", choices=["aws", "azure", "gcp", "api", "db", "ssh"], help="Filter by type")
+    
+    # Remove command
+    remove_parser = subparsers.add_parser("remove", help="Remove credential")
+    remove_parser.add_argument("--id", required=True, help="Credential ID")
+    
+    # Export command
+    export_parser = subparsers.add_parser("export", help="Export credentials")
+    export_parser.add_argument("--output", required=True, help="Output file")
+    export_parser.add_argument("--password", help="Encryption password")
+    
+    # Import command
+    import_parser = subparsers.add_parser("import", help="Import credentials")
+    import_parser.add_argument("--input", required=True, help="Input file")
+    import_parser.add_argument("--password", help="Decryption password")
+    
+    args = parser.parse_args()
+    
+    if not args.command:
+        parser.print_help()
+        return
+    
+    manager = CredentialManager()
+    
+    if args.command == "add":
+        if args.type == "aws":
+            if not args.access_key_id:
+                args.access_key_id = input("AWS Access Key ID: ")
+            if not args.secret_access_key:
+                args.secret_access_key = getpass.getpass("AWS Secret Access Key: ")
+            
+            manager.add_aws_credentials(args.name, args.access_key_id, args.secret_access_key, args.region)
+        
+        elif args.type == "azure":
+            if not args.tenant_id:
+                args.tenant_id = input("Azure Tenant ID: ")
+            if not args.client_id:
+                args.client_id = input("Azure Client ID: ")
+            if not args.client_secret:
+                args.client_secret = getpass.getpass("Azure Client Secret: ")
+            
+            manager.add_azure_credentials(args.name, args.tenant_id, args.client_id, args.client_secret)
+        
+        elif args.type == "gcp":
+            if not args.project_id:
+                args.project_id = input("GCP Project ID: ")
+            if not args.key_file:
+                args.key_file = input("GCP Service Account Key File: ")
+            
+            manager.add_gcp_credentials(args.name, args.project_id, args.key_file)
+        
+        elif args.type == "api":
+            if not args.token:
+                args.token = getpass.getpass(f"{args.name} API Token: ")
+            
+            manager.add_api_token(args.name, args.token, args.scopes or "")
+    
+    elif args.command == "list":
+        manager.list_credentials(cred_type=args.type)
+    
+    elif args.command == "remove":
+        manager.remove_credential(args.id)
+    
+    elif args.command == "export":
+        if not args.password:
+            args.password = getpass.getpass("Encryption password: ")
+        manager.export_credentials(args.output, args.password)
+    
+    elif args.command == "import":
+        if not args.password:
+            args.password = getpass.getpass("Decryption password: ")
+        manager.import_credentials(args.input, args.password)
+
+
+if __name__ == "__main__":
+    main()

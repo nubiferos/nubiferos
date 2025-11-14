@@ -1,0 +1,200 @@
+# NubiferOS Installer Security Warnings
+# These warnings are shown when users try to disable security features
+
+warnings:
+  disable_encryption:
+    title: "⚠️  CRITICAL SECURITY WARNING"
+    message: |
+      You are about to DISABLE disk encryption!
+      
+      WITHOUT ENCRYPTION:
+      ❌ Anyone can read your data if device is stolen
+      ❌ Cloud credentials will be stored in PLAIN TEXT
+      ❌ AWS/Azure/GCP access keys will be UNPROTECTED
+      ❌ All your cloud resources are at risk
+      ❌ Compliance violations (SOC 2, HIPAA, PCI DSS)
+      
+      NubiferOS is designed for cloud management.
+      Storing cloud credentials without encryption is EXTREMELY DANGEROUS.
+      
+      Are you ABSOLUTELY SURE you want to proceed?
+      
+      Type 'I UNDERSTAND THE RISKS' to continue:
+    
+    severity: CRITICAL
+    require_confirmation: "I UNDERSTAND THE RISKS"
+    recommended_action: "Keep encryption ENABLED (strongly recommended)"
+    
+  disable_secure_boot:
+    title: "⚠️  SECURITY WARNING"
+    message: |
+      You are about to DISABLE Secure Boot!
+      
+      WITHOUT SECURE BOOT:
+      ⚠️  Unauthorized operating systems can boot
+      ⚠️  Rootkits can infect boot process
+      ⚠️  Boot-level malware possible
+      ⚠️  Reduced protection against physical attacks
+      
+      WHY DISABLE?
+      - Legacy hardware compatibility
+      - Dual-boot with unsigned OS
+      - Custom kernel development
+      
+      For cloud management workstations, Secure Boot is RECOMMENDED.
+      
+      Do you want to disable Secure Boot?
+    
+    severity: HIGH
+    require_confirmation: "yes"
+    recommended_action: "Keep Secure Boot ENABLED (recommended)"
+    
+  disable_tpm:
+    title: "⚠️  SECURITY WARNING"
+    message: |
+      You are about to DISABLE TPM integration!
+      
+      WITHOUT TPM:
+      ⚠️  No hardware-based encryption
+      ⚠️  Cannot detect hardware tampering
+      ⚠️  Weaker protection against physical attacks
+      ⚠️  No automatic disk unlock on trusted hardware
+      
+      WHY DISABLE?
+      - No TPM hardware available
+      - TPM compatibility issues
+      - Virtual machine without TPM
+      
+      If your hardware has TPM, it is RECOMMENDED to use it.
+      
+      Do you want to disable TPM integration?
+    
+    severity: MEDIUM
+    require_confirmation: "yes"
+    recommended_action: "Keep TPM ENABLED (recommended)"
+
+  skip_recovery_key:
+    title: "⚠️  WARNING"
+    message: |
+      You are about to SKIP recovery key creation!
+      
+      WITHOUT RECOVERY KEY:
+      ⚠️  Cannot recover from forgotten password
+      ⚠️  Cannot recover from rogue employee lockout
+      ⚠️  May lose access to encrypted data
+      ⚠️  No emergency access method
+      
+      Recovery key provides:
+      ✓ Emergency password reset
+      ✓ Protection against lockouts
+      ✓ Disaster recovery capability
+      
+      You can create a recovery key later with:
+        sudo nubifer-recovery-key-setup
+      
+      Do you want to skip recovery key creation?
+    
+    severity: MEDIUM
+    require_confirmation: "yes"
+    recommended_action: "Create recovery key NOW (recommended)"
+
+# Post-installation security checklist
+post_install_checklist:
+  title: "🔒 NubiferOS Security Setup"
+  message: |
+    Complete these CRITICAL security steps:
+    
+    ┌─────────────────────────────────────────────────────┐
+    │  REQUIRED: BIOS/UEFI Security Configuration         │
+    └─────────────────────────────────────────────────────┘
+    
+    After installation completes:
+    
+    1. REBOOT and enter BIOS/UEFI
+       (Usually press F2, F10, Del, or Esc during boot)
+    
+    2. SET BIOS PASSWORD
+       - Find "Security" or "Password" section
+       - Set "Supervisor Password" or "Admin Password"
+       - Use strong password (16+ characters)
+       - Store password securely
+    
+    3. DISABLE USB/CD BOOT
+       - Go to "Boot" section
+       - Remove USB/CD from boot order
+       - Set internal drive as ONLY boot device
+       - Enable "Boot Order Lock" if available
+    
+    4. ENABLE SECURE BOOT
+       - Find "Secure Boot" option
+       - Set to "Enabled"
+       - Save changes
+    
+    5. SAVE AND EXIT
+       - Save BIOS settings
+       - System will reboot
+    
+    6. CONFIRM SECURITY SETTINGS
+       - After boot, run: sudo nubifer-confirm-bios-security
+       - This removes security warnings
+    
+    ┌─────────────────────────────────────────────────────┐
+    │  WHY THIS IS CRITICAL                                │
+    └─────────────────────────────────────────────────────┘
+    
+    WITHOUT BIOS PASSWORD:
+    ❌ Anyone can boot from USB/CD
+    ❌ Anyone can access BIOS settings
+    ❌ Physical theft is much more dangerous
+    ❌ Your cloud credentials are at risk
+    
+    WITH BIOS PASSWORD:
+    ✓ Cannot boot from USB/CD without password
+    ✓ Cannot change BIOS settings
+    ✓ Encrypted data is fully protected
+    ✓ Physical theft protection maximized
+    
+    ┌─────────────────────────────────────────────────────┐
+    │  REMEMBER                                            │
+    └─────────────────────────────────────────────────────┘
+    
+    - Store BIOS password in secure location
+    - Never share BIOS password
+    - Document password location securely
+    - Create recovery key (if not done during install)
+    
+    Press ENTER to continue to reboot...
+
+# Security status dashboard (shown on first login)
+first_login_security:
+  title: "🔒 NubiferOS Security Status"
+  message: |
+    Welcome to NubiferOS!
+    
+    Security Status Check:
+    ─────────────────────────────────────────
+    
+    ✓ Disk Encryption: ENABLED
+    ✓ Secure Boot: ENABLED
+    ✓ TPM: CONFIGURED
+    ⚠️  BIOS Password: NOT CONFIRMED
+    
+    ┌─────────────────────────────────────────────────────┐
+    │  ACTION REQUIRED                                     │
+    └─────────────────────────────────────────────────────┘
+    
+    You must configure BIOS security to complete setup:
+    
+    1. Reboot and enter BIOS (F2/F10/Del/Esc)
+    2. Set BIOS password
+    3. Disable USB/CD boot
+    4. Enable Secure Boot
+    5. Save and exit
+    6. Run: sudo nubifer-confirm-bios-security
+    
+    Until BIOS security is confirmed, you will see warnings.
+    
+    View detailed instructions:
+      cat /usr/share/doc/nubifer/BIOS_SECURITY_SETUP.txt
+    
+    Press ENTER to continue...

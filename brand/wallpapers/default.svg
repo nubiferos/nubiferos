@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="1920" height="1080" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <!-- Main gradient background -->
+    <linearGradient id="bgGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#0f172a;stop-opacity:1" />
+      <stop offset="50%" style="stop-color:#1e293b;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#334155;stop-opacity:1" />
+    </linearGradient>
+    
+    <!-- Cloud accent gradient -->
+    <radialGradient id="cloudAccent" cx="50%" cy="50%">
+      <stop offset="0%" style="stop-color:#3b82f6;stop-opacity:0.3" />
+      <stop offset="100%" style="stop-color:#1e3a8a;stop-opacity:0" />
+    </radialGradient>
+    
+    <!-- Security accent -->
+    <radialGradient id="securityAccent" cx="50%" cy="50%">
+      <stop offset="0%" style="stop-color:#10b981;stop-opacity:0.2" />
+      <stop offset="100%" style="stop-color:#059669;stop-opacity:0" />
+    </radialGradient>
+  </defs>
+  
+  <!-- Background -->
+  <rect width="1920" height="1080" fill="url(#bgGradient)"/>
+  
+  <!-- Decorative cloud shapes -->
+  <ellipse cx="300" cy="200" rx="400" ry="300" fill="url(#cloudAccent)"/>
+  <ellipse cx="1620" cy="880" rx="400" ry="300" fill="url(#securityAccent)"/>
+  <ellipse cx="960" cy="540" rx="600" ry="400" fill="url(#cloudAccent)" opacity="0.3"/>
+  
+  <!-- Grid pattern (subtle) -->
+  <defs>
+    <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+      <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#475569" stroke-width="0.5" opacity="0.1"/>
+    </pattern>
+  </defs>
+  <rect width="1920" height="1080" fill="url(#grid)"/>
+  
+  <!-- Logo/Branding (centered) -->
+  <g transform="translate(960, 540)">
+    <!-- Cloud icon -->
+    <path d="M -80 20 Q -100 0 -100 -30 Q -100 -60 -80 -80 Q -60 -100 -30 -100 Q -20 -120 0 -120 Q 20 -120 30 -100 Q 60 -100 80 -80 Q 100 -60 100 -30 Q 100 0 80 20 Z" 
+          fill="#3b82f6" 
+          opacity="0.3"
+          stroke="#60a5fa" 
+          stroke-width="2"/>
+    
+    <!-- Shield -->
+    <path d="M 0 -60 L -40 -40 L -40 20 Q -40 40 0 60 Q 40 40 40 20 L 40 -40 Z" 
+          fill="#10b981" 
+          opacity="0.4"
+          stroke="#34d399" 
+          stroke-width="2"/>
+    
+    <!-- Lock -->
+    <rect x="-10" y="0" width="20" height="25" rx="2" fill="#ffffff" opacity="0.6"/>
+    <path d="M -8 0 L -8 -10 Q -8 -15 0 -15 Q 8 -15 8 -10 L 8 0" 
+          fill="none" 
+          stroke="#ffffff" 
+          stroke-width="3" 
+          opacity="0.6"/>
+  </g>
+  
+  <!-- Text -->
+  <text x="960" y="680" 
+        font-family="'Segoe UI', Arial, sans-serif" 
+        font-size="72" 
+        font-weight="300" 
+        fill="#e2e8f0" 
+        text-anchor="middle"
+        opacity="0.4">NubiferOS</text>
+  
+  <text x="960" y="730" 
+        font-family="'Segoe UI', Arial, sans-serif" 
+        font-size="28" 
+        fill="#94a3b8" 
+        text-anchor="middle"
+        opacity="0.3">Multi-Cloud, Unified Control</text>
+</svg>

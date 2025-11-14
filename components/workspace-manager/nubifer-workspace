@@ -1,0 +1,541 @@
+#!/usr/bin/env python3
+"""
+NubiferOS Workspace Manager
+Manages isolated cloud workspaces with visual context indicators
+Security-focused with clear visual separation between accounts
+"""
+
+import os
+import sys
+import json
+import argparse
+import subprocess
+from pathlib import Path
+from typing import Dict, List, Optional
+from datetime import datetime
+
+# Provider color schemes (for terminal and UI)
+PROVIDER_COLORS = {
+    'aws': {
+        'name': 'AWS',
+        'color': '#FF9900',
+        'terminal_color': '208',  # Orange
+        'icon': '☁️'
+    },
+    'azure': {
+        'name': 'Azure',
+        'color': '#0078D4',
+        'terminal_color': '33',  # Blue
+        'icon': '⛅'
+    },
+    'gcp': {
+        'name': 'GCP',
+        'color': '#4285F4',  # Google Blue (primary brand color)
+        'terminal_color': '33',  # Blue
+        'icon': '🔵🔴🟡🟢'  # Google's 4-color logo
+    },
+    'oracle': {
+        'name': 'Oracle Cloud',
+        'color': '#FF0000',
+        'terminal_color': '196',  # Red
+        'icon': '🔴'
+    },
+    'multi': {
+        'name': 'Multi-Cloud',
+        'color': '#6B46C1',
+        'terminal_color': '99',  # Purple
+        'icon': '🌐'
+    }
+}
+
+class WorkspaceManager:
+    """Manages cloud workspaces with security and visual context"""
+    
+    def __init__(self):
+        self.config_dir = Path.home() / '.config' / 'nubifer'
+        self.workspace_dir = self.config_dir / 'workspaces'
+        self.current_workspace_file = self.config_dir / 'current-workspace'
+        self.audit_log = self.config_dir / 'workspace-audit.log'
+        
+        # Create directories
+        self.config_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
+        self.workspace_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
+    
+    def _audit_log_entry(self, action: str, workspace_id: str, details: str = ""):
+        """Add entry to audit log"""
+        timestamp = datetime.now().isoformat()
+        user = os.getenv("USER", "unknown")
+        
+        log_entry = f"{timestamp} | {user} | {action} | {workspace_id} | {details}\n"
+        
+        with open(self.audit_log, 'a') as f:
+            f.write(log_entry)
+    
+    def _generate_workspace_id(self, name: str) -> str:
+        """Generate workspace ID from name"""
+        import hashlib
+        import time
+        
+        # Create unique ID from name and timestamp
+        unique_str = f"{name}-{time.time()}"
+        hash_obj = hashlib.sha256(unique_str.encode())
+        return hash_obj.hexdigest()[:16]
+    
+    def create_workspace(self, name: str, provider: str, account_id: str, 
+                        account_name: str = None, region: str = None,
+                        credential_id: str = None, read_only: bool = False) -> str:
+        """Create a new workspace"""
+        
+        # Validate provider
+        if provider not in PROVIDER_COLORS:
+            print(f"✗ Invalid provider: {provider}", file=sys.stderr)
+            print(f"  Valid providers: {', '.join(PROVIDER_COLORS.keys())}", file=sys.stderr)
+            return None
+        
+        # Generate workspace ID
+        workspace_id = self._generate_workspace_id(name)
+        
+        # Create workspace configuration
+        workspace_config = {
+            'workspace_id': workspace_id,
+            'name': name,
+            'provider': provider,
+            'account_id': account_id,
+            'account_name': account_name or account_id,
+            'region': region or self._get_default_region(provider),
+            'credential_id': credential_id,
+            'read_only': read_only,
+            'created_at': datetime.now().isoformat(),
+            'last_used': None,
+            'theme': PROVIDER_COLORS[provider],
+            'environment': self._build_environment(provider, account_id, account_name, region)
+        }
+        
+        # Save workspace configuration
+        workspace_file = self.workspace_dir / f"{workspace_id}.json"
+        with open(workspace_file, 'w') as f:
+            json.dump(workspace_config, f, indent=2)
+        
+        # Set secure permissions
+        workspace_file.chmod(0o600)
+        
+        self._audit_log_entry("CREATE", workspace_id, f"name={name}, provider={provider}")
+        
+        print(f"✓ Workspace created: {name}")
+        print(f"  ID: {workspace_id}")
+        print(f"  Provider: {PROVIDER_COLORS[provider]['icon']} {PROVIDER_COLORS[provider]['name']}")
+        print(f"  Account: {account_name or account_id}")
+        if region:
+            print(f"  Region: {region}")
+        print(f"  Mode: {'🔒 Read-Only' if read_only else '🔓 Read-Write'}")
+        
+        return workspace_id
+    
+    def _get_default_region(self, provider: str) -> str:
+        """Get default region for provider"""
+        defaults = {
+            'aws': 'us-east-1',
+            'azure': 'eastus',
+            'gcp': 'us-central1',
+            'oracle': 'us-ashburn-1',
+            'multi': None
+        }
+        return defaults.get(provider)
+    
+    def _build_environment(self, provider: str, account_id: str, 
+                          account_name: str, region: str) -> Dict[str, str]:
+        """Build environment variables for workspace"""
+        env = {
+            'NUBIFER_WORKSPACE_PROVIDER': provider,
+            'NUBIFER_WORKSPACE_ACCOUNT': account_name or account_id,
+            'NUBIFER_WORKSPACE_ACCOUNT_ID': account_id,
+        }
+        
+        # Provider-specific environment variables
+        if provider == 'aws':
+            env.update({
+                'AWS_DEFAULT_REGION': region,
+                'AWS_REGION': region,
+                'AWS_ACCOUNT_ID': account_id,
+            })
+        elif provider == 'azure':
+            env.update({
+                'AZURE_LOCATION': region,
+                'AZURE_SUBSCRIPTION_ID': account_id,
+            })
+        elif provider == 'gcp':
+            env.update({
+                'GOOGLE_CLOUD_PROJECT': account_id,
+                'GOOGLE_CLOUD_REGION': region,
+            })
+        elif provider == 'oracle':
+            env.update({
+                'OCI_REGION': region,
+                'OCI_TENANCY': account_id,
+            })
+        
+        return env
+    
+    def list_workspaces(self, provider: str = None) -> List[Dict]:
+        """List all workspaces"""
+        workspaces = []
+        
+        for workspace_file in self.workspace_dir.glob('*.json'):
+            with open(workspace_file, 'r') as f:
+                workspace = json.load(f)
+                
+                # Filter by provider if specified
+                if provider and workspace['provider'] != provider:
+                    continue
+                
+                workspaces.append(workspace)
+        
+        # Sort by last used (most recent first), then by name
+        workspaces.sort(key=lambda w: (w.get('last_used') or '', w['name']), reverse=True)
+        
+        return workspaces
+    
+    def get_workspace(self, workspace_id: str) -> Optional[Dict]:
+        """Get workspace configuration"""
+        workspace_file = self.workspace_dir / f"{workspace_id}.json"
+        
+        if not workspace_file.exists():
+            return None
+        
+        with open(workspace_file, 'r') as f:
+            return json.load(f)
+    
+    def get_current_workspace(self) -> Optional[Dict]:
+        """Get currently active workspace"""
+        if not self.current_workspace_file.exists():
+            return None
+        
+        with open(self.current_workspace_file, 'r') as f:
+            workspace_id = f.read().strip()
+        
+        return self.get_workspace(workspace_id)
+    
+    def switch_workspace(self, workspace_id: str):
+        """Switch to a different workspace"""
+        workspace = self.get_workspace(workspace_id)
+        
+        if not workspace:
+            print(f"✗ Workspace not found: {workspace_id}", file=sys.stderr)
+            return False
+        
+        # Update last used timestamp
+        workspace['last_used'] = datetime.now().isoformat()
+        workspace_file = self.workspace_dir / f"{workspace_id}.json"
+        with open(workspace_file, 'w') as f:
+            json.dump(workspace, f, indent=2)
+        
+        # Set as current workspace
+        with open(self.current_workspace_file, 'w') as f:
+            f.write(workspace_id)
+        
+        self.current_workspace_file.chmod(0o600)
+        
+        self._audit_log_entry("SWITCH", workspace_id, f"name={workspace['name']}")
+        
+        # Try to switch GNOME virtual desktop
+        self._switch_gnome_desktop(workspace_id)
+        
+        # Display workspace context
+        self._display_workspace_context(workspace)
+        
+        # Export environment variables for current shell
+        print("\n# Run this command to activate workspace:")
+        print(f"eval $(nubifer-workspace env {workspace_id})")
+        
+        return True
+    
+    def _switch_gnome_desktop(self, workspace_id: str):
+        """Switch GNOME virtual desktop if available"""
+        try:
+            # Check if GNOME desktop integration is available
+            gnome_integration = os.path.join(os.path.dirname(__file__), 'gnome-desktop-integration.py')
+            if os.path.exists(gnome_integration):
+                subprocess.run(
+                    [sys.executable, gnome_integration, 'switch', workspace_id],
+                    check=False,  # Don't fail if desktop switching doesn't work
+                    stderr=subprocess.DEVNULL
+                )
+        except:
+            pass  # Silently fail if GNOME integration not available
+    
+    def _display_workspace_context(self, workspace: Dict):
+        """Display visual workspace context"""
+        theme = workspace['theme']
+        mode_icon = '🔒' if workspace['read_only'] else '🔓'
+        mode_text = 'Read-Only' if workspace['read_only'] else 'Read-Write'
+        
+        print("\n" + "="*60)
+        print(f"{theme['icon']} Workspace: {workspace['name']}")
+        print("="*60)
+        print(f"Provider:  {theme['name']}")
+        print(f"Account:   {workspace['account_name']}")
+        if workspace.get('region'):
+            print(f"Region:    {workspace['region']}")
+        print(f"Mode:      {mode_icon} {mode_text}")
+        print("="*60)
+    
+    def export_environment(self, workspace_id: str):
+        """Export environment variables for workspace"""
+        workspace = self.get_workspace(workspace_id)
+        
+        if not workspace:
+            print(f"✗ Workspace not found: {workspace_id}", file=sys.stderr)
+            return
+        
+        # Export environment variables
+        for key, value in workspace['environment'].items():
+            print(f"export {key}='{value}'")
+        
+        # Export workspace metadata
+        print(f"export NUBIFER_WORKSPACE_ID='{workspace_id}'")
+        print(f"export NUBIFER_WORKSPACE_NAME='{workspace['name']}'")
+        print(f"export NUBIFER_WORKSPACE_READ_ONLY='{str(workspace['read_only']).lower()}'")
+        
+        # Set terminal prompt color
+        theme = workspace['theme']
+        print(f"export NUBIFER_PROMPT_COLOR='{theme['terminal_color']}'")
+        print(f"export NUBIFER_PROMPT_ICON='{theme['icon']}'")
+        
+        # Update PS1 for visual context
+        ps1 = f"'[\\[\\e[38;5;{theme['terminal_color']}m\\]"
+        ps1 += f"{theme['icon']} {workspace['account_name']}"
+        if workspace['read_only']:
+            ps1 += " 🔒"
+        ps1 += "\\[\\e[0m\\]] \\u@\\h:\\w\\$ '"
+        print(f"export PS1={ps1}")
+    
+    def delete_workspace(self, workspace_id: str):
+        """Delete a workspace"""
+        workspace = self.get_workspace(workspace_id)
+        
+        if not workspace:
+            print(f"✗ Workspace not found: {workspace_id}", file=sys.stderr)
+            return False
+        
+        # Check if it's the current workspace
+        current = self.get_current_workspace()
+        if current and current['workspace_id'] == workspace_id:
+            print(f"✗ Cannot delete active workspace", file=sys.stderr)
+            print(f"  Switch to another workspace first", file=sys.stderr)
+            return False
+        
+        # Delete workspace file
+        workspace_file = self.workspace_dir / f"{workspace_id}.json"
+        workspace_file.unlink()
+        
+        self._audit_log_entry("DELETE", workspace_id, f"name={workspace['name']}")
+        
+        print(f"✓ Workspace deleted: {workspace['name']}")
+        return True
+    
+    def set_read_only(self, workspace_id: str, enabled: bool):
+        """Set read-only mode for workspace"""
+        workspace = self.get_workspace(workspace_id)
+        
+        if not workspace:
+            print(f"✗ Workspace not found: {workspace_id}", file=sys.stderr)
+            return False
+        
+        workspace['read_only'] = enabled
+        
+        workspace_file = self.workspace_dir / f"{workspace_id}.json"
+        with open(workspace_file, 'w') as f:
+            json.dump(workspace, f, indent=2)
+        
+        mode = "enabled" if enabled else "disabled"
+        self._audit_log_entry("SET_READ_ONLY", workspace_id, f"mode={mode}")
+        
+        icon = '🔒' if enabled else '🔓'
+        print(f"✓ Read-only mode {mode}: {workspace['name']} {icon}")
+        return True
+    
+    def update_workspace(self, workspace_id: str, **kwargs):
+        """Update workspace configuration"""
+        workspace = self.get_workspace(workspace_id)
+        
+        if not workspace:
+            print(f"✗ Workspace not found: {workspace_id}", file=sys.stderr)
+            return False
+        
+        # Update allowed fields
+        allowed_fields = ['name', 'account_name', 'region', 'credential_id']
+        updated_fields = []
+        
+        for field in allowed_fields:
+            if field in kwargs and kwargs[field] is not None:
+                workspace[field] = kwargs[field]
+                updated_fields.append(field)
+        
+        # Rebuild environment if needed
+        if 'region' in updated_fields:
+            workspace['environment'] = self._build_environment(
+                workspace['provider'],
+                workspace['account_id'],
+                workspace['account_name'],
+                workspace['region']
+            )
+        
+        # Save updated configuration
+        workspace_file = self.workspace_dir / f"{workspace_id}.json"
+        with open(workspace_file, 'w') as f:
+            json.dump(workspace, f, indent=2)
+        
+        self._audit_log_entry("UPDATE", workspace_id, f"fields={','.join(updated_fields)}")
+        
+        print(f"✓ Workspace updated: {workspace['name']}")
+        return True
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        description="NubiferOS Workspace Manager - Secure cloud workspace isolation"
+    )
+    subparsers = parser.add_subparsers(dest="command", help="Commands")
+    
+    # Create command
+    create_parser = subparsers.add_parser("create", help="Create a new workspace")
+    create_parser.add_argument("--name", required=True, help="Workspace name")
+    create_parser.add_argument("--provider", required=True, 
+                              choices=['aws', 'azure', 'gcp', 'oracle', 'multi'],
+                              help="Cloud provider")
+    create_parser.add_argument("--account-id", required=True, help="Account ID")
+    create_parser.add_argument("--account-name", help="Account name (display)")
+    create_parser.add_argument("--region", help="Default region")
+    create_parser.add_argument("--credential-id", help="Credential ID from nubifer-creds")
+    create_parser.add_argument("--read-only", action="store_true", 
+                              help="Create in read-only mode")
+    
+    # List command
+    list_parser = subparsers.add_parser("list", help="List all workspaces")
+    list_parser.add_argument("--provider", choices=['aws', 'azure', 'gcp', 'oracle', 'multi'],
+                            help="Filter by provider")
+    
+    # Switch command
+    switch_parser = subparsers.add_parser("switch", help="Switch to a workspace")
+    switch_parser.add_argument("workspace_id", help="Workspace ID or name")
+    
+    # Current command
+    current_parser = subparsers.add_parser("current", help="Show current workspace")
+    
+    # Delete command
+    delete_parser = subparsers.add_parser("delete", help="Delete a workspace")
+    delete_parser.add_argument("workspace_id", help="Workspace ID")
+    
+    # Read-only command
+    readonly_parser = subparsers.add_parser("readonly", help="Set read-only mode")
+    readonly_parser.add_argument("workspace_id", help="Workspace ID")
+    readonly_parser.add_argument("--enable", action="store_true", help="Enable read-only")
+    readonly_parser.add_argument("--disable", action="store_true", help="Disable read-only")
+    
+    # Update command
+    update_parser = subparsers.add_parser("update", help="Update workspace")
+    update_parser.add_argument("workspace_id", help="Workspace ID")
+    update_parser.add_argument("--name", help="New name")
+    update_parser.add_argument("--account-name", help="New account name")
+    update_parser.add_argument("--region", help="New region")
+    update_parser.add_argument("--credential-id", help="New credential ID")
+    
+    # Env command
+    env_parser = subparsers.add_parser("env", help="Export environment variables")
+    env_parser.add_argument("workspace_id", help="Workspace ID")
+    
+    args = parser.parse_args()
+    
+    if not args.command:
+        parser.print_help()
+        return
+    
+    manager = WorkspaceManager()
+    
+    if args.command == "create":
+        manager.create_workspace(
+            name=args.name,
+            provider=args.provider,
+            account_id=args.account_id,
+            account_name=args.account_name,
+            region=args.region,
+            credential_id=args.credential_id,
+            read_only=args.read_only
+        )
+    
+    elif args.command == "list":
+        workspaces = manager.list_workspaces(provider=args.provider)
+        
+        if not workspaces:
+            print("No workspaces found")
+            return
+        
+        current = manager.get_current_workspace()
+        current_id = current['workspace_id'] if current else None
+        
+        print("\nWorkspaces:")
+        print("="*80)
+        
+        for ws in workspaces:
+            theme = ws['theme']
+            mode_icon = '🔒' if ws['read_only'] else '🔓'
+            current_marker = '→' if ws['workspace_id'] == current_id else ' '
+            
+            print(f"{current_marker} {theme['icon']} {ws['name']}")
+            print(f"   ID: {ws['workspace_id']}")
+            print(f"   Provider: {theme['name']} | Account: {ws['account_name']}", end='')
+            if ws.get('region'):
+                print(f" | Region: {ws['region']}", end='')
+            print(f" | {mode_icon}")
+            print()
+    
+    elif args.command == "switch":
+        # Try to find workspace by ID or name
+        workspace_id = args.workspace_id
+        workspace = manager.get_workspace(workspace_id)
+        
+        if not workspace:
+            # Try to find by name
+            workspaces = manager.list_workspaces()
+            for ws in workspaces:
+                if ws['name'].lower() == workspace_id.lower():
+                    workspace_id = ws['workspace_id']
+                    break
+        
+        manager.switch_workspace(workspace_id)
+    
+    elif args.command == "current":
+        workspace = manager.get_current_workspace()
+        
+        if not workspace:
+            print("No active workspace")
+            return
+        
+        manager._display_workspace_context(workspace)
+    
+    elif args.command == "delete":
+        manager.delete_workspace(args.workspace_id)
+    
+    elif args.command == "readonly":
+        if args.enable:
+            manager.set_read_only(args.workspace_id, True)
+        elif args.disable:
+            manager.set_read_only(args.workspace_id, False)
+        else:
+            print("✗ Specify --enable or --disable", file=sys.stderr)
+    
+    elif args.command == "update":
+        manager.update_workspace(
+            args.workspace_id,
+            name=args.name,
+            account_name=args.account_name,
+            region=args.region,
+            credential_id=args.credential_id
+        )
+    
+    elif args.command == "env":
+        manager.export_environment(args.workspace_id)
+
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,35 @@
+#!/bin/bash
+# NubiferOS Google Cloud CLI Wrapper
+# Provides workspace isolation and read-only mode enforcement
+
+# Get the directory where this script is located
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+FIREJAIL_WRAPPER="${SCRIPT_DIR}/../firejail-wrapper.sh"
+
+# Check if workspace is active
+if [ -z "$NUBIFER_WORKSPACE_ID" ]; then
+    echo "⚠️  No active workspace. Running gcloud without isolation." >&2
+    echo "   Activate workspace: eval \$(nubifer-workspace env <workspace-id>)" >&2
+    exec /usr/bin/gcloud "$@"
+fi
+
+# Check read-only mode
+if [ "$NUBIFER_WORKSPACE_READ_ONLY" = "true" ]; then
+    # Check if command is a write operation
+    local write_commands="create|delete|update|set|add|remove|start|stop|reset|move"
+    
+    if echo "$@" | grep -qE "$write_commands"; then
+        echo "✗ GCP write operation blocked: Workspace is in read-only mode 🔒" >&2
+        echo "  Command: gcloud $@" >&2
+        echo "  Disable read-only: nubifer-workspace readonly $NUBIFER_WORKSPACE_ID --disable" >&2
+        exit 1
+    fi
+fi
+
+# Run with Firejail isolation
+if [ -x "$FIREJAIL_WRAPPER" ]; then
+    exec "$FIREJAIL_WRAPPER" gcp /usr/bin/gcloud "$@"
+else
+    # Fallback if wrapper not found
+    exec /usr/bin/gcloud "$@"
+fi

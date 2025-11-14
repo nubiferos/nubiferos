@@ -1,0 +1,17 @@
+#Build artifacts
+work/
+output/
+iso/
+logs/
+*.iso
+*.log
+
+# IDE
+.kiro/
+.vscode/
+.idea/
+
+# Temp files
+*.tmp
+*.swp
+*~

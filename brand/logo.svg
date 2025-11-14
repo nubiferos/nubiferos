@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="512" height="512" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="cloudGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#1e3a8a;stop-opacity:1" />
+      <stop offset="50%" style="stop-color:#3b82f6;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#60a5fa;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="shieldGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#10b981;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#059669;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Background circle -->
+  <circle cx="256" cy="256" r="240" fill="url(#cloudGradient)" opacity="0.1"/>
+  
+  <!-- Cloud shape -->
+  <path d="M 180 280 Q 160 260 160 230 Q 160 200 180 180 Q 200 160 230 160 Q 240 140 260 140 Q 280 140 290 160 Q 320 160 340 180 Q 360 200 360 230 Q 360 260 340 280 Z" 
+        fill="url(#cloudGradient)" 
+        stroke="#1e3a8a" 
+        stroke-width="4"/>
+  
+  <!-- Shield overlay (security) -->
+  <path d="M 256 200 L 220 220 L 220 280 Q 220 300 256 320 Q 292 300 292 280 L 292 220 Z" 
+        fill="url(#shieldGradient)" 
+        opacity="0.9"
+        stroke="#047857" 
+        stroke-width="3"/>
+  
+  <!-- Lock icon in shield -->
+  <rect x="246" y="250" width="20" height="25" rx="2" fill="#ffffff" opacity="0.9"/>
+  <path d="M 248 250 L 248 240 Q 248 235 256 235 Q 264 235 264 240 L 264 250" 
+        fill="none" 
+        stroke="#ffffff" 
+        stroke-width="3" 
+        opacity="0.9"/>
+  
+  <!-- Text -->
+  <text x="256" y="380" 
+        font-family="Arial, sans-serif" 
+        font-size="48" 
+        font-weight="bold" 
+        fill="#1e3a8a" 
+        text-anchor="middle">NubiferOS</text>
+  
+  <text x="256" y="410" 
+        font-family="Arial, sans-serif" 
+        font-size="20" 
+        fill="#64748b" 
+        text-anchor="middle">Multi-Cloud, Unified Control</text>
+</svg>

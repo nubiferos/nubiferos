@@ -1,0 +1,15 @@
+[Unit]
+Description=NubiferOS Security Monitor
+Documentation=man:nubifer-security
+After=network.target
+Wants=network.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/nubifer-security-monitor
+RemainAfterExit=yes
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
