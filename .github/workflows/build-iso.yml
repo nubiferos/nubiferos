@@ -15,8 +15,8 @@ permissions:
   contents: read
 
 env:
-  ISO_BUCKET: nubiferos-releases  # Change this to your S3 bucket name
-  AWS_REGION: us-east-1  # Change to your preferred region
+  ISO_BUCKET: nubiferos-iso
+  AWS_REGION: us-east-1
 
 jobs:
   build-iso:
@@ -72,10 +72,90 @@ jobs:
         VERSION=$(grep 'BRAND_VERSION=' brand/brand.conf | cut -d'"' -f2)
         echo "VERSION=$VERSION" >> $GITHUB_ENV
         
-        # Set ISO filename
+        # Set ISO filename with timestamp and commit SHA for uniqueness
         TIMESTAMP=$(date +%Y%m%d-%H%M%S)
-        ISO_NAME="nubiferos-${VERSION}-${TIMESTAMP}-amd64.iso"
+        COMMIT_SHA=$(git rev-parse --short HEAD)
+        ISO_NAME="nubiferos-${VERSION}-${TIMESTAMP}-${COMMIT_SHA}-amd64.iso"
         echo "ISO_NAME=$ISO_NAME" >> $GITHUB_ENV
+        echo "COMMIT_SHA=$COMMIT_SHA" >> $GITHUB_ENV
+        
+    - name: Configure AWS credentials (pre-build test)
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+        aws-region: ${{ env.AWS_REGION }}
+        
+    - name: Test S3 connectivity before build
+      run: |
+        echo "=========================================="
+        echo "Testing S3 Access Before Build"
+        echo "=========================================="
+        echo ""
+        echo "This prevents wasting 30-40 minutes on a build"
+        echo "only to find out S3 upload will fail."
+        echo ""
+        
+        # Test bucket exists and we have access
+        echo "Testing bucket access..."
+        if ! aws s3 ls s3://${{ env.ISO_BUCKET }}/ 2>&1; then
+          echo ""
+          echo "❌ ERROR: Cannot access S3 bucket: ${{ env.ISO_BUCKET }}"
+          echo ""
+          echo "Possible issues:"
+          echo "  1. Bucket doesn't exist"
+          echo "  2. IAM role lacks s3:ListBucket permission"
+          echo "  3. Bucket is in a different region"
+          echo ""
+          echo "Please check:"
+          echo "  - Bucket name: ${{ env.ISO_BUCKET }}"
+          echo "  - Region: ${{ env.AWS_REGION }}"
+          echo "  - IAM role permissions"
+          echo ""
+          echo "Fix these issues before running the build again."
+          exit 1
+        fi
+        
+        # Test write permissions with a small test file
+        echo "✓ Bucket accessible"
+        echo ""
+        echo "Testing write permissions..."
+        TEST_FILE="test-upload-${{ github.run_number }}.txt"
+        echo "GitHub Actions test upload - Run #${{ github.run_number }} - $(date)" > "$TEST_FILE"
+        
+        if ! aws s3 cp "$TEST_FILE" "s3://${{ env.ISO_BUCKET }}/.github-actions-test/$TEST_FILE"; then
+          echo ""
+          echo "❌ ERROR: Cannot write to S3 bucket"
+          echo ""
+          echo "IAM role needs s3:PutObject permission on:"
+          echo "  arn:aws:s3:::${{ env.ISO_BUCKET }}/*"
+          echo ""
+          echo "Add this to your IAM role policy:"
+          echo '{'
+          echo '  "Effect": "Allow",'
+          echo '  "Action": ["s3:PutObject", "s3:GetObject", "s3:ListBucket"],'
+          echo '  "Resource": ['
+          echo '    "arn:aws:s3:::${{ env.ISO_BUCKET }}",'
+          echo '    "arn:aws:s3:::${{ env.ISO_BUCKET }}/*"'
+          echo '  ]'
+          echo '}'
+          rm -f "$TEST_FILE"
+          exit 1
+        fi
+        
+        # Clean up test file
+        aws s3 rm "s3://${{ env.ISO_BUCKET }}/.github-actions-test/$TEST_FILE" || true
+        rm -f "$TEST_FILE"
+        
+        echo "✓ Write permissions confirmed"
+        echo ""
+        echo "=========================================="
+        echo "S3 Access Test: PASSED ✓"
+        echo "=========================================="
+        echo "Bucket: s3://${{ env.ISO_BUCKET }}"
+        echo "Region: ${{ env.AWS_REGION }}"
+        echo ""
+        echo "Proceeding with ISO build..."
+        echo ""
         
     - name: Build ISO
       run: |
@@ -139,24 +219,25 @@ jobs:
         echo "iso_file=$ISO_FILE" >> $GITHUB_OUTPUT
         echo "iso_size=$ISO_SIZE" >> $GITHUB_OUTPUT
         
-    - name: Configure AWS credentials
-      if: success()
-      uses: aws-actions/configure-aws-credentials@v4
-      with:
-        role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
-        aws-region: ${{ env.AWS_REGION }}
-        
     - name: Upload ISO to S3
       if: success()
       run: |
-        # Upload ISO
+        ISO_FILE=$(basename output/*.iso)
+        S3_PATH="s3://${{ env.ISO_BUCKET }}/${{ env.VERSION }}/$ISO_FILE"
+        
+        echo "Uploading $ISO_FILE to S3..."
+        echo "Commit: ${{ env.COMMIT_SHA }}"
+        
+        # Upload ISO with metadata
         aws s3 cp output/*.iso s3://${{ env.ISO_BUCKET }}/${{ env.VERSION }}/ \
           --storage-class INTELLIGENT_TIERING \
-          --metadata "version=${{ env.VERSION }},build-date=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          --metadata "version=${{ env.VERSION }},build-date=$(date -u +%Y-%m-%dT%H:%M:%SZ),commit=${{ env.COMMIT_SHA }},github-run=${{ github.run_number }}"
         
         # Upload checksums
-        aws s3 cp output/SHA256SUMS s3://${{ env.ISO_BUCKET }}/${{ env.VERSION }}/
-        aws s3 cp output/MD5SUMS s3://${{ env.ISO_BUCKET }}/${{ env.VERSION }}/
+        aws s3 cp output/SHA256SUMS s3://${{ env.ISO_BUCKET }}/${{ env.VERSION }}/SHA256SUMS-${{ env.COMMIT_SHA }}
+        aws s3 cp output/MD5SUMS s3://${{ env.ISO_BUCKET }}/${{ env.VERSION }}/MD5SUMS-${{ env.COMMIT_SHA }}
+        
+        echo "✓ Upload complete: $S3_PATH"
         
         # Create a "latest" pointer for this version
         echo "${{ env.VERSION }}" | aws s3 cp - s3://${{ env.ISO_BUCKET }}/latest.txt
