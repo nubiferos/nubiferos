@@ -81,11 +81,15 @@ echo "  - Install packages: 15-20 min"
 echo "  - Create ISO: 5-10 min"
 echo ""
 
-read -p "Start build? [Y/n] " -n 1 -r
-echo ""
-if [[ $REPLY =~ ^[Nn]$ ]]; then
-    echo "Build cancelled"
-    exit 0
+if [ "$NON_INTERACTIVE" != "true" ]; then
+    read -p "Start build? [Y/n] " -n 1 -r
+    echo ""
+    if [[ $REPLY =~ ^[Nn]$ ]]; then
+        echo "Build cancelled"
+        exit 0
+    fi
+else
+    echo "Starting build in non-interactive mode..."
 fi
 
 echo ""

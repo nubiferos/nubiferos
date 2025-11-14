@@ -4,6 +4,21 @@
 
 set -e
 
+# Error handler
+error_handler() {
+    echo ""
+    echo "=========================================="
+    echo "❌ BUILD FAILED at line $1"
+    echo "=========================================="
+    echo "Command: $BASH_COMMAND"
+    echo "Exit code: $?"
+    echo ""
+    echo "Check the logs above for details."
+    exit 1
+}
+
+trap 'error_handler $LINENO' ERR
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/../brand/load-brand.sh"
 source "${SCRIPT_DIR}/config.sh"

@@ -31,12 +31,18 @@ jobs:
       
     - name: Free up disk space
       run: |
+        echo "Disk space before cleanup:"
+        df -h
+        
         # Remove unnecessary packages to free up space
         sudo rm -rf /usr/share/dotnet
         sudo rm -rf /usr/local/lib/android
         sudo rm -rf /opt/ghc
         sudo rm -rf /opt/hostedtoolcache/CodeQL
         sudo docker image prune --all --force
+        
+        echo ""
+        echo "Disk space after cleanup:"
         df -h
         
     - name: Install build dependencies
@@ -60,6 +66,7 @@ jobs:
       run: |
         # Create necessary directories
         sudo mkdir -p /var/cache/apt/archives
+        sudo mkdir -p output
         
         # Get version from brand config
         VERSION=$(grep 'BRAND_VERSION=' brand/brand.conf | cut -d'"' -f2)
@@ -72,13 +79,54 @@ jobs:
         
     - name: Build ISO
       run: |
-        sudo ./build-nubiferos.sh
+        # Set NON_INTERACTIVE mode
+        export NON_INTERACTIVE=true
+        
+        # Run build with verbose output
+        sudo -E bash -x ./build-nubiferos.sh 2>&1 | tee build.log || {
+          echo ""
+          echo "=========================================="
+          echo "BUILD FAILED!"
+          echo "=========================================="
+          echo ""
+          echo "Last 200 lines of output:"
+          tail -n 200 build.log
+          echo ""
+          echo "Checking for any output files:"
+          ls -la output/ || echo "output/ directory not found"
+          ls -la work/ || echo "work/ directory not found"
+          exit 1
+        }
+        
+    - name: Verify build output
+      run: |
+        echo "Checking build output..."
+        ls -la output/ || {
+          echo "ERROR: output/ directory not found!"
+          echo "Checking work directory:"
+          ls -la work/ || echo "work/ directory not found"
+          exit 1
+        }
+        
+        if [ ! -f output/*.iso ]; then
+          echo "ERROR: No ISO file found in output/"
+          echo "Contents of output/:"
+          ls -la output/
+          exit 1
+        fi
         
     - name: Generate checksums
       run: |
-        cd output
-        sha256sum *.iso > SHA256SUMS
-        md5sum *.iso > MD5SUMS
+        if [ -d output ] && [ -f output/*.iso ]; then
+          cd output
+          sha256sum *.iso > SHA256SUMS
+          md5sum *.iso > MD5SUMS
+          echo "Checksums generated:"
+          cat SHA256SUMS
+        else
+          echo "ERROR: No ISO files found to generate checksums"
+          exit 1
+        fi
         
     - name: Get ISO info
       id: iso_info
