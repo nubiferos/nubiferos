@@ -837,13 +837,19 @@ install_ides() {
     log "INFO" "Installing IDEs"
     log "INFO" "=========================================="
     
-    # Install all IDEs - user can select during installation
-    install_vscode
-    install_vscodium
-    install_intellij_ce || true
-    install_pycharm_ce || true
-    install_vim_neovim || true
-    install_emacs || true
+    # IDEs are now installed post-install via nubifer-install
+    # This significantly reduces ISO size and build time
+    # Users can install IDEs with: nubifer-install vscode
+    
+    log "INFO" "Skipping IDE installation (will be available via nubifer-install)"
+    
+    # Uncomment below to include IDEs in ISO (increases size by ~3-4GB)
+    # install_vscode
+    # install_vscodium
+    # install_intellij_ce || true
+    # install_pycharm_ce || true
+    # install_vim_neovim || true
+    # install_emacs || true
     install_kate || true
     install_eclipse || true
     

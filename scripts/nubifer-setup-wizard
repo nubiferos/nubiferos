@@ -410,3 +410,73 @@ EOF
 }
 
 main "$@"
+
+
+# IDE and Tool Selection (added for post-install)
+select_ides_and_tools() {
+    clear
+    cat << 'EOF'
+╔════════════════════════════════════════════════════════╗
+║          NubiferOS - IDE & Tool Selection              ║
+╚════════════════════════════════════════════════════════╝
+
+NubiferOS includes all CLI tools (aws, az, gcloud, kubectl, etc.)
+but lets you choose which IDEs and additional tools to install.
+
+EOF
+
+    echo -e "${CYAN}Which IDEs would you like to install?${NC}"
+    echo ""
+    echo "  1) Visual Studio Code (500MB) - Recommended"
+    echo "  2) IntelliJ IDEA Community (1.5GB)"
+    echo "  3) PyCharm Community (1.2GB)"
+    echo "  4) Vim with cloud plugins (50MB)"
+    echo "  5) Neovim with cloud plugins (100MB)"
+    echo "  6) None - I'll install later"
+    echo ""
+    read -p "Enter numbers separated by spaces (e.g., 1 4): " ide_choices
+    
+    echo ""
+    echo -e "${CYAN}Additional tools:${NC}"
+    echo ""
+    echo "  1) Docker Desktop (800MB)"
+    echo "  2) Postman API Client (200MB)"
+    echo "  3) DBeaver Database Client (150MB)"
+    echo "  4) None"
+    echo ""
+    read -p "Enter numbers separated by spaces: " tool_choices
+    
+    # Install selected IDEs
+    if [ -n "$ide_choices" ] && [ "$ide_choices" != "6" ]; then
+        echo ""
+        log_step "Installing selected IDEs..."
+        for choice in $ide_choices; do
+            case $choice in
+                1) nubifer-install vscode ;;
+                2) nubifer-install intellij ;;
+                3) nubifer-install pycharm ;;
+                4) nubifer-install vim ;;
+                5) nubifer-install neovim ;;
+            esac
+        done
+    fi
+    
+    # Install selected tools
+    if [ -n "$tool_choices" ] && [ "$tool_choices" != "4" ]; then
+        echo ""
+        log_step "Installing selected tools..."
+        for choice in $tool_choices; do
+            case $choice in
+                1) nubifer-install docker-desktop ;;
+                2) nubifer-install postman ;;
+                3) nubifer-install dbeaver ;;
+            esac
+        done
+    fi
+    
+    log_success "IDE and tool installation complete!"
+    echo ""
+    echo "You can install more tools anytime with: nubifer-install"
+    echo ""
+    read -p "Press Enter to continue..."
+}

@@ -1,0 +1,477 @@
+#!/bin/bash
+# NubiferOS Package Installer
+# Easy installation of IDEs, cloud tools, and additional software
+
+set -e
+
+VERSION="1.0.0"
+
+# Colors for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m' # No Color
+
+# Print colored output
+print_info() {
+    echo -e "${BLUE}ℹ${NC} $1"
+}
+
+print_success() {
+    echo -e "${GREEN}✓${NC} $1"
+}
+
+print_error() {
+    echo -e "${RED}✗${NC} $1"
+}
+
+print_warning() {
+    echo -e "${YELLOW}⚠${NC} $1"
+}
+
+# Check if running as root
+check_root() {
+    if [ "$EUID" -eq 0 ]; then
+        print_error "Do not run this script as root. It will use sudo when needed."
+        exit 1
+    fi
+}
+
+# Show help
+show_help() {
+    cat << EOF
+NubiferOS Package Installer v${VERSION}
+
+Usage: nubifer-install [PACKAGE] [OPTIONS]
+
+PACKAGES:
+  IDEs:
+    vscode          - Visual Studio Code
+    intellij        - IntelliJ IDEA Community
+    pycharm         - PyCharm Community
+    vim             - Vim with cloud development plugins
+    neovim          - Neovim with cloud development plugins
+    
+  Cloud Tools:
+    aws-tools       - AWS CLI and related tools
+    azure-tools     - Azure CLI and related tools
+    gcp-tools       - Google Cloud SDK and tools
+    all-cloud       - All cloud provider tools
+    
+  Additional Tools:
+    docker-desktop  - Docker Desktop
+    postman         - Postman API client
+    dbeaver         - DBeaver database client
+    terraform       - Terraform (if not already installed)
+    kubectl         - Kubernetes CLI (if not already installed)
+    
+OPTIONS:
+    -h, --help      Show this help message
+    -v, --version   Show version
+    -l, --list      List all available packages
+    -i, --interactive  Interactive mode (default if no package specified)
+
+EXAMPLES:
+    nubifer-install vscode
+    nubifer-install all-cloud
+    nubifer-install --interactive
+
+EOF
+}
+
+# List available packages
+list_packages() {
+    cat << EOF
+Available Packages:
+
+IDEs:
+  - vscode          Visual Studio Code (500MB)
+  - intellij        IntelliJ IDEA Community (1.5GB)
+  - pycharm         PyCharm Community (1.2GB)
+  - vim             Vim with plugins (50MB)
+  - neovim          Neovim with plugins (100MB)
+
+Cloud Tools:
+  - aws-tools       AWS CLI and tools (200MB)
+  - azure-tools     Azure CLI and tools (300MB)
+  - gcp-tools       Google Cloud SDK (500MB)
+  - all-cloud       All cloud tools (1GB)
+
+Additional Tools:
+  - docker-desktop  Docker Desktop (800MB)
+  - postman         Postman API client (200MB)
+  - dbeaver         DBeaver database client (150MB)
+  - terraform       Terraform (50MB)
+  - kubectl         Kubernetes CLI (50MB)
+
+EOF
+}
+
+# Install VS Code
+install_vscode() {
+    print_info "Installing Visual Studio Code..."
+    
+    # Add Microsoft GPG key and repository
+    wget -qO- https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor > packages.microsoft.gpg
+    sudo install -D -o root -g root -m 644 packages.microsoft.gpg /etc/apt/keyrings/packages.microsoft.gpg
+    sudo sh -c 'echo "deb [arch=amd64,arm64,armhf signed-by=/etc/apt/keyrings/packages.microsoft.gpg] https://packages.microsoft.com/repos/code stable main" > /etc/apt/sources.list.d/vscode.list'
+    rm -f packages.microsoft.gpg
+    
+    # Install
+    sudo apt update
+    sudo apt install -y code
+    
+    # Install extensions
+    print_info "Installing VS Code extensions for cloud development..."
+    code --install-extension hashicorp.terraform
+    code --install-extension ms-azuretools.vscode-docker
+    code --install-extension ms-kubernetes-tools.vscode-kubernetes-tools
+    code --install-extension amazonwebservices.aws-toolkit-vscode
+    code --install-extension ms-vscode.azure-account
+    code --install-extension googlecloudtools.cloudcode
+    
+    print_success "VS Code installed successfully"
+}
+
+# Install IntelliJ IDEA
+install_intellij() {
+    print_info "Installing IntelliJ IDEA Community..."
+    
+    sudo apt update
+    sudo apt install -y snapd
+    sudo snap install intellij-idea-community --classic
+    
+    print_success "IntelliJ IDEA installed successfully"
+}
+
+# Install PyCharm
+install_pycharm() {
+    print_info "Installing PyCharm Community..."
+    
+    sudo apt update
+    sudo apt install -y snapd
+    sudo snap install pycharm-community --classic
+    
+    print_success "PyCharm installed successfully"
+}
+
+# Install Vim with plugins
+install_vim() {
+    print_info "Installing Vim with cloud development plugins..."
+    
+    sudo apt update
+    sudo apt install -y vim vim-gtk3
+    
+    # Install vim-plug
+    curl -fLo ~/.vim/autoload/plug.vim --create-dirs \
+        https://raw.githubusercontent.com/junegunn/vim-plug/master/plug.vim
+    
+    # Create vimrc with cloud plugins
+    cat > ~/.vimrc << 'EOF'
+" NubiferOS Vim Configuration
+call plug#begin('~/.vim/plugged')
+
+" Cloud development plugins
+Plug 'hashivim/vim-terraform'
+Plug 'juliosueiras/vim-terraform-completion'
+Plug 'andrewstuart/vim-kubernetes'
+
+" General development
+Plug 'tpope/vim-fugitive'
+Plug 'airblade/vim-gitgutter'
+Plug 'preservim/nerdtree'
+Plug 'vim-airline/vim-airline'
+
+call plug#end()
+
+" Basic settings
+syntax on
+set number
+set expandtab
+set tabstop=2
+set shiftwidth=2
+set autoindent
+EOF
+    
+    # Install plugins
+    vim +PlugInstall +qall
+    
+    print_success "Vim installed successfully"
+}
+
+# Install Neovim with plugins
+install_neovim() {
+    print_info "Installing Neovim with cloud development plugins..."
+    
+    sudo apt update
+    sudo apt install -y neovim
+    
+    # Install vim-plug for neovim
+    sh -c 'curl -fLo "${XDG_DATA_HOME:-$HOME/.local/share}"/nvim/site/autoload/plug.vim --create-dirs \
+        https://raw.githubusercontent.com/junegunn/vim-plug/master/plug.vim'
+    
+    # Create init.vim
+    mkdir -p ~/.config/nvim
+    cat > ~/.config/nvim/init.vim << 'EOF'
+" NubiferOS Neovim Configuration
+call plug#begin('~/.local/share/nvim/plugged')
+
+" Cloud development plugins
+Plug 'hashivim/vim-terraform'
+Plug 'juliosueiras/vim-terraform-completion'
+Plug 'andrewstuart/vim-kubernetes'
+
+" General development
+Plug 'tpope/vim-fugitive'
+Plug 'airblade/vim-gitgutter'
+Plug 'preservim/nerdtree'
+Plug 'vim-airline/vim-airline'
+Plug 'neovim/nvim-lspconfig'
+
+call plug#end()
+
+" Basic settings
+syntax on
+set number
+set expandtab
+set tabstop=2
+set shiftwidth=2
+set autoindent
+EOF
+    
+    # Install plugins
+    nvim +PlugInstall +qall
+    
+    print_success "Neovim installed successfully"
+}
+
+# Install AWS tools
+install_aws_tools() {
+    print_info "Installing AWS tools..."
+    
+    # AWS CLI should already be installed, but ensure latest
+    if ! command -v aws &> /dev/null; then
+        curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+        unzip -q awscliv2.zip
+        sudo ./aws/install
+        rm -rf aws awscliv2.zip
+    fi
+    
+    # Install additional AWS tools
+    sudo apt update
+    sudo apt install -y awscli
+    
+    print_success "AWS tools installed successfully"
+}
+
+# Install Azure tools
+install_azure_tools() {
+    print_info "Installing Azure tools..."
+    
+    # Azure CLI should already be installed, but ensure latest
+    if ! command -v az &> /dev/null; then
+        curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash
+    fi
+    
+    print_success "Azure tools installed successfully"
+}
+
+# Install GCP tools
+install_gcp_tools() {
+    print_info "Installing Google Cloud SDK..."
+    
+    if ! command -v gcloud &> /dev/null; then
+        # Add Google Cloud SDK repository
+        echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] https://packages.cloud.google.com/apt cloud-sdk main" | sudo tee -a /etc/apt/sources.list.d/google-cloud-sdk.list
+        curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo apt-key --keyring /usr/share/keyrings/cloud.google.gpg add -
+        
+        sudo apt update
+        sudo apt install -y google-cloud-sdk
+    fi
+    
+    print_success "Google Cloud SDK installed successfully"
+}
+
+# Install all cloud tools
+install_all_cloud() {
+    install_aws_tools
+    install_azure_tools
+    install_gcp_tools
+}
+
+# Install Docker Desktop
+install_docker_desktop() {
+    print_info "Installing Docker Desktop..."
+    
+    # Install Docker
+    sudo apt update
+    sudo apt install -y ca-certificates curl gnupg
+    sudo install -m 0755 -d /etc/apt/keyrings
+    curl -fsSL https://download.docker.com/linux/debian/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+    sudo chmod a+r /etc/apt/keyrings/docker.gpg
+    
+    echo \
+      "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/debian \
+      $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | \
+      sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+    
+    sudo apt update
+    sudo apt install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+    
+    # Add user to docker group
+    sudo usermod -aG docker $USER
+    
+    print_success "Docker installed successfully"
+    print_warning "You need to log out and back in for docker group membership to take effect"
+}
+
+# Install Postman
+install_postman() {
+    print_info "Installing Postman..."
+    
+    sudo apt update
+    sudo apt install -y snapd
+    sudo snap install postman
+    
+    print_success "Postman installed successfully"
+}
+
+# Install DBeaver
+install_dbeaver() {
+    print_info "Installing DBeaver..."
+    
+    wget -O - https://dbeaver.io/debs/dbeaver.gpg.key | sudo apt-key add -
+    echo "deb https://dbeaver.io/debs/dbeaver-ce /" | sudo tee /etc/apt/sources.list.d/dbeaver.list
+    
+    sudo apt update
+    sudo apt install -y dbeaver-ce
+    
+    print_success "DBeaver installed successfully"
+}
+
+# Interactive mode
+interactive_mode() {
+    clear
+    cat << EOF
+╔════════════════════════════════════════╗
+║   NubiferOS Package Installer          ║
+╚════════════════════════════════════════╝
+
+Select packages to install:
+
+IDEs:
+  1) Visual Studio Code (500MB)
+  2) IntelliJ IDEA Community (1.5GB)
+  3) PyCharm Community (1.2GB)
+  4) Vim with plugins (50MB)
+  5) Neovim with plugins (100MB)
+
+Cloud Tools:
+  6) AWS tools
+  7) Azure tools
+  8) Google Cloud SDK
+  9) All cloud tools
+
+Additional Tools:
+  10) Docker Desktop
+  11) Postman
+  12) DBeaver
+
+  0) Exit
+
+EOF
+
+    read -p "Enter numbers separated by spaces (e.g., 1 6 10): " choices
+    
+    for choice in $choices; do
+        case $choice in
+            1) install_vscode ;;
+            2) install_intellij ;;
+            3) install_pycharm ;;
+            4) install_vim ;;
+            5) install_neovim ;;
+            6) install_aws_tools ;;
+            7) install_azure_tools ;;
+            8) install_gcp_tools ;;
+            9) install_all_cloud ;;
+            10) install_docker_desktop ;;
+            11) install_postman ;;
+            12) install_dbeaver ;;
+            0) exit 0 ;;
+            *) print_error "Invalid choice: $choice" ;;
+        esac
+    done
+    
+    print_success "Installation complete!"
+}
+
+# Main function
+main() {
+    check_root
+    
+    # No arguments - run interactive mode
+    if [ $# -eq 0 ]; then
+        interactive_mode
+        exit 0
+    fi
+    
+    # Parse arguments
+    case "$1" in
+        -h|--help)
+            show_help
+            ;;
+        -v|--version)
+            echo "nubifer-install v${VERSION}"
+            ;;
+        -l|--list)
+            list_packages
+            ;;
+        -i|--interactive)
+            interactive_mode
+            ;;
+        vscode)
+            install_vscode
+            ;;
+        intellij)
+            install_intellij
+            ;;
+        pycharm)
+            install_pycharm
+            ;;
+        vim)
+            install_vim
+            ;;
+        neovim)
+            install_neovim
+            ;;
+        aws-tools)
+            install_aws_tools
+            ;;
+        azure-tools)
+            install_azure_tools
+            ;;
+        gcp-tools)
+            install_gcp_tools
+            ;;
+        all-cloud)
+            install_all_cloud
+            ;;
+        docker-desktop)
+            install_docker_desktop
+            ;;
+        postman)
+            install_postman
+            ;;
+        dbeaver)
+            install_dbeaver
+            ;;
+        *)
+            print_error "Unknown package: $1"
+            echo "Run 'nubifer-install --help' for usage"
+            exit 1
+            ;;
+    esac
+}
+
+main "$@"
