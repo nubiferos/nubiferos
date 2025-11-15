@@ -78,11 +78,16 @@ verify_checksum() {
     
     log "INFO" "Verifying ISO checksum..."
     
-    # Extract the checksum for our ISO
-    local expected_checksum=$(grep "${DEBIAN_ISO_NAME}" "${checksum_file}" | awk '{print $1}')
+    # The SHA256SUMS file has filenames split across lines, so we need to handle this
+    # Format: "checksum  debian-12.8.0-amd64\n-netinst.iso"
+    # We'll search for the base filename without extension
+    local base_name="debian-12.8.0-amd64"
+    local expected_checksum=$(grep -B1 "netinst.iso" "${checksum_file}" | grep "${base_name}" | awk '{print $1}')
     
     if [ -z "${expected_checksum}" ]; then
         log "ERROR" "Could not find checksum for ${DEBIAN_ISO_NAME}"
+        log "ERROR" "Checksum file contents:"
+        cat "${checksum_file}"
         return 1
     fi
     
