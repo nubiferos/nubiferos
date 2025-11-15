@@ -44,7 +44,9 @@ install_kernel() {
     chroot_exec "DEBIAN_FRONTEND=noninteractive apt-get install -y \
         linux-image-amd64 \
         linux-headers-amd64 \
-        initramfs-tools"
+        initramfs-tools \
+        live-boot \
+        live-boot-initramfs-tools"
     
     # Install GRUB binaries (not the full packages to avoid conflicts)
     # We need both for hybrid BIOS/UEFI support
@@ -55,11 +57,11 @@ install_kernel() {
         grub-common \
         grub2-common"
     
-    # Update initramfs
-    log "INFO" "Updating initramfs..."
-    chroot_exec "update-initramfs -u -k all" || true
+    # Update initramfs to include live-boot
+    log "INFO" "Updating initramfs with live-boot support..."
+    chroot_exec "update-initramfs -u -k all"
     
-    log "INFO" "✓ Kernel installed"
+    log "INFO" "✓ Kernel and live-boot installed"
 }
 
 # Install GNOME desktop

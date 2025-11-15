@@ -8,6 +8,8 @@ The ISO build was failing to create a properly bootable image due to incorrect G
 2. **Missing UEFI support**: No EFI boot image was being created
 3. **Wrong boot files**: Referenced `/usr/lib/ISOLINUX/isohdpfx.bin` which may not exist
 4. **No hybrid boot**: ISO wasn't configured for both BIOS and UEFI boot modes
+5. **Missing live-boot**: The `live-boot` package wasn't installed, causing boot failures
+6. **GRUB crash on boot**: Exception 14 errors due to missing modules and incorrect configuration
 
 ## Solution Implemented
 
@@ -23,6 +25,16 @@ grub2-common         # Common files
 
 This avoids the conflict between `grub-pc` and `grub-efi-amd64` full packages which both try to install to the same system.
 
+### 1.1. Live Boot Support
+
+Added essential live-boot packages:
+```bash
+live-boot                    # Live system boot scripts
+live-boot-initramfs-tools    # Initramfs integration
+```
+
+These packages enable the system to boot from the ISO as a live environment, detecting and mounting the squashfs filesystem.
+
 ### 2. Hybrid BIOS/UEFI Boot Image Creation (build-iso.sh)
 
 The `create_bootable_iso()` function now:
@@ -33,10 +45,10 @@ The `create_bootable_iso()` function now:
 
 #### Generates GRUB boot images:
 ```bash
-# BIOS boot image
+# BIOS boot image with all necessary modules
 grub-mkstandalone --format=i386-pc \
     --output=boot/grub/core.img \
-    --install-modules="linux normal iso9660 biosdisk memdisk search tar ls"
+    --install-modules="linux normal iso9660 biosdisk memdisk search tar ls all_video gfxterm"
 
 # Combine with boot sector
 cat /usr/lib/grub/i386-pc/cdboot.img boot/grub/core.img > boot/grub/bios.img
@@ -45,6 +57,32 @@ cat /usr/lib/grub/i386-pc/cdboot.img boot/grub/core.img > boot/grub/bios.img
 grub-mkstandalone --format=x86_64-efi \
     --output=EFI/boot/bootx64.efi
 ```
+
+#### GRUB Configuration:
+```
+set timeout=10
+set default=0
+
+insmod all_video
+insmod gfxterm
+terminal_output gfxterm
+
+menuentry "NubiferOS 1.0 - Live" {
+    linux /boot/vmlinuz boot=live components quiet splash
+    initrd /boot/initrd.img
+}
+
+menuentry "NubiferOS 1.0 - Live (Safe Mode)" {
+    linux /boot/vmlinuz boot=live components nomodeset
+    initrd /boot/initrd.img
+}
+```
+
+Key boot parameters:
+- `boot=live` - Activates live-boot scripts
+- `components` - Loads all live-boot components
+- `quiet splash` - Reduces boot messages and shows splash screen
+- `nomodeset` - Safe mode disables kernel mode setting for compatibility
 
 #### Creates FAT EFI boot partition:
 ```bash

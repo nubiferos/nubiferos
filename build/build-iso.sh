@@ -293,13 +293,17 @@ create_bootable_iso() {
 set timeout=10
 set default=0
 
+insmod all_video
+insmod gfxterm
+terminal_output gfxterm
+
 menuentry "${DISTRO_FULLNAME} ${DISTRO_VERSION} - Live" {
-    linux /boot/vmlinuz boot=live quiet splash
+    linux /boot/vmlinuz boot=live components quiet splash
     initrd /boot/initrd.img
 }
 
-menuentry "${DISTRO_FULLNAME} ${DISTRO_VERSION} - Install" {
-    linux /boot/vmlinuz boot=live quiet splash
+menuentry "${DISTRO_FULLNAME} ${DISTRO_VERSION} - Live (Safe Mode)" {
+    linux /boot/vmlinuz boot=live components nomodeset
     initrd /boot/initrd.img
 }
 EOF
@@ -313,7 +317,7 @@ EOF
     grub-mkstandalone \
         --format=i386-pc \
         --output="${ISO_DIR}/boot/grub/core.img" \
-        --install-modules="linux normal iso9660 biosdisk memdisk search tar ls" \
+        --install-modules="linux normal iso9660 biosdisk memdisk search tar ls all_video gfxterm" \
         --modules="linux normal iso9660 biosdisk search" \
         --locales="" \
         --fonts="" \
