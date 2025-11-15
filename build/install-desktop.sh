@@ -44,9 +44,16 @@ install_kernel() {
     chroot_exec "DEBIAN_FRONTEND=noninteractive apt-get install -y \
         linux-image-amd64 \
         linux-headers-amd64 \
-        initramfs-tools \
-        grub-pc \
-        grub-efi-amd64"
+        initramfs-tools"
+    
+    # Install GRUB binaries (not the full packages to avoid conflicts)
+    # We need both for hybrid BIOS/UEFI support
+    log "INFO" "Installing GRUB binaries..."
+    chroot_exec "DEBIAN_FRONTEND=noninteractive apt-get install -y \
+        grub-pc-bin \
+        grub-efi-amd64-bin \
+        grub-common \
+        grub2-common"
     
     # Update initramfs
     log "INFO" "Updating initramfs..."
