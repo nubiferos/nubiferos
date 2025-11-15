@@ -84,15 +84,26 @@ check_dependencies() {
     
     local missing=()
     
-    for cmd in debootstrap mksquashfs xorriso grub-mkrescue; do
+    for cmd in debootstrap mksquashfs xorriso grub-mkstandalone mkfs.vfat; do
         if ! command -v $cmd &> /dev/null; then
             missing+=($cmd)
         fi
     done
     
+    # Check for required GRUB files
+    if [ ! -f /usr/lib/grub/i386-pc/cdboot.img ]; then
+        log "ERROR" "Missing GRUB BIOS boot files"
+        missing+=("grub-pc-bin")
+    fi
+    
+    if [ ! -f /usr/lib/grub/i386-pc/boot_hybrid.img ]; then
+        log "ERROR" "Missing GRUB hybrid boot files"
+        missing+=("grub-pc-bin")
+    fi
+    
     if [ ${#missing[@]} -gt 0 ]; then
         log "ERROR" "Missing dependencies: ${missing[*]}"
-        log "INFO" "Install with: apt-get install debootstrap squashfs-tools xorriso grub-pc-bin grub-efi-amd64-bin mtools"
+        log "INFO" "Install with: apt-get install debootstrap squashfs-tools xorriso grub-pc-bin grub-efi-amd64-bin mtools dosfstools"
         exit 1
     fi
     
@@ -262,6 +273,7 @@ create_bootable_iso() {
     # Create ISO directory structure
     mkdir -p "${SQUASHFS_DIR}"
     mkdir -p "${ISO_DIR}/boot/grub"
+    mkdir -p "${ISO_DIR}/EFI/boot"
     
     # Create squashfs filesystem
     log "INFO" "Creating squashfs filesystem (this may take several minutes)..."
@@ -271,7 +283,12 @@ create_bootable_iso() {
         -Xdict-size 100% \
         -noappend
     
-    # Create GRUB configuration
+    # Copy kernel and initrd
+    log "INFO" "Copying kernel and initrd..."
+    cp "${CHROOT_DIR}/boot/vmlinuz-"* "${ISO_DIR}/boot/vmlinuz"
+    cp "${CHROOT_DIR}/boot/initrd.img-"* "${ISO_DIR}/boot/initrd.img"
+    
+    # Create GRUB configuration for BIOS
     cat > "${ISO_DIR}/boot/grub/grub.cfg" << EOF
 set timeout=10
 set default=0
@@ -287,10 +304,48 @@ menuentry "${DISTRO_FULLNAME} ${DISTRO_VERSION} - Install" {
 }
 EOF
     
-    # Copy kernel and initrd
-    log "INFO" "Copying kernel and initrd..."
-    cp "${CHROOT_DIR}/boot/vmlinuz-"* "${ISO_DIR}/boot/vmlinuz"
-    cp "${CHROOT_DIR}/boot/initrd.img-"* "${ISO_DIR}/boot/initrd.img"
+    # Create GRUB configuration for UEFI (same content, different location)
+    mkdir -p "${ISO_DIR}/EFI/boot"
+    cp "${ISO_DIR}/boot/grub/grub.cfg" "${ISO_DIR}/EFI/boot/grub.cfg"
+    
+    # Create GRUB standalone image for BIOS boot
+    log "INFO" "Creating GRUB boot images..."
+    grub-mkstandalone \
+        --format=i386-pc \
+        --output="${ISO_DIR}/boot/grub/core.img" \
+        --install-modules="linux normal iso9660 biosdisk memdisk search tar ls" \
+        --modules="linux normal iso9660 biosdisk search" \
+        --locales="" \
+        --fonts="" \
+        "boot/grub/grub.cfg=${ISO_DIR}/boot/grub/grub.cfg"
+    
+    # Combine with GRUB boot sector
+    cat /usr/lib/grub/i386-pc/cdboot.img "${ISO_DIR}/boot/grub/core.img" > "${ISO_DIR}/boot/grub/bios.img"
+    
+    # Create GRUB EFI image
+    grub-mkstandalone \
+        --format=x86_64-efi \
+        --output="${ISO_DIR}/EFI/boot/bootx64.efi" \
+        --locales="" \
+        --fonts="" \
+        "boot/grub/grub.cfg=${ISO_DIR}/EFI/boot/grub.cfg"
+    
+    # Create FAT EFI boot image
+    log "INFO" "Creating EFI boot image..."
+    dd if=/dev/zero of="${ISO_DIR}/boot/grub/efi.img" bs=1M count=10
+    mkfs.vfat "${ISO_DIR}/boot/grub/efi.img"
+    
+    # Mount and populate EFI image
+    local EFI_MOUNT="${WORK_DIR}/efi_mount"
+    mkdir -p "${EFI_MOUNT}"
+    mount -o loop "${ISO_DIR}/boot/grub/efi.img" "${EFI_MOUNT}"
+    
+    mkdir -p "${EFI_MOUNT}/EFI/boot"
+    cp "${ISO_DIR}/EFI/boot/bootx64.efi" "${EFI_MOUNT}/EFI/boot/"
+    cp "${ISO_DIR}/EFI/boot/grub.cfg" "${EFI_MOUNT}/EFI/boot/"
+    
+    umount "${EFI_MOUNT}"
+    rmdir "${EFI_MOUNT}"
     
     # Create ISO
     log "INFO" "Generating ISO file..."
@@ -298,17 +353,24 @@ EOF
     
     local ISO_FILE="${OUTPUT_DIR}/${DISTRO_NAME}-${DISTRO_VERSION}-amd64.iso"
     
+    # Create hybrid BIOS/UEFI bootable ISO
     xorriso -as mkisofs \
         -iso-level 3 \
         -full-iso9660-filenames \
         -volid "${DISTRO_NAME}-${DISTRO_VERSION}" \
-        -eltorito-boot boot/grub/grub.cfg \
+        -output "${ISO_FILE}" \
+        -eltorito-boot boot/grub/bios.img \
         -no-emul-boot \
         -boot-load-size 4 \
         -boot-info-table \
-        -isohybrid-mbr /usr/lib/ISOLINUX/isohdpfx.bin \
-        -eltorito-catalog boot/boot.cat \
-        -output "${ISO_FILE}" \
+        --eltorito-catalog boot/boot.cat \
+        --grub2-boot-info \
+        --grub2-mbr /usr/lib/grub/i386-pc/boot_hybrid.img \
+        -eltorito-alt-boot \
+        -e boot/grub/efi.img \
+        -no-emul-boot \
+        -append_partition 2 0xef "${ISO_DIR}/boot/grub/efi.img" \
+        -partition_offset 16 \
         "${ISO_DIR}"
     
     # Generate checksum

@@ -44,7 +44,8 @@ DEPS=(
     "debootstrap"
     "mksquashfs"
     "xorriso"
-    "grub-mkrescue"
+    "grub-mkstandalone"
+    "mkfs.vfat"
 )
 
 for dep in "${DEPS[@]}"; do
@@ -57,7 +58,7 @@ if [ ${#MISSING[@]} -gt 0 ]; then
     echo "❌ Missing dependencies: ${MISSING[*]}"
     echo ""
     echo "Install with:"
-    echo "  sudo apt-get install -y debootstrap squashfs-tools xorriso grub-pc-bin grub-efi-amd64-bin mtools"
+    echo "  sudo apt-get install -y debootstrap squashfs-tools xorriso grub-pc-bin grub-efi-amd64-bin mtools dosfstools"
     echo ""
     exit 1
 fi
