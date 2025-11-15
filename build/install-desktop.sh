@@ -33,6 +33,28 @@ chroot_exec() {
     chroot "${CHROOT_DIR}" /bin/bash -c "$*"
 }
 
+# Install Linux kernel
+install_kernel() {
+    log "INFO" "=========================================="
+    log "INFO" "Installing Linux Kernel"
+    log "INFO" "=========================================="
+    
+    # Install kernel and required packages
+    log "INFO" "Installing kernel packages..."
+    chroot_exec "DEBIAN_FRONTEND=noninteractive apt-get install -y \
+        linux-image-amd64 \
+        linux-headers-amd64 \
+        initramfs-tools \
+        grub-pc \
+        grub-efi-amd64"
+    
+    # Update initramfs
+    log "INFO" "Updating initramfs..."
+    chroot_exec "update-initramfs -u -k all" || true
+    
+    log "INFO" "✓ Kernel installed"
+}
+
 # Install GNOME desktop
 install_gnome() {
     log "INFO" "=========================================="
@@ -271,6 +293,7 @@ main() {
     log "INFO" "Target: ${CHROOT_DIR}"
     log "INFO" "=========================================="
     
+    install_kernel
     install_gnome
     configure_wayland
     configure_gnome_settings
