@@ -109,21 +109,25 @@ echo "=========================================="
 echo ""
 
 # Show output
-if [ -f ../output/nubiferos-1.0-amd64.iso ]; then
-    ISO_SIZE=$(du -h ../output/nubiferos-1.0-amd64.iso | cut -f1)
-    echo "ISO created: output/nubiferos-1.0-amd64.iso (${ISO_SIZE})"
-    echo "Checksum: output/nubiferos-1.0-amd64.iso.sha256"
+ISO_FILE=$(ls ../output/*.iso 2>/dev/null | head -1)
+if [ -f "$ISO_FILE" ]; then
+    ISO_SIZE=$(du -h "$ISO_FILE" | cut -f1)
+    ISO_NAME=$(basename "$ISO_FILE")
+    echo "ISO created: output/$ISO_NAME (${ISO_SIZE})"
+    echo "Checksum: output/$ISO_NAME.sha256"
     echo ""
     echo "Test in VirtualBox:"
     echo "  1. Create new VM (Linux/Debian 64-bit)"
     echo "  2. Allocate 4GB RAM, 20GB disk"
-    echo "  3. Mount ISO: output/nubiferos-1.0-amd64.iso"
+    echo "  3. Mount ISO: output/$ISO_NAME"
     echo "  4. Boot and test!"
     echo ""
     echo "Or test with QEMU:"
-    echo "  qemu-system-x86_64 -cdrom output/nubiferos-1.0-amd64.iso -m 4096 -enable-kvm"
+    echo "  qemu-system-x86_64 -cdrom output/$ISO_NAME -m 4096 -enable-kvm"
     echo ""
 else
     echo "❌ ISO file not found. Check build logs for errors."
+    echo "Looking for ISO in: ../output/"
+    ls -la ../output/ || echo "output/ directory not found"
     exit 1
 fi
