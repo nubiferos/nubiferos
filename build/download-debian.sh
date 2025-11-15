@@ -18,15 +18,24 @@ NON_INTERACTIVE=${NON_INTERACTIVE:-false}
 log "INFO" "Starting Debian base ISO download"
 
 # Debian download configuration
-# Using 'current' symlink which always points to latest stable release
+# Using explicit version from config.sh
 DEBIAN_ARCH="amd64"
-DEBIAN_MIRROR="https://cdimage.debian.org/debian-cd/current/${DEBIAN_ARCH}/iso-cd"
+DEBIAN_VERSION="${BASE_VERSION:-12}"
+DEBIAN_CODENAME="${BASE_CODENAME:-bookworm}"
+
+# Try multiple mirror paths in order of preference
+# 1. Archive path for specific Debian 12 releases
+# 2. Current stable symlink
+DEBIAN_MIRROR_PATHS=(
+    "https://cdimage.debian.org/cdimage/archive/${DEBIAN_VERSION}.8.0/${DEBIAN_ARCH}/iso-cd"
+    "https://cdimage.debian.org/cdimage/archive/${DEBIAN_VERSION}.7.0/${DEBIAN_ARCH}/iso-cd"
+    "https://cdimage.debian.org/cdimage/release/${DEBIAN_VERSION}.8.0/${DEBIAN_ARCH}/iso-cd"
+    "https://cdimage.debian.org/cdimage/release/current/${DEBIAN_ARCH}/iso-cd"
+)
 
 # We'll discover the actual ISO name from the directory listing
-# This makes the script resilient to version changes
+# This makes the script resilient to minor version changes
 DEBIAN_ISO_PATTERN="debian-*-${DEBIAN_ARCH}-netinst.iso"
-DEBIAN_CHECKSUM_URL="${DEBIAN_MIRROR}/SHA256SUMS"
-DEBIAN_CHECKSUM_SIGN_URL="${DEBIAN_MIRROR}/SHA256SUMS.sign"
 
 # Download directory
 DOWNLOAD_DIR="${PROJECT_ROOT}/downloads"
@@ -138,11 +147,46 @@ main() {
     log "INFO" "=========================================="
     log "INFO" "Debian Base ISO Download"
     log "INFO" "=========================================="
+    log "INFO" "Target: Debian ${DEBIAN_VERSION} (${DEBIAN_CODENAME})"
     log "INFO" "Architecture: ${DEBIAN_ARCH}"
     log "INFO" "=========================================="
     
+    # Try each mirror path until we find one that works
+    local mirror_found=false
+    local DEBIAN_MIRROR=""
+    
+    for mirror_path in "${DEBIAN_MIRROR_PATHS[@]}"; do
+        log "INFO" "Trying mirror: ${mirror_path}"
+        
+        local test_url="${mirror_path}/SHA256SUMS"
+        if wget --spider -q "${test_url}" 2>/dev/null || curl -s -f -I "${test_url}" >/dev/null 2>&1; then
+            DEBIAN_MIRROR="${mirror_path}"
+            mirror_found=true
+            log "INFO" "✓ Found working mirror: ${DEBIAN_MIRROR}"
+            break
+        else
+            log "WARN" "✗ Mirror not available: ${mirror_path}"
+        fi
+    done
+    
+    if [ "${mirror_found}" = false ]; then
+        log "ERROR" "Could not find a working Debian mirror"
+        log "ERROR" "Tried the following paths:"
+        for mirror_path in "${DEBIAN_MIRROR_PATHS[@]}"; do
+            log "ERROR" "  - ${mirror_path}"
+        done
+        log "ERROR" ""
+        log "ERROR" "You can manually download Debian 12 netinst ISO from:"
+        log "ERROR" "  https://www.debian.org/CD/netinst/"
+        log "ERROR" "And place it in: ${DOWNLOAD_DIR}/"
+        exit 1
+    fi
+    
+    DEBIAN_CHECKSUM_URL="${DEBIAN_MIRROR}/SHA256SUMS"
+    DEBIAN_CHECKSUM_SIGN_URL="${DEBIAN_MIRROR}/SHA256SUMS.sign"
+    
     # Download checksums first to discover the actual ISO filename
-    log "INFO" "Downloading checksums to discover current Debian version..."
+    log "INFO" "Downloading checksums to discover exact Debian version..."
     download_file "${DEBIAN_CHECKSUM_URL}" "${CHECKSUM_PATH}" "SHA256 checksums"
     
     # Extract the actual ISO filename from checksums
@@ -153,11 +197,11 @@ main() {
         exit 1
     fi
     
-    DEBIAN_VERSION=$(echo "${DEBIAN_ISO_NAME}" | grep -oP "[0-9.]+")
+    DETECTED_VERSION=$(echo "${DEBIAN_ISO_NAME}" | grep -oP "[0-9.]+")
     ISO_PATH="${DOWNLOAD_DIR}/${DEBIAN_ISO_NAME}"
     DEBIAN_ISO_URL="${DEBIAN_MIRROR}/${DEBIAN_ISO_NAME}"
     
-    log "INFO" "Detected version: ${DEBIAN_VERSION}"
+    log "INFO" "Detected version: ${DETECTED_VERSION}"
     log "INFO" "ISO filename: ${DEBIAN_ISO_NAME}"
     log "INFO" "=========================================="
     
