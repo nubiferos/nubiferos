@@ -200,6 +200,9 @@ jobs:
       if: success()
       run: |
         if [ -d output ] && [ -f output/*.iso ]; then
+          # Fix permissions on output directory
+          sudo chown -R $USER:$USER output/
+          
           cd output
           sha256sum *.iso > SHA256SUMS
           md5sum *.iso > MD5SUMS
