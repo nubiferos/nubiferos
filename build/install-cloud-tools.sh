@@ -518,13 +518,14 @@ install_monitoring_tools() {
     log "INFO" "Installing Monitoring & Observability Tools"
     log "INFO" "=========================================="
     
-    # Grafana CLI
-    log "INFO" "Installing Grafana CLI..."
-    chroot_exec "wget -q -O /usr/share/keyrings/grafana.key https://apt.grafana.com/gpg.key && \
-        echo 'deb [signed-by=/usr/share/keyrings/grafana.key] https://apt.grafana.com stable main' | tee /etc/apt/sources.list.d/grafana.list && \
-        apt-get update && \
-        apt-get install -y grafana"
-    log "INFO" "  ✓ Grafana installed"
+    # Grafana - Moved to post-install option (saves 697MB)
+    # log "INFO" "Installing Grafana CLI..."
+    # chroot_exec "wget -q -O /usr/share/keyrings/grafana.key https://apt.grafana.com/gpg.key && \
+    #     echo 'deb [signed-by=/usr/share/keyrings/grafana.key] https://apt.grafana.com stable main' | tee /etc/apt/sources.list.d/grafana.list && \
+    #     apt-get update && \
+    #     apt-get install -y grafana"
+    # log "INFO" "  ✓ Grafana installed"
+    log "INFO" "  ⊘ Grafana skipped (available via post-install)"
     
     # Prometheus CLI tools
     log "INFO" "Installing Prometheus tools..."
@@ -843,15 +844,16 @@ install_ides() {
     
     log "INFO" "Skipping IDE installation (will be available via nubifer-install)"
     
-    # Uncomment below to include IDEs in ISO (increases size by ~3-4GB)
-    # install_vscode
-    # install_vscodium
-    # install_intellij_ce || true
-    # install_pycharm_ce || true
-    # install_vim_neovim || true
-    # install_emacs || true
-    install_kate || true
-    install_eclipse || true
+    # IDEs - Only lightweight editors in ISO to reduce size
+    # Heavy IDEs moved to post-install (saves ~4.2GB)
+    # install_vscode           # Available via post-install
+    # install_vscodium         # Available via post-install
+    # install_intellij_ce      # Moved to post-install (saves 2.4GB)
+    # install_pycharm_ce       # Moved to post-install (saves 1.8GB)
+    # install_eclipse          # Moved to post-install (saves 382MB)
+    # install_vim_neovim       # Available via post-install
+    # install_emacs            # Available via post-install
+    install_kate || true       # Lightweight text editor (~50MB)
     
     # Fix any broken packages
     chroot_exec "apt-get install -f -y" || true

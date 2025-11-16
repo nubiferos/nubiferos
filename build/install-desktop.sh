@@ -279,19 +279,54 @@ EOF
     log "INFO" "✓ Default applications set"
 }
 
-# Install fonts
+# Install fonts (minimal set - language-specific fonts added during setup)
 install_fonts() {
     log "INFO" "=========================================="
-    log "INFO" "Installing Fonts"
+    log "INFO" "Installing Essential Fonts Only"
     log "INFO" "=========================================="
     
+    # Install only essential fonts (saves ~600MB)
+    # Language-specific fonts will be installed during first-run setup
     chroot_exec "DEBIAN_FRONTEND=noninteractive apt-get install -y \
-        fonts-dejavu \
-        fonts-liberation \
-        fonts-noto \
+        fonts-dejavu-core \
+        fonts-liberation2 \
+        fonts-noto-core \
         fonts-noto-color-emoji"
     
-    log "INFO" "✓ Fonts installed"
+    log "INFO" "✓ Essential fonts installed"
+    log "INFO" "  (Language-specific fonts available via setup wizard)"
+}
+
+# Cleanup unnecessary locales (keep only English - saves ~400MB)
+cleanup_locales() {
+    log "INFO" "=========================================="
+    log "INFO" "Cleaning Up Unnecessary Locales"
+    log "INFO" "=========================================="
+    
+    log "INFO" "Keeping only English locales (saves ~400MB)"
+    log "INFO" "  (Other languages available via setup wizard)"
+    
+    # Install localepurge to remove unnecessary locales
+    chroot_exec "DEBIAN_FRONTEND=noninteractive apt-get install -y localepurge"
+    
+    # Configure localepurge to keep only English
+    cat > "${CHROOT_DIR}/etc/locale.nopurge" << 'EOF'
+# Keep only English locales
+en
+en_US
+en_US.UTF-8
+MANDELETE
+DONTBOTHERNEWLOCALE
+SHOWFREEDSPACE
+EOF
+    
+    # Run localepurge
+    chroot_exec "localepurge"
+    
+    # Remove locale files manually for additional space savings
+    chroot_exec "find /usr/share/locale -mindepth 1 -maxdepth 1 ! -name 'en*' -exec rm -rf {} +"
+    
+    log "INFO" "✓ Unnecessary locales removed"
 }
 
 # Create live user for testing (REMOVE BEFORE ALPHA!)
@@ -353,6 +388,7 @@ main() {
     create_wallpapers
     set_default_applications
     install_fonts
+    cleanup_locales
     create_live_user
     
     log "INFO" "=========================================="
