@@ -285,8 +285,38 @@ create_bootable_iso() {
     
     # Copy kernel and initrd
     log "INFO" "Copying kernel and initrd..."
-    cp "${CHROOT_DIR}/boot/vmlinuz-"* "${ISO_DIR}/boot/vmlinuz"
-    cp "${CHROOT_DIR}/boot/initrd.img-"* "${ISO_DIR}/boot/initrd.img"
+    
+    # Find kernel and initrd files
+    KERNEL_FILE=$(ls "${CHROOT_DIR}/boot/vmlinuz-"* 2>/dev/null | head -1)
+    INITRD_FILE=$(ls "${CHROOT_DIR}/boot/initrd.img-"* 2>/dev/null | head -1)
+    
+    if [ -z "${KERNEL_FILE}" ]; then
+        log "ERROR" "Kernel not found in ${CHROOT_DIR}/boot/"
+        log "ERROR" "Available files:"
+        ls -la "${CHROOT_DIR}/boot/" || true
+        exit 1
+    fi
+    
+    if [ -z "${INITRD_FILE}" ]; then
+        log "ERROR" "Initrd not found in ${CHROOT_DIR}/boot/"
+        log "ERROR" "Available files:"
+        ls -la "${CHROOT_DIR}/boot/" || true
+        exit 1
+    fi
+    
+    log "INFO" "Found kernel: $(basename ${KERNEL_FILE})"
+    log "INFO" "Found initrd: $(basename ${INITRD_FILE})"
+    
+    cp "${KERNEL_FILE}" "${ISO_DIR}/boot/vmlinuz"
+    cp "${INITRD_FILE}" "${ISO_DIR}/boot/initrd.img"
+    
+    # Verify files were copied
+    if [ ! -f "${ISO_DIR}/boot/vmlinuz" ] || [ ! -f "${ISO_DIR}/boot/initrd.img" ]; then
+        log "ERROR" "Failed to copy kernel or initrd to ISO"
+        exit 1
+    fi
+    
+    log "INFO" "✓ Kernel and initrd copied successfully"
     
     # Create GRUB configuration for BIOS
     cat > "${ISO_DIR}/boot/grub/grub.cfg" << EOF
@@ -312,6 +342,13 @@ EOF
     mkdir -p "${ISO_DIR}/EFI/boot"
     cp "${ISO_DIR}/boot/grub/grub.cfg" "${ISO_DIR}/EFI/boot/grub.cfg"
     
+    # Create embedded GRUB config that searches for the ISO
+    cat > "${ISO_DIR}/boot/grub/embedded.cfg" << 'EOF'
+search --no-floppy --set=root --file /boot/grub/grub.cfg
+set prefix=($root)/boot/grub
+configfile /boot/grub/grub.cfg
+EOF
+    
     # Create GRUB standalone image for BIOS boot
     log "INFO" "Creating GRUB boot images..."
     grub-mkstandalone \
@@ -321,10 +358,17 @@ EOF
         --modules="linux normal iso9660 biosdisk search" \
         --locales="" \
         --fonts="" \
-        "boot/grub/grub.cfg=${ISO_DIR}/boot/grub/grub.cfg"
+        "boot/grub/embedded.cfg=${ISO_DIR}/boot/grub/embedded.cfg"
     
     # Combine with GRUB boot sector
     cat /usr/lib/grub/i386-pc/cdboot.img "${ISO_DIR}/boot/grub/core.img" > "${ISO_DIR}/boot/grub/bios.img"
+    
+    # Create embedded GRUB config for EFI
+    cat > "${ISO_DIR}/EFI/boot/embedded.cfg" << 'EOF'
+search --no-floppy --set=root --file /boot/grub/grub.cfg
+set prefix=($root)/boot/grub
+configfile /boot/grub/grub.cfg
+EOF
     
     # Create GRUB EFI image
     grub-mkstandalone \
@@ -332,7 +376,7 @@ EOF
         --output="${ISO_DIR}/EFI/boot/bootx64.efi" \
         --locales="" \
         --fonts="" \
-        "boot/grub/grub.cfg=${ISO_DIR}/EFI/boot/grub.cfg"
+        "boot/grub/embedded.cfg=${ISO_DIR}/EFI/boot/embedded.cfg"
     
     # Create FAT EFI boot image
     log "INFO" "Creating EFI boot image..."
