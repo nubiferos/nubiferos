@@ -151,6 +151,21 @@ main() {
     
     ISO_PATH="${DOWNLOAD_DIR}/${DEBIAN_ISO_NAME}"
     
+    # Clean up old/wrong Debian ISOs
+    log "INFO" "Checking for old Debian ISOs..."
+    for old_iso in "${DOWNLOAD_DIR}"/debian-*.iso; do
+        if [ -f "${old_iso}" ] && [ "${old_iso}" != "${ISO_PATH}" ]; then
+            log "INFO" "Removing old ISO: $(basename ${old_iso})"
+            rm -f "${old_iso}"
+        fi
+    done
+    
+    # Remove old checksums to force fresh download
+    if [ -f "${CHECKSUM_PATH}" ]; then
+        log "INFO" "Removing old checksums"
+        rm -f "${CHECKSUM_PATH}" "${CHECKSUM_SIGN_PATH}"
+    fi
+    
     # Download checksums
     log "INFO" "Downloading checksums..."
     download_file "${DEBIAN_CHECKSUM_URL}" "${CHECKSUM_PATH}" "SHA256 checksums"
