@@ -294,6 +294,49 @@ install_fonts() {
     log "INFO" "✓ Fonts installed"
 }
 
+# Create live user for testing (REMOVE BEFORE ALPHA!)
+create_live_user() {
+    log "INFO" "=========================================="
+    log "INFO" "Creating Live User (TESTING ONLY)"
+    log "INFO" "=========================================="
+    
+    log "WARN" "⚠️  Creating live user - REMOVE BEFORE PRODUCTION!"
+    
+    # Create live user
+    chroot_exec "useradd -m -s /bin/bash -c 'Live User' live"
+    chroot_exec "echo 'live:live' | chpasswd"
+    
+    # Add to sudo group
+    chroot_exec "usermod -aG sudo live"
+    
+    # Configure auto-login for GDM
+    mkdir -p "${CHROOT_DIR}/etc/gdm3"
+    cat > "${CHROOT_DIR}/etc/gdm3/custom.conf" << 'EOF'
+# GDM configuration storage
+
+[daemon]
+# Enable Wayland
+WaylandEnable=true
+
+# Auto-login for live user (TESTING ONLY - REMOVE BEFORE PRODUCTION)
+AutomaticLoginEnable=true
+AutomaticLogin=live
+
+[security]
+
+[xdmcp]
+
+[chooser]
+
+[debug]
+EOF
+    
+    log "INFO" "✓ Live user created"
+    log "INFO" "  Username: live"
+    log "INFO" "  Password: live"
+    log "WARN" "⚠️  AUTO-LOGIN ENABLED - TESTING ONLY!"
+}
+
 # Main execution
 main() {
     log "INFO" "=========================================="
@@ -310,6 +353,7 @@ main() {
     create_wallpapers
     set_default_applications
     install_fonts
+    create_live_user
     
     log "INFO" "=========================================="
     log "INFO" "GNOME desktop installation complete!"

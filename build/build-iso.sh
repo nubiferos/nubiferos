@@ -346,7 +346,7 @@ EOF
     cat > "${ISO_DIR}/boot/grub/embedded.cfg" << 'EOF'
 search --no-floppy --set=root --file /boot/grub/grub.cfg
 set prefix=($root)/boot/grub
-configfile /boot/grub/grub.cfg
+configfile ($root)/boot/grub/grub.cfg
 EOF
     
     # Create GRUB standalone image for BIOS boot
@@ -367,7 +367,7 @@ EOF
     cat > "${ISO_DIR}/EFI/boot/embedded.cfg" << 'EOF'
 search --no-floppy --set=root --file /boot/grub/grub.cfg
 set prefix=($root)/boot/grub
-configfile /boot/grub/grub.cfg
+configfile ($root)/boot/grub/grub.cfg
 EOF
     
     # Create GRUB EFI image
