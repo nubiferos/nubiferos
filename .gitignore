@@ -22,3 +22,6 @@ logs/
 **/terraform.tfstate
 **/terraform.tfstate.backup
 **/.terraform.tfstate.lock.info
+
+# Large files
+components/workspace-manager/awscliv2.zip
