@@ -201,10 +201,18 @@ resource "aws_iam_role_policy" "codepipeline_policy" {
       {
         Effect = "Allow"
         Action = [
+          "s3:GetBucketLocation",
+          "s3:GetBucketVersioning",
+          "s3:ListBucket",
           "s3:GetObject",
-          "s3:PutObject"
+          "s3:GetObjectVersion",
+          "s3:PutObject",
+          "s3:PutObjectAcl"
         ]
-        Resource = "${aws_s3_bucket.iso_bucket.arn}/*"
+        Resource = [
+          aws_s3_bucket.iso_bucket.arn,
+          "${aws_s3_bucket.iso_bucket.arn}/*"
+        ]
       },
       {
         Effect = "Allow"

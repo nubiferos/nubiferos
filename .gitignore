@@ -25,3 +25,7 @@ logs/
 
 # Large files
 components/workspace-manager/awscliv2.zip
+
+# BFG Repo Cleaner
+bfg-*.jar
+bfg-report/
