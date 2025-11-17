@@ -1,0 +1,85 @@
+version: 0.2
+
+# CodeBuild buildspec for importing ISO to AMI
+# Stage 1 of NubiferOS testing pipeline
+
+phases:
+  pre_build:
+    commands:
+      - echo "Starting ISO import process..."
+      - echo "ISO Bucket: $ISO_BUCKET"
+      - export ISO_KEY=$(basename $CODEBUILD_SOURCE_VERSION)
+      - echo "ISO Key: $ISO_KEY"
+      
+  build:
+    commands:
+      - echo "Creating VM Import task..."
+      - |
+        IMPORT_TASK_ID=$(aws ec2 import-image \
+          --description "NubiferOS Test Build $(date +%Y%m%d-%H%M%S)" \
+          --disk-containers "Format=raw,UserBucket={S3Bucket=$ISO_BUCKET,S3Key=$ISO_KEY}" \
+          --platform Linux \
+          --architecture x86_64 \
+          --query 'ImportTaskId' \
+          --output text)
+      
+      - echo "Import Task ID: $IMPORT_TASK_ID"
+      - echo $IMPORT_TASK_ID > import-task-id.txt
+      
+      - echo "Waiting for import to complete (this takes 30-60 minutes)..."
+      - |
+        while true; do
+          STATUS=$(aws ec2 describe-import-image-tasks \
+            --import-task-ids $IMPORT_TASK_ID \
+            --query 'ImportImageTasks[0].Status' \
+            --output text)
+          
+          echo "Status: $STATUS"
+          
+          if [ "$STATUS" = "completed" ]; then
+            echo "Import completed successfully!"
+            break
+          elif [ "$STATUS" = "deleted" ] || [ "$STATUS" = "cancelled" ]; then
+            echo "Import failed with status: $STATUS"
+            exit 1
+          fi
+          
+          sleep 60
+        done
+      
+      - echo "Retrieving AMI ID..."
+      - |
+        AMI_ID=$(aws ec2 describe-import-image-tasks \
+          --import-task-ids $IMPORT_TASK_ID \
+          --query 'ImportImageTasks[0].ImageId' \
+          --output text)
+      
+      - echo "AMI ID: $AMI_ID"
+      - echo $AMI_ID > ami-id.txt
+      
+      - echo "Tagging AMI..."
+      - |
+        aws ec2 create-tags \
+          --resources $AMI_ID \
+          --tags \
+            Key=Name,Value=NubiferOS-Test \
+            Key=Purpose,Value=Testing \
+            Key=BuildDate,Value=$(date +%Y%m%d)
+      
+      - echo "Storing AMI ID in SSM Parameter Store..."
+      - |
+        aws ssm put-parameter \
+          --name "/nubiferos/latest-ami-id" \
+          --value "$AMI_ID" \
+          --type String \
+          --overwrite
+      
+      - echo "✅ ISO import complete!"
+
+artifacts:
+  files:
+    - ami-id.txt
+    - import-task-id.txt
+
+cache:
+  paths: []

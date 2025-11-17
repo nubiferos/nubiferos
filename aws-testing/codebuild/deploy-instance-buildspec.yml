@@ -1,0 +1,95 @@
+version: 0.2
+
+# CodeBuild buildspec for deploying test EC2 instance
+# Stage 2 of NubiferOS testing pipeline
+
+phases:
+  pre_build:
+    commands:
+      - echo "Retrieving AMI ID from SSM..."
+      - |
+        AMI_ID=$(aws ssm get-parameter \
+          --name "/nubiferos/latest-ami-id" \
+          --query 'Parameter.Value' \
+          --output text)
+      - echo "AMI ID: $AMI_ID"
+      
+  build:
+    commands:
+      - echo "Creating user data script..."
+      - cat > user-data.sh << 'EOF'
+        #!/bin/bash
+        # Install NICE DCV on NubiferOS test instance
+        
+        set -e
+        
+        echo "Installing NICE DCV..."
+        
+        # Download NICE DCV
+        wget https://d1uj6qtbmh3dt5.cloudfront.net/nice-dcv-ubuntu2204-x86_64.tgz
+        tar -xvzf nice-dcv-ubuntu*.tgz
+        cd nice-dcv-*-x86_64
+        
+        # Install NICE DCV server
+        apt-get install -y ./nice-dcv-server_*.deb
+        apt-get install -y ./nice-dcv-web-viewer_*.deb
+        
+        # Configure NICE DCV
+        systemctl enable dcvserver
+        systemctl start dcvserver
+        
+        # Create DCV session for live user
+        dcv create-session --type=console --owner live live-session
+        
+        echo "✅ NICE DCV installed and configured"
+        echo "Connect to: https://$(curl -s http://169.254.169.254/latest/meta-data/public-ipv4):8443"
+        EOF
+      
+      - echo "Launching EC2 instance..."
+      - |
+        INSTANCE_ID=$(aws ec2 run-instances \
+          --image-id $AMI_ID \
+          --instance-type $INSTANCE_TYPE \
+          --security-group-ids $SECURITY_GROUP_ID \
+          --user-data file://user-data.sh \
+          --tag-specifications \
+            'ResourceType=instance,Tags=[{Key=Name,Value=nubiferos-test},{Key=Purpose,Value=nubiferos-test},{Key=AutoTerminate,Value=true}]' \
+          --query 'Instances[0].InstanceId' \
+          --output text)
+      
+      - echo "Instance ID: $INSTANCE_ID"
+      - echo $INSTANCE_ID > instance-id.txt
+      
+      - echo "Waiting for instance to be running..."
+      - aws ec2 wait instance-running --instance-ids $INSTANCE_ID
+      
+      - echo "Getting public IP..."
+      - |
+        PUBLIC_IP=$(aws ec2 describe-instances \
+          --instance-ids $INSTANCE_ID \
+          --query 'Reservations[0].Instances[0].PublicIpAddress' \
+          --output text)
+      
+      - echo "Public IP: $PUBLIC_IP"
+      - echo $PUBLIC_IP > instance-ip.txt
+      
+      - echo "Waiting for NICE DCV to be ready (5 minutes)..."
+      - sleep 300
+      
+      - echo "=========================================="
+      - echo "✅ Test instance deployed!"
+      - echo "=========================================="
+      - echo "Connect to: https://$PUBLIC_IP:8443"
+      - echo "Username: live"
+      - echo "Password: live"
+      - echo "=========================================="
+      - echo "Instance will auto-terminate in 4 hours"
+      - echo "=========================================="
+
+artifacts:
+  files:
+    - instance-id.txt
+    - instance-ip.txt
+
+cache:
+  paths: []
