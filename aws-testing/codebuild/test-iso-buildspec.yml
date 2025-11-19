@@ -94,8 +94,8 @@ phases:
       - echo "Test Summary"
       - echo "=========================================="
       - echo ""
-      - echo "ISO: $ISO_KEY"
       - |
+        echo "ISO: $ISO_KEY"
         echo "Size: $(du -h $ISO_LOCAL_PATH | cut -f1)"
       - echo ""
       
