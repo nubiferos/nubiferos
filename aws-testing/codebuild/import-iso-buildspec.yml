@@ -33,13 +33,13 @@ phases:
             --query 'ImportImageTasks[0].Status' \
             --output text)
           
-          echo "Status: $STATUS"
+          echo "Status $STATUS"
           
           if [ "$STATUS" = "completed" ]; then
             echo "Import completed successfully!"
             break
           elif [ "$STATUS" = "deleted" ] || [ "$STATUS" = "cancelled" ]; then
-            echo "Import failed with status: $STATUS"
+            echo "Import failed with status $STATUS"
             exit 1
           fi
           
@@ -53,7 +53,7 @@ phases:
           --query 'ImportImageTasks[0].ImageId' \
           --output text)
       
-      - echo "AMI ID: $AMI_ID"
+      - echo "AMI ID $AMI_ID"
       - echo $AMI_ID > ami-id.txt
       
       - echo "Tagging AMI..."
