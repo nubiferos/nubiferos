@@ -122,9 +122,16 @@ phases:
         if grep -q "Welcome\|login\|GRUB\|boot" qemu-output.log; then
           echo "✅ ISO boot test PASSED - Boot messages detected"
         else
-          echo "⚠️  ISO boot test - No clear boot messages, check logs"
-          echo "First 50 lines of output:"
-          head -50 qemu-output.log
+          echo "⚠️  ISO boot test - No clear boot messages detected"
+          echo ""
+          echo "=== Full QEMU Output ==="
+          cat qemu-output.log
+          echo "=== End QEMU Output ==="
+          echo ""
+          echo "This might mean:"
+          echo "  - ISO doesn't boot (check ISO build)"
+          echo "  - Boot is too slow (increase timeout)"
+          echo "  - Boot messages go to different output"
         fi
         
         # Cleanup
