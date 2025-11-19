@@ -10,7 +10,6 @@ phases:
       - echo "ISO Bucket: $ISO_BUCKET"
       - export ISO_KEY="nubiferos-latest.iso"
       - echo "ISO Key: $ISO_KEY"
-      
   build:
     commands:
       - echo "Creating VM Import task..."
