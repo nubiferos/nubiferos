@@ -8,7 +8,7 @@ phases:
     commands:
       - echo "Starting ISO import process..."
       - echo "ISO Bucket: $ISO_BUCKET"
-      - export ISO_KEY=$(basename $CODEBUILD_SOURCE_VERSION)
+      - export ISO_KEY="nubiferos-latest.iso"
       - echo "ISO Key: $ISO_KEY"
       
   build:
