@@ -276,6 +276,7 @@ backend: apt
 
 operations:
   - install:
+    # Base utilities
     - vim
     - curl
     - wget
@@ -283,6 +284,20 @@ operations:
     - htop
     - tmux
     - net-tools
+    - jq
+    - unzip
+    - ca-certificates
+    # Base development dependencies (always installed for cloud tools)
+    - python3
+    - python3-pip
+    - python3-venv
+    - python3-dev
+    - nodejs
+    - npm
+    - build-essential
+    - gcc
+    - g++
+    - make
   - remove:
     - calamares
     - calamares-settings-debian

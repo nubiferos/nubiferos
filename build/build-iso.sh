@@ -127,8 +127,11 @@ build_iso() {
     "${SCRIPT_DIR}/extract-debian.sh"
     
     # Step 3: Install cloud tools
-    log "INFO" "Step 3/7: Installing cloud tools..."
-    "${SCRIPT_DIR}/install-cloud-tools.sh"
+    # DISABLED: Cloud tools now installed via Calamares package selection
+    # This reduces ISO size from 4-5GB to 2-3GB
+    # log "INFO" "Step 3/7: Installing cloud tools..."
+    # "${SCRIPT_DIR}/install-cloud-tools.sh"
+    log "INFO" "Step 3/7: Skipping cloud tools (will be installed via Calamares)"
     
     # Step 4: Install desktop environment
     log "INFO" "Step 4/7: Installing GNOME desktop..."
@@ -139,15 +142,15 @@ build_iso() {
     "${SCRIPT_DIR}/apply-security-hardening.sh"
     
     # Step 6: Install Calamares installer
-    log "INFO" "Step 6/8: Installing Calamares installer..."
+    log "INFO" "Step 6/7: Installing Calamares installer..."
     "${SCRIPT_DIR}/install-calamares.sh"
     
     # Step 7: Install NubiferOS components
-    log "INFO" "Step 7/8: Installing NubiferOS components..."
+    log "INFO" "Step 7/7: Installing NubiferOS components..."
     install_nubifer_components
     
     # Step 8: Create bootable ISO
-    log "INFO" "Step 8/8: Creating bootable ISO..."
+    log "INFO" "Creating bootable ISO..."
     create_bootable_iso
     
     local end_time=$(date +%s)

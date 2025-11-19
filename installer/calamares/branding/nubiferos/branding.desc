@@ -1,0 +1,28 @@
+---
+componentName:  nubiferos
+
+strings:
+    productName:         "NubiferOS"
+    shortProductName:    "NubiferOS"
+    version:             "1.0"
+    shortVersion:        "1.0"
+    versionedName:       "NubiferOS 1.0"
+    shortVersionedName:  "NubiferOS 1.0"
+    bootloaderEntryName: "NubiferOS"
+    productUrl:          "https://nubiferos.io"
+    supportUrl:          "https://github.com/nubiferos/nubiferos"
+    knownIssuesUrl:      "https://github.com/nubiferos/nubiferos/issues"
+    releaseNotesUrl:     "https://github.com/nubiferos/nubiferos/releases"
+
+images:
+    productLogo:         "logo.png"
+    productIcon:         "logo.png"
+    productWelcome:      "welcome.png"
+
+slideshow:              "show.qml"
+
+style:
+   sidebarBackground:    "#2c3e50"
+   sidebarText:          "#ffffff"
+   sidebarTextSelect:    "#3498db"
+   sidebarTextHighlight: "#3498db"

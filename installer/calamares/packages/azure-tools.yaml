@@ -1,0 +1,52 @@
+# Microsoft Azure Tools
+
+provider:
+  id: azure
+  name: "Microsoft Azure"
+  description: "Microsoft Azure cloud platform tools"
+  
+tools:
+  - id: azure-cli
+    name: "Azure CLI"
+    description: "Official Azure command line interface"
+    size_mb: 250
+    install_script: |
+      curl -sL https://aka.ms/InstallAzureCLIDeb | bash
+    verify_command: "az --version"
+    dependencies:
+      - python3
+      - curl-wget
+    bookmarks:
+      - name: "Azure Portal"
+        url: "https://portal.azure.com"
+      - name: "Azure Documentation"
+        url: "https://docs.microsoft.com/azure"
+      - name: "Azure CLI Reference"
+        url: "https://docs.microsoft.com/cli/azure/"
+    
+  - id: azure-functions
+    name: "Azure Functions Core Tools"
+    description: "Azure Functions development tools"
+    size_mb: 100
+    install_script: |
+      cd /tmp
+      curl -sL https://aka.ms/func-core-tools-linux-x64 -o azure-functions.tar.gz
+      mkdir -p /opt/azure-functions
+      tar -xzf azure-functions.tar.gz -C /opt/azure-functions
+      ln -sf /opt/azure-functions/func /usr/local/bin/func
+      rm azure-functions.tar.gz
+    verify_command: "func --version"
+    dependencies:
+      - curl-wget
+    
+  - id: bicep
+    name: "Azure Bicep"
+    description: "Azure infrastructure as code language"
+    size_mb: 50
+    install_script: |
+      curl -Lo bicep https://github.com/Azure/bicep/releases/latest/download/bicep-linux-x64
+      chmod +x bicep
+      mv bicep /usr/local/bin/bicep
+    verify_command: "bicep --version"
+    dependencies:
+      - curl-wget
