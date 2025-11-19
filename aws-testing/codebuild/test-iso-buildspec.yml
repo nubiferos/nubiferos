@@ -29,13 +29,15 @@ phases:
   build:
     commands:
       - echo "Downloading ISO from S3..."
-      - echo "Bucket: s3://$ISO_BUCKET/$ISO_KEY"
-      - aws s3 cp s3://$ISO_BUCKET/$ISO_KEY $ISO_LOCAL_PATH
+      - |
+        echo "Bucket: s3://$ISO_BUCKET/$ISO_KEY"
+        aws s3 cp s3://$ISO_BUCKET/$ISO_KEY $ISO_LOCAL_PATH
       
       - echo "ISO downloaded successfully"
       - ls -lh $ISO_LOCAL_PATH
-      - ISO_SIZE=$(du -h $ISO_LOCAL_PATH | cut -f1)
-      - echo "ISO Size: $ISO_SIZE"
+      - |
+        ISO_SIZE=$(du -h $ISO_LOCAL_PATH | cut -f1)
+        echo "ISO Size: $ISO_SIZE"
       
       - echo ""
       - echo "=========================================="
@@ -93,7 +95,8 @@ phases:
       - echo "=========================================="
       - echo ""
       - echo "ISO: $ISO_KEY"
-      - echo "Size: $(du -h $ISO_LOCAL_PATH | cut -f1)"
+      - |
+        echo "Size: $(du -h $ISO_LOCAL_PATH | cut -f1)"
       - echo ""
       
       # Check if pytest passed

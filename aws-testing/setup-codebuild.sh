@@ -1,10 +1,22 @@
 #!/bin/bash
 # Setup CodeBuild project for ISO testing
+#
+# NOTE: This script does NOT create S3 buckets.
+# The S3 bucket must already exist before running this script.
+# It only creates:
+#   - IAM role for CodeBuild
+#   - CodeBuild project
+#   - Environment variables
 
 set -e
 
 PROJECT_NAME="nubiferos-test-iso"
-AWS_REGION="${AWS_REGION:-us-east-1}"
+
+# Get region from environment, AWS CLI config, or default to us-east-1
+if [ -z "$AWS_REGION" ]; then
+    AWS_REGION=$(aws configure get region 2>/dev/null || echo "us-east-1")
+fi
+
 ISO_BUCKET="${ISO_BUCKET:-nubiferos-iso}"
 
 echo "=========================================="
@@ -35,18 +47,12 @@ echo "✅ AWS Account: $ACCOUNT_ID"
 echo ""
 
 # Check if project exists
-if aws codebuild batch-get-projects --names $PROJECT_NAME &> /dev/null; then
-    echo "⚠️  CodeBuild project '$PROJECT_NAME' already exists"
-    read -p "Delete and recreate? [y/N] " -n 1 -r
+PROJECT_EXISTS=false
+if aws codebuild batch-get-projects --names $PROJECT_NAME --region $AWS_REGION &> /dev/null; then
+    PROJECT_EXISTS=true
+    echo "✅ CodeBuild project already exists: $PROJECT_NAME"
+    echo "Skipping project creation, will use existing project."
     echo ""
-    if [[ $REPLY =~ ^[Yy]$ ]]; then
-        echo "Deleting existing project..."
-        aws codebuild delete-project --name $PROJECT_NAME
-        echo "✅ Deleted"
-    else
-        echo "Exiting..."
-        exit 0
-    fi
 fi
 
 # Create IAM role if it doesn't exist
@@ -117,24 +123,66 @@ else
     echo "✅ IAM role exists: $ROLE_NAME"
 fi
 
-# Create CodeBuild project
-echo ""
-echo "Creating CodeBuild project..."
+# Create or update CodeBuild project
+if [ "$PROJECT_EXISTS" = false ]; then
+    echo ""
+    echo "Creating CodeBuild project..."
 
-aws codebuild create-project \
+    aws codebuild create-project \
+        --name $PROJECT_NAME \
+        --description "Test NubiferOS ISO with QEMU" \
+        --source type=GITHUB,location=https://github.com/nubiferos/nubiferos.git,buildspec=aws-testing/codebuild/test-iso-buildspec.yml \
+        --artifacts type=NO_ARTIFACTS \
+        --environment type=LINUX_CONTAINER,image=aws/codebuild/standard:7.0,computeType=BUILD_GENERAL1_LARGE,privilegedMode=false \
+        --service-role $ROLE_ARN \
+        --timeout-in-minutes 15 \
+        --region $AWS_REGION
+
+    echo "✅ CodeBuild project created"
+    echo ""
+fi
+
+# Update project configuration (always do this in case it changed)
+echo "Updating project configuration..."
+
+# Update buildspec to use the new test-iso-buildspec.yml
+aws codebuild update-project \
     --name $PROJECT_NAME \
-    --description "Test NubiferOS ISO with QEMU" \
     --source type=GITHUB,location=https://github.com/nubiferos/nubiferos.git,buildspec=aws-testing/codebuild/test-iso-buildspec.yml \
-    --artifacts type=NO_ARTIFACTS \
-    --environment type=LINUX_CONTAINER,image=aws/codebuild/standard:7.0,computeType=BUILD_GENERAL1_LARGE,privilegedMode=false \
-    --service-role $ROLE_ARN \
-    --timeout-in-minutes 15 \
-    --region $AWS_REGION \
-    --environment-variables-override \
-        name=ISO_BUCKET,value=$ISO_BUCKET,type=PLAINTEXT \
-        name=ISO_KEY,value=1.0/NubiferOS-1.0-amd64.iso,type=PLAINTEXT
+    --region $AWS_REGION
 
-echo "✅ CodeBuild project created"
+echo "✅ Buildspec updated to test-iso-buildspec.yml"
+
+# Update environment variables
+echo "Setting environment variables..."
+
+# Create environment JSON file
+cat > /tmp/environment.json <<EOF
+{
+  "type": "LINUX_CONTAINER",
+  "image": "aws/codebuild/standard:7.0",
+  "computeType": "BUILD_GENERAL1_LARGE",
+  "environmentVariables": [
+    {
+      "name": "ISO_BUCKET",
+      "value": "$ISO_BUCKET",
+      "type": "PLAINTEXT"
+    },
+    {
+      "name": "ISO_KEY",
+      "value": "1.0/NubiferOS-1.0-amd64.iso",
+      "type": "PLAINTEXT"
+    }
+  ]
+}
+EOF
+
+aws codebuild update-project \
+    --name $PROJECT_NAME \
+    --environment file:///tmp/environment.json \
+    --region $AWS_REGION
+
+echo "✅ Environment variables set"
 echo ""
 
 # Test the project

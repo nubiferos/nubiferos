@@ -1,9 +1,30 @@
 # Setup CodeBuild project for ISO testing (PowerShell)
+#
+# NOTE: This script does NOT create S3 buckets.
+# The S3 bucket must already exist before running this script.
+# It only creates:
+#   - IAM role for CodeBuild
+#   - CodeBuild project
+#   - Environment variables
 
 $ErrorActionPreference = "Stop"
 
 $PROJECT_NAME = "nubiferos-test-iso"
-$AWS_REGION = if ($env:AWS_REGION) { $env:AWS_REGION } else { "us-east-1" }
+
+# Get region from environment, AWS CLI config, or default to us-east-1
+if ($env:AWS_REGION) {
+    $AWS_REGION = $env:AWS_REGION
+} else {
+    try {
+        $AWS_REGION = aws configure get region 2>$null
+        if ([string]::IsNullOrWhiteSpace($AWS_REGION)) {
+            $AWS_REGION = "us-east-1"
+        }
+    } catch {
+        $AWS_REGION = "us-east-1"
+    }
+}
+
 $ISO_BUCKET = if ($env:ISO_BUCKET) { $env:ISO_BUCKET } else { "nubiferos-iso" }
 
 Write-Host "==========================================" -ForegroundColor Cyan
@@ -47,16 +68,9 @@ try {
 }
 
 if ($projectExists) {
-    Write-Host "⚠️  CodeBuild project '$PROJECT_NAME' already exists" -ForegroundColor Yellow
-    $response = Read-Host "Delete and recreate? [y/N]"
-    if ($response -eq 'y' -or $response -eq 'Y') {
-        Write-Host "Deleting existing project..."
-        aws codebuild delete-project --name $PROJECT_NAME
-        Write-Host "✅ Deleted" -ForegroundColor Green
-    } else {
-        Write-Host "Exiting..."
-        exit 0
-    }
+    Write-Host "✅ CodeBuild project already exists: $PROJECT_NAME" -ForegroundColor Green
+    Write-Host "Skipping project creation, will use existing project."
+    Write-Host ""
 }
 
 # Create IAM role if it doesn't exist
@@ -139,28 +153,65 @@ if (-not $roleExists) {
     Write-Host "✅ IAM role exists: $ROLE_NAME" -ForegroundColor Green
 }
 
-# Create CodeBuild project
-Write-Host ""
-Write-Host "Creating CodeBuild project..."
+# Create or update CodeBuild project
+if (-not $projectExists) {
+    Write-Host ""
+    Write-Host "Creating CodeBuild project..."
 
-aws codebuild create-project `
-    --name $PROJECT_NAME `
-    --description "Test NubiferOS ISO with QEMU" `
-    --source "type=GITHUB,location=https://github.com/nubiferos/nubiferos.git,buildspec=aws-testing/codebuild/test-iso-buildspec.yml" `
-    --artifacts "type=NO_ARTIFACTS" `
-    --environment "type=LINUX_CONTAINER,image=aws/codebuild/standard:7.0,computeType=BUILD_GENERAL1_LARGE,privilegedMode=false" `
-    --service-role $ROLE_ARN `
-    --timeout-in-minutes 15 `
-    --region $AWS_REGION
+    aws codebuild create-project `
+        --name $PROJECT_NAME `
+        --description "Test NubiferOS ISO with QEMU" `
+        --source "type=GITHUB,location=https://github.com/nubiferos/nubiferos.git,buildspec=aws-testing/codebuild/test-iso-buildspec.yml" `
+        --artifacts "type=NO_ARTIFACTS" `
+        --environment "type=LINUX_CONTAINER,image=aws/codebuild/standard:7.0,computeType=BUILD_GENERAL1_LARGE,privilegedMode=false" `
+        --service-role $ROLE_ARN `
+        --timeout-in-minutes 15 `
+        --region $AWS_REGION
 
-Write-Host "✅ CodeBuild project created" -ForegroundColor Green
-Write-Host ""
+    Write-Host "✅ CodeBuild project created" -ForegroundColor Green
+    Write-Host ""
+}
 
-# Set environment variables
-Write-Host "Setting environment variables..."
+# Update project configuration (always do this in case it changed)
+Write-Host "Updating project configuration..."
+
+# Update buildspec to use the new test-iso-buildspec.yml
 aws codebuild update-project `
     --name $PROJECT_NAME `
-    --environment "type=LINUX_CONTAINER,image=aws/codebuild/standard:7.0,computeType=BUILD_GENERAL1_LARGE,environmentVariables=[{name=ISO_BUCKET,value=$ISO_BUCKET,type=PLAINTEXT},{name=ISO_KEY,value=1.0/NubiferOS-1.0-amd64.iso,type=PLAINTEXT}]" `
+    --source "type=GITHUB,location=https://github.com/nubiferos/nubiferos.git,buildspec=aws-testing/codebuild/test-iso-buildspec.yml" `
+    --region $AWS_REGION
+
+Write-Host "✅ Buildspec updated to test-iso-buildspec.yml" -ForegroundColor Green
+
+# Update environment variables
+Write-Host "Setting environment variables..."
+
+# Create environment JSON file
+$envVars = @"
+{
+  "type": "LINUX_CONTAINER",
+  "image": "aws/codebuild/standard:7.0",
+  "computeType": "BUILD_GENERAL1_LARGE",
+  "environmentVariables": [
+    {
+      "name": "ISO_BUCKET",
+      "value": "$ISO_BUCKET",
+      "type": "PLAINTEXT"
+    },
+    {
+      "name": "ISO_KEY",
+      "value": "1.0/NubiferOS-1.0-amd64.iso",
+      "type": "PLAINTEXT"
+    }
+  ]
+}
+"@
+
+$envVars | Out-File -FilePath "$env:TEMP\environment.json" -Encoding utf8
+
+aws codebuild update-project `
+    --name $PROJECT_NAME `
+    --environment "file://$env:TEMP\environment.json" `
     --region $AWS_REGION
 
 Write-Host "✅ Environment variables set" -ForegroundColor Green
