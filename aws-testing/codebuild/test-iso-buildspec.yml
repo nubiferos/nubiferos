@@ -55,6 +55,30 @@ phases:
       - |
         ISO_SIZE=$(du -h $ISO_LOCAL_PATH | cut -f1)
         echo "ISO Size: $ISO_SIZE"
+        
+        # Verify ISO is not empty
+        ISO_SIZE_BYTES=$(stat -c%s "$ISO_LOCAL_PATH")
+        if [ "$ISO_SIZE_BYTES" -lt 1000000 ]; then
+          echo "❌ ERROR: ISO file is too small ($ISO_SIZE_BYTES bytes)"
+          echo "The ISO might be corrupted or incomplete"
+          exit 1
+        fi
+        echo "✅ ISO size looks reasonable: $ISO_SIZE ($ISO_SIZE_BYTES bytes)"
+        
+        # Verify checksum
+        echo "Verifying ISO integrity..."
+        S3_ETAG=$(aws s3api head-object --bucket $ISO_BUCKET --key $ISO_KEY --query ETag --output text | tr -d '"')
+        LOCAL_MD5=$(md5sum $ISO_LOCAL_PATH | cut -d' ' -f1)
+        
+        echo "S3 ETag: $S3_ETAG"
+        echo "Local MD5: $LOCAL_MD5"
+        
+        if [ "$S3_ETAG" = "$LOCAL_MD5" ]; then
+          echo "✅ Checksum verified - ISO downloaded correctly"
+        else
+          echo "⚠️  Checksum mismatch - this might be a multipart upload (ETag won't match MD5)"
+          echo "Proceeding anyway, but ISO might be corrupted if download failed"
+        fi
       
       - echo ""
       - echo "=========================================="
@@ -63,9 +87,11 @@ phases:
       - echo ""
       
       # Run pytest tests
-      - cd testing
-      - ISO_PATH=../$ISO_LOCAL_PATH pytest test-iso-pytest.py -v --tb=short
-      - cd ..
+      - |
+        cd testing
+        export ISO_PATH="$CODEBUILD_SRC_DIR/$ISO_LOCAL_PATH"
+        pytest test-iso-pytest.py -v --tb=short
+        cd ..
       
       - echo ""
       - echo "=========================================="
