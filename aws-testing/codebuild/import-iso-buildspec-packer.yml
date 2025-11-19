@@ -1,0 +1,84 @@
+version: 0.2
+
+# CodeBuild buildspec for creating NubiferOS AMI using Packer
+# This replaces the broken ISO import approach
+
+env:
+  variables:
+    PACKER_VERSION: "1.9.4"
+
+phases:
+  pre_build:
+    commands:
+      - echo "Installing Packer..."
+      - wget -q https://releases.hashicorp.com/packer/${PACKER_VERSION}/packer_${PACKER_VERSION}_linux_amd64.zip
+      - unzip -q packer_${PACKER_VERSION}_linux_amd64.zip
+      - sudo mv packer /usr/local/bin/
+      - packer version
+      
+      - echo "Validating Packer template..."
+      - cd aws-testing/packer
+      - packer init nubiferos-simple.pkr.hcl
+      - packer validate nubiferos-simple.pkr.hcl
+      
+  build:
+    commands:
+      - echo "Building NubiferOS AMI with Packer..."
+      - echo "This will take approximately 15-25 minutes..."
+      
+      # Build AMI
+      - |
+        packer build \
+          -var "aws_region=${AWS_REGION}" \
+          -var "instance_type=t3.large" \
+          nubiferos-simple.pkr.hcl
+      
+      - echo "Packer build complete!"
+      
+  post_build:
+    commands:
+      - echo "Retrieving AMI ID..."
+      - |
+        AMI_ID=$(aws ec2 describe-images \
+          --owners self \
+          --filters "Name=name,Values=nubiferos-*" \
+          --query 'Images | sort_by(@, &CreationDate) | [-1].ImageId' \
+          --output text)
+      
+      - echo "AMI ID $AMI_ID"
+      - echo $AMI_ID > ../../ami-id.txt
+      
+      - echo "Storing AMI ID in SSM Parameter Store..."
+      - |
+        aws ssm put-parameter \
+          --name "/nubiferos/latest-ami-id" \
+          --value "$AMI_ID" \
+          --type String \
+          --overwrite
+      
+      - echo "Tagging AMI with additional metadata..."
+      - |
+        aws ec2 create-tags \
+          --resources $AMI_ID \
+          --tags \
+            Key=Pipeline,Value=CodeBuild \
+            Key=BuildId,Value=$CODEBUILD_BUILD_ID \
+            Key=SourceCommit,Value=$CODEBUILD_RESOLVED_SOURCE_VERSION
+      
+      - echo "✅ AMI creation complete!"
+      - echo "AMI ID $AMI_ID"
+
+artifacts:
+  files:
+    - ami-id.txt
+  name: nubiferos-ami-artifacts
+
+cache:
+  paths:
+    - /root/.packer.d/**/*
+
+reports:
+  packer-build:
+    files:
+      - 'packer-manifest.json'
+    file-format: 'JSON'

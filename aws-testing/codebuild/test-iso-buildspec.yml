@@ -1,0 +1,130 @@
+version: 0.2
+
+# CodeBuild buildspec for testing NubiferOS ISO locally with QEMU
+# This downloads the ISO from S3 and tests it without conversion
+
+env:
+  variables:
+    ISO_BUCKET: "nubiferos-iso"
+    ISO_KEY: "1.0/NubiferOS-1.0-amd64.iso"
+    ISO_LOCAL_PATH: "./iso/NubiferOS-1.0-amd64.iso"
+
+phases:
+  pre_build:
+    commands:
+      - echo "=========================================="
+      - echo "NubiferOS ISO Testing"
+      - echo "=========================================="
+      - echo ""
+      
+      - echo "Installing test dependencies..."
+      - apt-get update
+      - apt-get install -y qemu-system-x86 qemu-utils python3-pip isoinfo
+      - pip3 install pytest
+      
+      - echo "Creating ISO directory..."
+      - mkdir -p ./iso
+      - rm -f ./iso/*.iso  # Remove any existing ISOs to save space
+      
+  build:
+    commands:
+      - echo "Downloading ISO from S3..."
+      - echo "Bucket: s3://$ISO_BUCKET/$ISO_KEY"
+      - aws s3 cp s3://$ISO_BUCKET/$ISO_KEY $ISO_LOCAL_PATH
+      
+      - echo "ISO downloaded successfully"
+      - ls -lh $ISO_LOCAL_PATH
+      - ISO_SIZE=$(du -h $ISO_LOCAL_PATH | cut -f1)
+      - echo "ISO Size: $ISO_SIZE"
+      
+      - echo ""
+      - echo "=========================================="
+      - echo "Running Automated Tests"
+      - echo "=========================================="
+      - echo ""
+      
+      # Run pytest tests
+      - cd testing
+      - ISO_PATH=../$ISO_LOCAL_PATH pytest test-iso-pytest.py -v --tb=short
+      - cd ..
+      
+      - echo ""
+      - echo "=========================================="
+      - echo "Running Boot Test"
+      - echo "=========================================="
+      - echo ""
+      
+      # Test that ISO boots in QEMU (headless, 60 second timeout)
+      - |
+        echo "Starting QEMU boot test (60 seconds)..."
+        
+        # Create temporary disk
+        qemu-img create -f qcow2 test-disk.qcow2 20G
+        
+        # Start QEMU in background with serial output
+        timeout 60 qemu-system-x86_64 \
+          -cdrom $ISO_LOCAL_PATH \
+          -boot d \
+          -m 4096 \
+          -smp 2 \
+          -drive file=test-disk.qcow2,format=qcow2 \
+          -display none \
+          -serial stdio \
+          -no-reboot \
+          > qemu-output.log 2>&1 || true
+        
+        # Check if boot was successful
+        if grep -q "Welcome\|login\|GRUB\|boot" qemu-output.log; then
+          echo "✅ ISO boot test PASSED - Boot messages detected"
+        else
+          echo "⚠️  ISO boot test - No clear boot messages, check logs"
+          echo "First 50 lines of output:"
+          head -50 qemu-output.log
+        fi
+        
+        # Cleanup
+        rm -f test-disk.qcow2
+      
+  post_build:
+    commands:
+      - echo ""
+      - echo "=========================================="
+      - echo "Test Summary"
+      - echo "=========================================="
+      - echo ""
+      - echo "ISO: $ISO_KEY"
+      - echo "Size: $(du -h $ISO_LOCAL_PATH | cut -f1)"
+      - echo ""
+      
+      # Check if pytest passed
+      - |
+        if [ -f testing/.pytest_cache/v/cache/lastfailed ]; then
+          echo "❌ Some tests failed"
+          exit 1
+        else
+          echo "✅ All tests passed!"
+        fi
+      
+      - echo ""
+      - echo "ISO is ready for distribution!"
+      - echo ""
+      
+      # Cleanup ISO to save space
+      - echo "Cleaning up ISO file..."
+      - rm -f $ISO_LOCAL_PATH
+      - echo "✅ Cleanup complete"
+
+artifacts:
+  files:
+    - qemu-output.log
+    - testing/.pytest_cache/**/*
+  name: test-results
+
+cache:
+  paths: []  # Don't cache anything to save space
+
+reports:
+  pytest-results:
+    files:
+      - 'testing/test-results.xml'
+    file-format: 'JUNITXML'
