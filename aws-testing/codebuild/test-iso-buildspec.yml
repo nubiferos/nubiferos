@@ -19,8 +19,12 @@ phases:
       
       - echo "Installing test dependencies..."
       - apt-get update -qq
+      # genisoimage provides isoinfo command
       - apt-get install -y qemu-system-x86 qemu-utils python3-pip genisoimage
       - pip3 install pytest
+      
+      - echo "Verifying isoinfo is available..."
+      - which isoinfo || echo "Warning: isoinfo not found"
       
       - echo "Creating ISO directory..."
       - mkdir -p ./iso
