@@ -1,0 +1,345 @@
+#!/bin/bash
+# Quick setup script to create minimal Calamares configuration
+# This gets the installer working quickly for testing
+
+set -e
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
+CALAMARES_DIR="${PROJECT_ROOT}/installer/calamares"
+
+echo "=========================================="
+echo "Setting up minimal Calamares configuration"
+echo "=========================================="
+echo ""
+
+# Create directory structure
+echo "Creating directory structure..."
+mkdir -p "${CALAMARES_DIR}/modules"
+mkdir -p "${CALAMARES_DIR}/branding/nubiferos"
+
+# Create branding descriptor
+echo "Creating branding..."
+cat > "${CALAMARES_DIR}/branding/nubiferos/branding.desc" << 'EOF'
+---
+componentName:  nubiferos
+
+strings:
+    productName:         "NubiferOS"
+    shortProductName:    "NubiferOS"
+    version:             "1.0"
+    shortVersion:        "1.0"
+    versionedName:       "NubiferOS 1.0"
+    shortVersionedName:  "NubiferOS 1.0"
+    bootloaderEntryName: "NubiferOS"
+    productUrl:          "https://nubiferos.io"
+    supportUrl:          "https://github.com/nubiferos/nubiferos"
+    knownIssuesUrl:      "https://github.com/nubiferos/nubiferos/issues"
+    releaseNotesUrl:     "https://github.com/nubiferos/nubiferos/releases"
+
+images:
+    productLogo:         "logo.png"
+    productIcon:         "logo.png"
+    productWelcome:      "welcome.png"
+
+slideshow:              "show.qml"
+
+style:
+   sidebarBackground:    "#2c3e50"
+   sidebarText:          "#ffffff"
+   sidebarTextSelect:    "#3498db"
+   sidebarTextHighlight: "#3498db"
+EOF
+
+# Create simple logo (text-based placeholder)
+echo "Creating placeholder logo..."
+cat > "${CALAMARES_DIR}/branding/nubiferos/logo.png.txt" << 'EOF'
+# Placeholder - replace with actual logo.png
+# For now, Calamares will use default
+EOF
+
+# Create welcome image placeholder
+cp "${CALAMARES_DIR}/branding/nubiferos/logo.png.txt" \
+   "${CALAMARES_DIR}/branding/nubiferos/welcome.png.txt"
+
+# Create slideshow
+echo "Creating slideshow..."
+cat > "${CALAMARES_DIR}/branding/nubiferos/show.qml" << 'EOF'
+import QtQuick 2.0
+import calamares.slideshow 1.0
+
+Presentation {
+    id: presentation
+
+    Timer {
+        interval: 5000
+        running: true
+        repeat: true
+        onTriggered: presentation.goToNextSlide()
+    }
+
+    Slide {
+        Rectangle {
+            anchors.fill: parent
+            color: "#2c3e50"
+            
+            Column {
+                anchors.centerIn: parent
+                spacing: 20
+                
+                Text {
+                    text: "Welcome to NubiferOS"
+                    font.pixelSize: 32
+                    font.bold: true
+                    color: "white"
+                    anchors.horizontalCenter: parent.horizontalCenter
+                }
+                
+                Text {
+                    text: "Cloud Development Made Secure"
+                    font.pixelSize: 18
+                    color: "#ecf0f1"
+                    anchors.horizontalCenter: parent.horizontalCenter
+                }
+            }
+        }
+    }
+
+    Slide {
+        Rectangle {
+            anchors.fill: parent
+            color: "#34495e"
+            
+            Column {
+                anchors.centerIn: parent
+                spacing: 20
+                width: parent.width * 0.8
+                
+                Text {
+                    text: "Installing Your System"
+                    font.pixelSize: 28
+                    font.bold: true
+                    color: "white"
+                    anchors.horizontalCenter: parent.horizontalCenter
+                }
+                
+                Text {
+                    text: "• Secure by default with full disk encryption\n• Cloud tools ready to use\n• Workspace isolation with Firejail"
+                    font.pixelSize: 16
+                    color: "#ecf0f1"
+                    anchors.horizontalCenter: parent.horizontalCenter
+                }
+            }
+        }
+    }
+
+    Slide {
+        Rectangle {
+            anchors.fill: parent
+            color: "#2c3e50"
+            
+            Column {
+                anchors.centerIn: parent
+                spacing: 20
+                
+                Text {
+                    text: "Almost Done!"
+                    font.pixelSize: 28
+                    font.bold: true
+                    color: "white"
+                    anchors.horizontalCenter: parent.horizontalCenter
+                }
+                
+                Text {
+                    text: "Your secure cloud development environment\nis being configured..."
+                    font.pixelSize: 16
+                    color: "#ecf0f1"
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    horizontalAlignment: Text.AlignHCenter
+                }
+            }
+        }
+    }
+}
+EOF
+
+# Create module configs
+echo "Creating module configurations..."
+
+# Welcome module
+cat > "${CALAMARES_DIR}/modules/welcome.conf" << 'EOF'
+---
+showSupportUrl:         true
+showKnownIssuesUrl:     true
+showReleaseNotesUrl:    true
+
+requirements:
+    requiredStorage:    10.0
+    requiredRam:        2.0
+    internetCheckUrl:   http://google.com
+    check:
+        - storage
+        - ram
+        - power
+        - internet
+        - root
+    required:
+        - storage
+        - ram
+        - root
+EOF
+
+# Partition module
+cat > "${CALAMARES_DIR}/modules/partition.conf" << 'EOF'
+---
+efiSystemPartition:     "/boot/efi"
+userSwapChoices:
+    - none
+    - small
+    - suspend
+    - file
+
+drawNestedPartitions:   false
+alwaysShowPartitionLabels: true
+allowManualPartitioning:   true
+
+initialPartitioningChoice: erase
+initialSwapChoice: small
+
+defaultFileSystemType:  "ext4"
+
+availableFileSystemTypes:
+    - "ext4"
+    - "btrfs"
+    - "xfs"
+EOF
+
+# Users module  
+cat > "${CALAMARES_DIR}/modules/users.conf" << 'EOF'
+---
+defaultGroups:
+    - name: users
+      must: false
+    - name: lp
+      must: false
+    - name: video
+      must: false
+    - name: network
+      must: false
+    - name: storage
+      must: false
+    - name: wheel
+      must: false
+    - name: audio
+      must: false
+    - name: sudo
+      must: true
+    - name: docker
+      must: false
+
+autologinGroup:  autologin
+
+doAutologin:     false
+
+sudoersGroup:    sudo
+
+setRootPassword: false
+
+doReusePassword: false
+
+passwordRequirements:
+    minLength: 8
+    maxLength: -1
+
+allowWeakPasswords: false
+
+userShell: /bin/bash
+
+hostname:
+    location: EtcFile
+    writeHostsFile: true
+    template: "nubiferos-${cpu}"
+
+presets:
+    fullName:
+        value: ""
+        editable: true
+    loginName:
+        value: ""
+        editable: true
+EOF
+
+# Packages module
+cat > "${CALAMARES_DIR}/modules/packages.conf" << 'EOF'
+---
+backend: apt
+
+operations:
+  - install:
+    - vim
+    - curl
+    - wget
+    - git
+    - htop
+    - tmux
+    - net-tools
+  - remove:
+    - calamares
+    - calamares-settings-debian
+  - try_remove:
+    - live-boot
+    - live-boot-initramfs-tools
+    - live-config
+    - live-config-systemd
+EOF
+
+# Bootloader module
+cat > "${CALAMARES_DIR}/modules/bootloader.conf" << 'EOF'
+---
+efiBootLoader: "grub"
+efiBootloaderId: "nubiferos"
+grubInstall: "grub-install"
+grubMkconfig: "grub-mkconfig"
+grubCfg: "/boot/grub/grub.cfg"
+grubProbe: "grub-probe"
+efiBootMgr: "efibootmgr"
+installEFIFallback: true
+EOF
+
+# Finished module
+cat > "${CALAMARES_DIR}/modules/finished.conf" << 'EOF'
+---
+restartNowEnabled: true
+restartNowChecked: true
+restartNowCommand: "systemctl reboot"
+notifyOnFinished: false
+EOF
+
+# Displaymanager module
+cat > "${CALAMARES_DIR}/modules/displaymanager.conf" << 'EOF'
+---
+displaymanagers:
+  - gdm3
+  - gdm
+  - lightdm
+  - sddm
+
+defaultDesktopEnvironment:
+    executable: "gnome-session"
+    desktopFile: "gnome"
+
+basicSetup: false
+EOF
+
+echo ""
+echo "=========================================="
+echo "✓ Calamares configuration created!"
+echo "=========================================="
+echo ""
+echo "Configuration location: ${CALAMARES_DIR}"
+echo ""
+echo "Next steps:"
+echo "1. Add logo images to: ${CALAMARES_DIR}/branding/nubiferos/"
+echo "2. Customize modules in: ${CALAMARES_DIR}/modules/"
+echo "3. Run the build to test"
+echo ""

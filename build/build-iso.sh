@@ -138,12 +138,16 @@ build_iso() {
     log "INFO" "Step 5/7: Applying security hardening..."
     "${SCRIPT_DIR}/apply-security-hardening.sh"
     
-    # Step 6: Install NubiferOS components
-    log "INFO" "Step 6/7: Installing NubiferOS components..."
+    # Step 6: Install Calamares installer
+    log "INFO" "Step 6/8: Installing Calamares installer..."
+    "${SCRIPT_DIR}/install-calamares.sh"
+    
+    # Step 7: Install NubiferOS components
+    log "INFO" "Step 7/8: Installing NubiferOS components..."
     install_nubifer_components
     
-    # Step 7: Create bootable ISO
-    log "INFO" "Step 7/7: Creating bootable ISO..."
+    # Step 8: Create bootable ISO
+    log "INFO" "Step 8/8: Creating bootable ISO..."
     create_bootable_iso
     
     local end_time=$(date +%s)
