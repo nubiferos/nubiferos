@@ -5,9 +5,9 @@ version: 0.2
 
 env:
   variables:
-    ISO_BUCKET: "nubiferos-iso"
-    ISO_KEY: "1.0/NubiferOS-1.0-amd64.iso"
-    ISO_LOCAL_PATH: "./iso/NubiferOS-1.0-amd64.iso"
+    ISO_BUCKET: "nubiferos-iso-builds"
+    ISO_KEY: "nubiferos-latest.iso"
+    ISO_LOCAL_PATH: "./iso/nubiferos-latest.iso"
 
 phases:
   pre_build:
@@ -28,6 +28,23 @@ phases:
       
   build:
     commands:
+      - echo "Verifying ISO exists in S3..."
+      - |
+        if ! aws s3 ls s3://$ISO_BUCKET/$ISO_KEY > /dev/null 2>&1; then
+          echo "❌ ERROR: ISO not found in S3"
+          echo ""
+          echo "Bucket: $ISO_BUCKET"
+          echo "Key: $ISO_KEY"
+          echo "Full path: s3://$ISO_BUCKET/$ISO_KEY"
+          echo ""
+          echo "Available ISOs in bucket:"
+          aws s3 ls s3://$ISO_BUCKET/ --recursive | grep .iso || echo "No ISOs found"
+          echo ""
+          echo "Please upload the ISO to S3 or update the ISO_BUCKET and ISO_KEY environment variables."
+          exit 1
+        fi
+      
+      - echo "✅ ISO found in S3"
       - echo "Downloading ISO from S3..."
       - |
         echo "Bucket: s3://$ISO_BUCKET/$ISO_KEY"
