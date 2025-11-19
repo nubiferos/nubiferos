@@ -18,8 +18,8 @@ phases:
       - echo ""
       
       - echo "Installing test dependencies..."
-      - apt-get update
-      - apt-get install -y qemu-system-x86 qemu-utils python3-pip isoinfo
+      - apt-get update -qq
+      - apt-get install -y qemu-system-x86 qemu-utils python3-pip genisoimage
       - pip3 install pytest
       
       - echo "Creating ISO directory..."
