@@ -1,0 +1,105 @@
+# Container and Kubernetes Tools
+
+category:
+  id: containers
+  name: "Containers & Kubernetes"
+  description: "Container and orchestration tools"
+  
+tools:
+  - id: docker
+    name: "Docker"
+    description: "Container platform"
+    size_mb: 200
+    packages:
+      - docker.io
+      - docker-compose
+    post_install_script: |
+      systemctl enable docker
+      usermod -aG docker $INSTALL_USER
+    conflicts_with:
+      - podman
+    dependencies:
+      - build-essential
+    bookmarks:
+      - name: "Docker Documentation"
+        url: "https://docs.docker.com"
+      - name: "Docker Hub"
+        url: "https://hub.docker.com"
+    
+  - id: podman
+    name: "Podman"
+    description: "Daemonless container engine"
+    size_mb: 150
+    packages:
+      - podman
+      - podman-compose
+    conflicts_with:
+      - docker
+    bookmarks:
+      - name: "Podman Documentation"
+        url: "https://podman.io"
+    
+  - id: kubectl
+    name: "kubectl"
+    description: "Kubernetes command-line tool"
+    size_mb: 50
+    install_script: |
+      cd /tmp
+      curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+      install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
+      rm kubectl
+    verify_command: "kubectl version --client"
+    dependencies:
+      - curl-wget
+    bookmarks:
+      - name: "Kubernetes Documentation"
+        url: "https://kubernetes.io/docs"
+    
+  - id: helm
+    name: "Helm"
+    description: "Kubernetes package manager"
+    size_mb: 50
+    install_script: |
+      curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+    verify_command: "helm version"
+    dependencies:
+      - curl-wget
+      - kubectl
+    bookmarks:
+      - name: "Helm Documentation"
+        url: "https://helm.sh/docs"
+    
+  - id: minikube
+    name: "Minikube"
+    description: "Local Kubernetes development"
+    size_mb: 100
+    install_script: |
+      cd /tmp
+      curl -LO https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
+      install minikube-linux-amd64 /usr/local/bin/minikube
+      rm minikube-linux-amd64
+    verify_command: "minikube version"
+    dependencies:
+      - kubectl
+      - docker  # or podman
+    bookmarks:
+      - name: "Minikube Documentation"
+        url: "https://minikube.sigs.k8s.io/docs/"
+    
+  - id: argocd
+    name: "ArgoCD CLI"
+    description: "GitOps continuous delivery tool"
+    size_mb: 30
+    install_script: |
+      cd /tmp
+      curl -sSL -o argocd https://github.com/argoproj/argo-cd/releases/latest/download/argocd-linux-amd64
+      install -m 555 argocd /usr/local/bin/argocd
+      rm argocd
+    verify_command: "argocd version --client"
+    dependencies:
+      - kubectl
+    bookmarks:
+      - name: "ArgoCD Documentation"
+        url: "https://argo-cd.readthedocs.io/"
+      - name: "ArgoCD GitHub"
+        url: "https://github.com/argoproj/argo-cd"

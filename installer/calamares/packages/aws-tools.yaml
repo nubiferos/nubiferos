@@ -1,0 +1,93 @@
+# AWS (Amazon Web Services) Tools
+
+provider:
+  id: aws
+  name: "AWS (Amazon Web Services)"
+  description: "Amazon Web Services cloud platform tools"
+  
+tools:
+  - id: aws-cli
+    name: "AWS CLI v2"
+    description: "Official AWS command line interface"
+    size_mb: 150
+    install_script: |
+      cd /tmp
+      curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+      unzip -q awscliv2.zip
+      ./aws/install --update
+      rm -rf aws awscliv2.zip
+    verify_command: "aws --version"
+    dependencies:
+      - python3
+      - curl-wget
+    bookmarks:
+      - name: "AWS Console"
+        url: "https://console.aws.amazon.com"
+      - name: "AWS Documentation"
+        url: "https://docs.aws.amazon.com"
+      - name: "AWS CLI Reference"
+        url: "https://awscli.amazonaws.com/v2/documentation/api/latest/index.html"
+    
+  - id: aws-sam
+    name: "AWS SAM CLI"
+    description: "AWS Serverless Application Model CLI"
+    size_mb: 100
+    packages:
+      - aws-sam-cli
+    pip_packages:
+      - aws-sam-cli
+    dependencies:
+      - python3
+      - aws-cli
+    bookmarks:
+      - name: "AWS SAM Documentation"
+        url: "https://docs.aws.amazon.com/serverless-application-model/"
+    
+  - id: eksctl
+    name: "eksctl"
+    description: "Amazon EKS cluster management tool"
+    size_mb: 50
+    install_script: |
+      cd /tmp
+      curl -sLO "https://github.com/eksctl-io/eksctl/releases/latest/download/eksctl_Linux_amd64.tar.gz"
+      tar -xzf eksctl_Linux_amd64.tar.gz
+      mv eksctl /usr/local/bin/
+      rm eksctl_Linux_amd64.tar.gz
+    verify_command: "eksctl version"
+    dependencies:
+      - curl-wget
+    bookmarks:
+      - name: "eksctl Documentation"
+        url: "https://eksctl.io"
+    
+  - id: aws-copilot
+    name: "AWS Copilot"
+    description: "AWS container deployment tool"
+    size_mb: 50
+    install_script: |
+      cd /tmp
+      curl -Lo copilot https://github.com/aws/copilot-cli/releases/latest/download/copilot-linux
+      chmod +x copilot
+      mv copilot /usr/local/bin/copilot
+    verify_command: "copilot --version"
+    dependencies:
+      - curl-wget
+    
+  - id: aws-eb
+    name: "AWS Elastic Beanstalk CLI"
+    description: "AWS Elastic Beanstalk command line"
+    size_mb: 50
+    pip_packages:
+      - awsebcli
+    dependencies:
+      - python3
+      - aws-cli
+    
+  - id: boto3
+    name: "AWS SDK for Python (boto3)"
+    description: "Python library for AWS"
+    size_mb: 100
+    packages:
+      - python3-boto3
+    dependencies:
+      - python3

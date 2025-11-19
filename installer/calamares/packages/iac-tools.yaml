@@ -1,0 +1,53 @@
+# Infrastructure as Code Tools
+
+category:
+  id: iac
+  name: "Infrastructure as Code"
+  description: "Tools for managing infrastructure as code"
+  
+tools:
+  - id: terraform
+    name: "Terraform"
+    description: "Infrastructure provisioning tool by HashiCorp"
+    size_mb: 50
+    install_script: |
+      cd /tmp
+      TERRAFORM_VERSION=$(curl -s https://checkpoint-api.hashicorp.com/v1/check/terraform | jq -r .current_version)
+      curl -LO "https://releases.hashicorp.com/terraform/${TERRAFORM_VERSION}/terraform_${TERRAFORM_VERSION}_linux_amd64.zip"
+      unzip terraform_${TERRAFORM_VERSION}_linux_amd64.zip
+      mv terraform /usr/local/bin/
+      rm terraform_${TERRAFORM_VERSION}_linux_amd64.zip
+    verify_command: "terraform --version"
+    dependencies:
+      - curl-wget
+    bookmarks:
+      - name: "Terraform Documentation"
+        url: "https://www.terraform.io/docs"
+      - name: "Terraform Registry"
+        url: "https://registry.terraform.io"
+    
+  - id: pulumi
+    name: "Pulumi"
+    description: "Modern infrastructure as code platform"
+    size_mb: 100
+    install_script: |
+      curl -fsSL https://get.pulumi.com | sh
+      mv ~/.pulumi/bin/pulumi /usr/local/bin/
+    verify_command: "pulumi version"
+    dependencies:
+      - curl-wget
+    bookmarks:
+      - name: "Pulumi Documentation"
+        url: "https://www.pulumi.com/docs"
+    
+  - id: ansible
+    name: "Ansible"
+    description: "Configuration management and automation"
+    size_mb: 50
+    packages:
+      - ansible
+    dependencies:
+      - python3
+    bookmarks:
+      - name: "Ansible Documentation"
+        url: "https://docs.ansible.com"

@@ -1,0 +1,44 @@
+# Base dependencies always installed regardless of selections
+# These are required for cloud development tools
+
+dependencies:
+  - id: python3
+    name: "Python 3"
+    description: "Python runtime and package manager"
+    packages:
+      - python3
+      - python3-pip
+      - python3-venv
+      - python3-dev
+    size_mb: 100
+    always_install: true
+    
+  - id: nodejs
+    name: "Node.js"
+    description: "JavaScript runtime for CLI tools"
+    packages:
+      - nodejs
+      - npm
+    size_mb: 50
+    always_install: true
+    
+  - id: build-essential
+    name: "Build Tools"
+    description: "Compilers and build tools"
+    packages:
+      - build-essential
+      - gcc
+      - g++
+      - make
+    size_mb: 200
+    always_install: true
+    
+  - id: curl-wget
+    name: "Download Tools"
+    description: "curl and wget for downloading"
+    packages:
+      - curl
+      - wget
+      - ca-certificates
+    size_mb: 10
+    always_install: true
