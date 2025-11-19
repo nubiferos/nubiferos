@@ -29,3 +29,21 @@ variable "auto_terminate_hours" {
   type        = number
   default     = 4
 }
+
+variable "github_repo" {
+  description = "GitHub repository (owner/repo)"
+  type        = string
+  default     = "jessetop/nubiferOS"
+}
+
+variable "github_branch" {
+  description = "GitHub branch to use"
+  type        = string
+  default     = "trunk"
+}
+
+variable "github_token" {
+  description = "GitHub personal access token for CodePipeline"
+  type        = string
+  sensitive   = true
+}

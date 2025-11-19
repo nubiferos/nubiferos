@@ -251,6 +251,11 @@ resource "aws_codebuild_project" "import_iso" {
     type      = "CODEPIPELINE"
     buildspec = "aws-testing/codebuild/import-iso-buildspec.yml"
   }
+  
+  secondary_sources {
+    source_identifier = "ISOSource"
+    type             = "CODEPIPELINE"
+  }
 }
 
 # CodeBuild Project - Deploy Instance
@@ -332,17 +337,33 @@ resource "aws_codepipeline" "nubiferos_pipeline" {
     name = "Source"
     
     action {
-      name             = "Source"
+      name             = "ISOSource"
       category         = "Source"
       owner            = "AWS"
       provider         = "S3"
       version          = "1"
-      output_artifacts = ["source_output"]
+      output_artifacts = ["iso_output"]
       
       configuration = {
         S3Bucket             = aws_s3_bucket.iso_bucket.bucket
         S3ObjectKey          = "nubiferos-latest.iso"
         PollForSourceChanges = true
+      }
+    }
+    
+    action {
+      name             = "RepoSource"
+      category         = "Source"
+      owner            = "ThirdParty"
+      provider         = "GitHub"
+      version          = "1"
+      output_artifacts = ["repo_output"]
+      
+      configuration = {
+        Owner      = split("/", var.github_repo)[0]
+        Repo       = split("/", var.github_repo)[1]
+        Branch     = var.github_branch
+        OAuthToken = var.github_token
       }
     }
   }
@@ -356,11 +377,12 @@ resource "aws_codepipeline" "nubiferos_pipeline" {
       owner            = "AWS"
       provider         = "CodeBuild"
       version          = "1"
-      input_artifacts  = ["source_output"]
+      input_artifacts  = ["repo_output", "iso_output"]
       output_artifacts = ["import_output"]
       
       configuration = {
-        ProjectName = aws_codebuild_project.import_iso.name
+        ProjectName   = aws_codebuild_project.import_iso.name
+        PrimarySource = "repo_output"
       }
     }
   }
