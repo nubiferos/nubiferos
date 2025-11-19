@@ -25,7 +25,8 @@ if ($env:AWS_REGION) {
     }
 }
 
-$ISO_BUCKET = if ($env:ISO_BUCKET) { $env:ISO_BUCKET } else { "nubiferos-iso" }
+$ISO_BUCKET = if ($env:ISO_BUCKET) { $env:ISO_BUCKET } else { "nubiferos-iso-builds" }
+$ISO_KEY = if ($env:ISO_KEY) { $env:ISO_KEY } else { "nubiferos-latest.iso" }
 
 Write-Host "==========================================" -ForegroundColor Cyan
 Write-Host "CodeBuild Setup for NubiferOS ISO Testing" -ForegroundColor Cyan
@@ -200,7 +201,7 @@ $envVars = @"
     },
     {
       "name": "ISO_KEY",
-      "value": "1.0/NubiferOS-1.0-amd64.iso",
+      "value": "$ISO_KEY",
       "type": "PLAINTEXT"
     }
   ]

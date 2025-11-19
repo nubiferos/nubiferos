@@ -17,7 +17,8 @@ if [ -z "$AWS_REGION" ]; then
     AWS_REGION=$(aws configure get region 2>/dev/null || echo "us-east-1")
 fi
 
-ISO_BUCKET="${ISO_BUCKET:-nubiferos-iso}"
+ISO_BUCKET="${ISO_BUCKET:-nubiferos-iso-builds}"
+ISO_KEY="${ISO_KEY:-nubiferos-latest.iso}"
 
 echo "=========================================="
 echo "CodeBuild Setup for NubiferOS ISO Testing"
@@ -170,7 +171,7 @@ cat > /tmp/environment.json <<EOF
     },
     {
       "name": "ISO_KEY",
-      "value": "1.0/NubiferOS-1.0-amd64.iso",
+      "value": "$ISO_KEY",
       "type": "PLAINTEXT"
     }
   ]
