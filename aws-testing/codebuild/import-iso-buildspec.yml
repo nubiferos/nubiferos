@@ -7,9 +7,9 @@ phases:
   pre_build:
     commands:
       - echo "Starting ISO import process..."
-      - echo "ISO Bucket: $ISO_BUCKET"
+      - echo "ISO Bucket $ISO_BUCKET"
       - export ISO_KEY="nubiferos-latest.iso"
-      - echo "ISO Key: $ISO_KEY"
+      - echo "ISO Key $ISO_KEY"
   build:
     commands:
       - echo "Creating VM Import task..."
@@ -22,7 +22,7 @@ phases:
           --query 'ImportTaskId' \
           --output text)
       
-      - echo "Import Task ID: $IMPORT_TASK_ID"
+      - echo "Import Task ID $IMPORT_TASK_ID"
       - echo $IMPORT_TASK_ID > import-task-id.txt
       
       - echo "Waiting for import to complete (this takes 30-60 minutes)..."
