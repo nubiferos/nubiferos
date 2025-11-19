@@ -42,8 +42,8 @@ variable "github_branch" {
   default     = "trunk"
 }
 
-variable "github_token" {
-  description = "GitHub personal access token for CodePipeline"
+variable "codestar_connection_arn" {
+  description = "ARN of AWS CodeStar Connection to GitHub (create in AWS Console first)"
   type        = string
-  sensitive   = true
+  default     = ""
 }
