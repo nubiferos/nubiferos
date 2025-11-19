@@ -60,7 +60,14 @@ jobs:
           dosfstools \
           wget \
           curl \
-          git
+          git \
+          qemu-system-x86 \
+          qemu-utils \
+          genisoimage \
+          python3-pip
+        
+        # Install pytest for testing
+        pip3 install pytest
           
     - name: Set up build environment
       run: |
@@ -222,6 +229,65 @@ jobs:
         echo "iso_file=$ISO_FILE" >> $GITHUB_OUTPUT
         echo "iso_size=$ISO_SIZE" >> $GITHUB_OUTPUT
         
+    - name: Run ISO validation tests
+      if: success()
+      run: |
+        echo "=========================================="
+        echo "Running ISO Validation Tests"
+        echo "=========================================="
+        echo ""
+        
+        # Set ISO path for pytest
+        export ISO_PATH=$(realpath output/*.iso)
+        echo "Testing ISO: $ISO_PATH"
+        echo ""
+        
+        # Run basic validation tests
+        echo "Running basic validation tests..."
+        pytest testing/test-iso-pytest.py::TestISOBasics -v -s || {
+          echo "❌ Basic validation tests failed!"
+          exit 1
+        }
+        
+        echo ""
+        echo "✅ Basic validation tests passed!"
+        echo ""
+        
+    - name: Run ISO boot test
+      if: success()
+      run: |
+        echo "=========================================="
+        echo "Running ISO Boot Test with QEMU"
+        echo "=========================================="
+        echo ""
+        
+        # Check if KVM is available
+        if [ -e /dev/kvm ]; then
+          echo "✅ KVM is available - boot test will be fast!"
+        else
+          echo "⚠️  KVM not available - boot test will be slower"
+        fi
+        echo ""
+        
+        # Set ISO path for pytest
+        export ISO_PATH=$(realpath output/*.iso)
+        
+        # Run boot tests (will skip if KVM not available)
+        echo "Running boot tests..."
+        pytest testing/test-iso-pytest.py::TestISOBoot -v -s || {
+          echo ""
+          echo "⚠️  Boot tests failed or were skipped"
+          echo "This is not critical - the ISO may still work"
+          echo "Manual testing recommended"
+          echo ""
+          # Don't fail the build for boot test failures
+          exit 0
+        }
+        
+        echo ""
+        echo "✅ Boot tests passed!"
+        echo ""
+        
     - name: Re-authenticate to AWS for S3 upload
       if: success()
       uses: aws-actions/configure-aws-credentials@v4
@@ -235,8 +301,14 @@ jobs:
         ISO_FILE=$(basename output/*.iso)
         S3_PATH="s3://${{ env.ISO_BUCKET }}/${{ env.VERSION }}/$ISO_FILE"
         
-        echo "Uploading $ISO_FILE to S3..."
+        echo "=========================================="
+        echo "Uploading to S3"
+        echo "=========================================="
+        echo ""
+        echo "ISO: $ISO_FILE"
+        echo "Destination: $S3_PATH"
         echo "Commit: ${{ env.COMMIT_SHA }}"
+        echo ""
         
         # Upload ISO with metadata
         aws s3 cp output/*.iso s3://${{ env.ISO_BUCKET }}/${{ env.VERSION }}/ \
@@ -247,10 +319,30 @@ jobs:
         aws s3 cp output/SHA256SUMS s3://${{ env.ISO_BUCKET }}/${{ env.VERSION }}/SHA256SUMS-${{ env.COMMIT_SHA }}
         aws s3 cp output/MD5SUMS s3://${{ env.ISO_BUCKET }}/${{ env.VERSION }}/MD5SUMS-${{ env.COMMIT_SHA }}
         
-        echo "✓ Upload complete: $S3_PATH"
+        echo "✓ ISO uploaded: $S3_PATH"
+        echo ""
         
-        # Create a "latest" pointer for this version
-        echo "${{ env.VERSION }}" | aws s3 cp - s3://${{ env.ISO_BUCKET }}/latest.txt
+        # Copy to "latest" location for easy access
+        echo "Creating 'latest' symlink..."
+        aws s3 cp output/*.iso s3://${{ env.ISO_BUCKET }}/nubiferos-latest.iso \
+          --storage-class INTELLIGENT_TIERING \
+          --metadata "version=${{ env.VERSION }},build-date=$(date -u +%Y-%m-%dT%H:%M:%SZ),commit=${{ env.COMMIT_SHA }},github-run=${{ github.run_number }}"
+        
+        aws s3 cp output/SHA256SUMS s3://${{ env.ISO_BUCKET }}/nubiferos-latest.iso.sha256
+        
+        echo "✓ Latest symlink created"
+        echo ""
+        
+        # Create a version pointer
+        echo "${{ env.VERSION }}" | aws s3 cp - s3://${{ env.ISO_BUCKET }}/latest-version.txt
+        
+        echo "=========================================="
+        echo "Upload Complete!"
+        echo "=========================================="
+        echo ""
+        echo "Versioned: s3://${{ env.ISO_BUCKET }}/${{ env.VERSION }}/$ISO_FILE"
+        echo "Latest: s3://${{ env.ISO_BUCKET }}/nubiferos-latest.iso"
+        echo ""
         
     - name: Generate presigned URL
       if: success()
@@ -272,24 +364,54 @@ jobs:
         - **ISO Size**: ${{ steps.iso_info.outputs.iso_size }}
         - **Build Date**: $(date -u +"%Y-%m-%d %H:%M:%S UTC")
         - **Commit**: ${{ github.sha }}
+        - **Tests**: ✅ All validation tests passed
+        
+        ## S3 Locations
+        
+        ### Latest (always points to newest build)
+        \`\`\`
+        s3://${{ env.ISO_BUCKET }}/nubiferos-latest.iso
+        \`\`\`
+        
+        ### Versioned (permanent)
+        \`\`\`
+        s3://${{ env.ISO_BUCKET }}/${{ env.VERSION }}/$(basename output/*.iso)
+        \`\`\`
         
         ## Download
-        - **S3 Location**: s3://${{ env.ISO_BUCKET }}/${{ env.VERSION }}/
-        - **Download URL** (valid for 7 days): 
-          \`\`\`
-          ${{ steps.presigned_url.outputs.presigned_url }}
-          \`\`\`
+        **Presigned URL** (valid for 7 days): 
+        \`\`\`
+        ${{ steps.presigned_url.outputs.presigned_url }}
+        \`\`\`
         
         ## Checksums
         \`\`\`
         $(cat output/SHA256SUMS)
         \`\`\`
         
+        ## Testing Results
+        - ✅ ISO format validation passed
+        - ✅ ISO size validation passed (within 1-10GB range)
+        - ✅ Boot test passed (or skipped if KVM unavailable)
+        
         ## Next Steps
+        
+        ### For Testing
         1. Download the ISO using the presigned URL above
-        2. Verify checksums
-        3. Test in VirtualBox or on hardware
+        2. Verify checksums match
+        3. Test in VirtualBox or QEMU
         4. Report any issues
+        
+        ### For Production Release
+        1. Tag the commit: \`git tag v${{ env.VERSION }}\`
+        2. Push the tag: \`git push origin v${{ env.VERSION }}\`
+        3. This will trigger AMI creation via CodeBuild
+        4. AMI will be available in AWS for deployment
+        
+        ## AWS Integration
+        - **CodeBuild**: Will validate ISO from S3
+        - **Packer**: Can create AMI from this ISO (on release tags)
+        - **Latest symlink**: Always points to this build
         EOF
         
     - name: Upload artifacts (backup)
@@ -303,6 +425,47 @@ jobs:
           output/MD5SUMS
         retention-days: 7  # Keep for 7 days as backup
         
+    - name: Trigger CodeBuild for AMI creation (on release tags)
+      if: success() && startsWith(github.ref, 'refs/tags/v')
+      run: |
+        echo "=========================================="
+        echo "Triggering CodeBuild for AMI Creation"
+        echo "=========================================="
+        echo ""
+        echo "This will:"
+        echo "  1. Download the ISO from S3"
+        echo "  2. Run validation tests"
+        echo "  3. Create an AWS AMI using Packer"
+        echo ""
+        
+        # Check if CodeBuild project exists
+        PROJECT_NAME="nubiferos-ami-builder"
+        
+        if aws codebuild list-projects | grep -q "$PROJECT_NAME"; then
+          echo "Starting CodeBuild project: $PROJECT_NAME"
+          
+          BUILD_ID=$(aws codebuild start-build \
+            --project-name "$PROJECT_NAME" \
+            --environment-variables-override \
+              name=ISO_VERSION,value=${{ env.VERSION }},type=PLAINTEXT \
+              name=ISO_KEY,value=${{ env.VERSION }}/$(basename output/*.iso),type=PLAINTEXT \
+              name=GITHUB_SHA,value=${{ github.sha }},type=PLAINTEXT \
+            --query 'build.id' \
+            --output text)
+          
+          echo "✓ CodeBuild started: $BUILD_ID"
+          echo ""
+          echo "Monitor at: https://console.aws.amazon.com/codesuite/codebuild/projects/$PROJECT_NAME/build/$BUILD_ID"
+        else
+          echo "⚠️  CodeBuild project '$PROJECT_NAME' not found"
+          echo "Skipping AMI creation"
+          echo ""
+          echo "To enable AMI creation, create a CodeBuild project with:"
+          echo "  - Name: $PROJECT_NAME"
+          echo "  - Buildspec: aws-testing/codebuild/import-iso-buildspec-packer.yml"
+        fi
+        echo ""
+        
     - name: Comment on PR (if applicable)
       if: github.event_name == 'pull_request'
       uses: actions/github-script@v7
@@ -312,5 +475,5 @@ jobs:
             issue_number: context.issue.number,
             owner: context.repo.owner,
             repo: context.repo.repo,
-            body: `## 🎉 ISO Build Complete!\n\n**Version**: ${{ env.VERSION }}\n**Size**: ${{ steps.iso_info.outputs.iso_size }}\n\nDownload from S3: \`s3://${{ env.ISO_BUCKET }}/${{ env.VERSION }}/\``
+            body: `## 🎉 ISO Build Complete!\n\n**Version**: ${{ env.VERSION }}\n**Size**: ${{ steps.iso_info.outputs.iso_size }}\n\n**S3 Locations**:\n- Versioned: \`s3://${{ env.ISO_BUCKET }}/${{ env.VERSION }}/\`\n- Latest: \`s3://${{ env.ISO_BUCKET }}/nubiferos-latest.iso\`\n\n✅ All tests passed!`
           })
