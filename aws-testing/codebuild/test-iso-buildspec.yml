@@ -93,8 +93,18 @@ phases:
       - |
         cd testing
         export ISO_PATH="$CODEBUILD_SRC_DIR/$ISO_LOCAL_PATH"
-        pytest test-iso-pytest.py -v --tb=short
+        echo "Running pytest with verbose output..."
+        echo "ISO_PATH: $ISO_PATH"
+        pytest test-iso-pytest.py -v -s --tb=long --junit-xml=test-results.xml || PYTEST_FAILED=1
         cd ..
+        
+        # Check pytest results
+        if [ "$PYTEST_FAILED" = "1" ]; then
+          echo "❌ Pytest tests failed"
+          exit 1
+        else
+          echo "✅ Pytest tests passed"
+        fi
       
       - echo ""
       - echo "=========================================="
@@ -175,27 +185,49 @@ phases:
       - echo "=========================================="
       - echo ""
       - |
-        echo "ISO: $ISO_KEY"
-        echo "Size: $(du -h $ISO_LOCAL_PATH | cut -f1)"
+        if [ -f "$ISO_LOCAL_PATH" ]; then
+          echo "ISO: $ISO_KEY"
+          echo "Size: $(du -h $ISO_LOCAL_PATH | cut -f1)"
+        else
+          echo "ISO: $ISO_KEY (already cleaned up)"
+        fi
       - echo ""
       
-      # Check if pytest passed
+      # Check test results
       - |
-        if [ -f testing/.pytest_cache/v/cache/lastfailed ]; then
-          echo "❌ Some tests failed"
-          exit 1
+        echo "Checking test results..."
+        
+        # Check if pytest results exist
+        if [ -f testing/test-results.xml ]; then
+          echo "✅ Pytest results found"
+          
+          # Check for failures in XML
+          if grep -q 'failures="0"' testing/test-results.xml && grep -q 'errors="0"' testing/test-results.xml; then
+            echo "✅ All pytest tests passed!"
+          else
+            echo "❌ Some pytest tests failed"
+            echo ""
+            echo "Test results summary:"
+            grep -E 'testsuite|testcase' testing/test-results.xml | head -20
+            exit 1
+          fi
         else
-          echo "✅ All tests passed!"
+          echo "⚠️  No pytest results file found"
+          echo "Tests may not have run properly"
         fi
       
       - echo ""
+      - echo "✅ ISO testing complete!"
       - echo "ISO is ready for distribution!"
       - echo ""
       
       # Cleanup ISO to save space
-      - echo "Cleaning up ISO file..."
-      - rm -f $ISO_LOCAL_PATH
-      - echo "✅ Cleanup complete"
+      - |
+        if [ -f "$ISO_LOCAL_PATH" ]; then
+          echo "Cleaning up ISO file..."
+          rm -f $ISO_LOCAL_PATH
+          echo "✅ Cleanup complete"
+        fi
 
 artifacts:
   files:
