@@ -221,6 +221,13 @@ resource "aws_iam_role_policy" "codepipeline_policy" {
           "codebuild:StartBuild"
         ]
         Resource = "*"
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "codestar-connections:UseConnection"
+        ]
+        Resource = var.codestar_connection_arn
       }
     ]
   })
@@ -250,11 +257,6 @@ resource "aws_codebuild_project" "import_iso" {
   source {
     type      = "CODEPIPELINE"
     buildspec = "aws-testing/codebuild/import-iso-buildspec.yml"
-  }
-  
-  secondary_sources {
-    source_identifier = "ISOSource"
-    type             = "CODEPIPELINE"
   }
 }
 
@@ -354,16 +356,15 @@ resource "aws_codepipeline" "nubiferos_pipeline" {
     action {
       name             = "RepoSource"
       category         = "Source"
-      owner            = "ThirdParty"
-      provider         = "GitHub"
+      owner            = "AWS"
+      provider         = "CodeStarSourceConnection"
       version          = "1"
       output_artifacts = ["repo_output"]
       
       configuration = {
-        Owner      = split("/", var.github_repo)[0]
-        Repo       = split("/", var.github_repo)[1]
-        Branch     = var.github_branch
-        OAuthToken = var.github_token
+        ConnectionArn    = var.codestar_connection_arn
+        FullRepositoryId = var.github_repo
+        BranchName       = var.github_branch
       }
     }
   }
