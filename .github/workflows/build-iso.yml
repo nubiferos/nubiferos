@@ -428,10 +428,9 @@ jobs:
       with:
         name: nubiferos-iso-${{ env.VERSION }}
         path: |
-          output/*.iso
           output/SHA256SUMS
           output/MD5SUMS
-        retention-days: 7  # Keep for 7 days as backup
+        retention-days: 1  # Only keep checksums, ISO is in S3
         
     - name: Trigger CodeBuild for AMI creation (on release tags)
       if: success() && startsWith(github.ref, 'refs/tags/v')
