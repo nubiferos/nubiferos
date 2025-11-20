@@ -31,8 +31,16 @@ class QEMUInstance:
             self.disk_path, f'{self.disk_size_gb}G'
         ], check=True, capture_output=True)
         
-        # Check if KVM is available
-        kvm_available = os.path.exists('/dev/kvm')
+        # Check if KVM is available and accessible
+        kvm_available = False
+        if os.path.exists('/dev/kvm'):
+            try:
+                # Try to open /dev/kvm to check permissions
+                with open('/dev/kvm', 'r'):
+                    kvm_available = True
+            except PermissionError:
+                print(f"[WARN] /dev/kvm exists but no permission - will use TCG")
+        
         print(f"[INFO] KVM available: {kvm_available}")
         
         # Build QEMU command
@@ -48,11 +56,11 @@ class QEMUInstance:
             '-monitor', 'none',
         ]
         
-        # Only add KVM if available
+        # Only add KVM if available and accessible
         if kvm_available:
             qemu_cmd.insert(1, '-enable-kvm')
         else:
-            print(f"[WARN] KVM not available, QEMU will be slow")
+            print(f"[WARN] KVM not available, QEMU will use TCG (slow)")
         
         # Start QEMU in headless mode
         self.process = subprocess.Popen(
@@ -162,9 +170,18 @@ class TestISOBoot:
         print(f"\n[TEST] Testing ISO boot in QEMU (4GB RAM)")
         print(f"[INFO] Starting QEMU VM...")
         
-        # Skip if KVM not available (QEMU too slow without it)
-        if not os.path.exists('/dev/kvm'):
-            pytest.skip("KVM not available - QEMU boot test would be too slow")
+        # Check if KVM is accessible (not just exists)
+        kvm_accessible = False
+        if os.path.exists('/dev/kvm'):
+            try:
+                with open('/dev/kvm', 'r'):
+                    kvm_accessible = True
+            except PermissionError:
+                pass
+        
+        # Skip if KVM not accessible (QEMU too slow without it in CI)
+        if not kvm_accessible:
+            pytest.skip("KVM not accessible - QEMU boot test would be too slow in CI")
         
         with QEMUInstance(iso_path) as vm:
             print(f"[INFO] VM started, waiting 30 seconds for boot...")
@@ -188,9 +205,18 @@ class TestISOBoot:
         """Test that ISO boots with minimum memory (2GB)"""
         print(f"\n[TEST] Testing ISO boot with minimum memory (2GB RAM)")
         
-        # Skip if KVM not available (QEMU too slow without it)
-        if not os.path.exists('/dev/kvm'):
-            pytest.skip("KVM not available - QEMU boot test would be too slow")
+        # Check if KVM is accessible
+        kvm_accessible = False
+        if os.path.exists('/dev/kvm'):
+            try:
+                with open('/dev/kvm', 'r'):
+                    kvm_accessible = True
+            except PermissionError:
+                pass
+        
+        # Skip if KVM not accessible (QEMU too slow without it in CI)
+        if not kvm_accessible:
+            pytest.skip("KVM not accessible - QEMU boot test would be too slow in CI")
         
         print(f"[INFO] Starting QEMU VM with 2GB RAM...")
         with QEMUInstance(iso_path, memory_mb=2048) as vm:
