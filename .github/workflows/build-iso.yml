@@ -261,6 +261,27 @@ jobs:
         echo "✅ Basic validation tests passed!"
         echo ""
         
+    - name: Enable KVM (if possible)
+      if: success()
+      run: |
+        echo "Attempting to enable KVM..."
+        
+        # Check if KVM module exists
+        if lsmod | grep -q kvm; then
+          echo "✅ KVM module loaded"
+        else
+          echo "⚠️  KVM module not loaded"
+        fi
+        
+        # Try to fix permissions on /dev/kvm
+        if [ -e /dev/kvm ]; then
+          echo "✅ /dev/kvm exists"
+          sudo chmod 666 /dev/kvm || echo "⚠️  Could not change /dev/kvm permissions"
+          ls -la /dev/kvm
+        else
+          echo "⚠️  /dev/kvm does not exist - nested virtualization not available"
+        fi
+        
     - name: Run ISO boot test
       if: success()
       run: |
@@ -269,11 +290,11 @@ jobs:
         echo "=========================================="
         echo ""
         
-        # Check if KVM is available
-        if [ -e /dev/kvm ]; then
-          echo "✅ KVM is available - boot test will be fast!"
+        # Check if KVM is accessible
+        if [ -e /dev/kvm ] && [ -r /dev/kvm ]; then
+          echo "✅ KVM is accessible - boot test will be fast!"
         else
-          echo "⚠️  KVM not available - boot test will be slower"
+          echo "⚠️  KVM not accessible - boot tests will be skipped"
         fi
         echo ""
         
