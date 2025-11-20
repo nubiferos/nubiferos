@@ -1,1 +1,1 @@
-/home/topj/Projects/Kiro/CloudLinux/downloads/debian-13.1.0-amd64-netinst.iso
+/mnt/c/Users/jesse/OneDrive/Code/nubiferOS/downloads/debian-12.8.0-amd64-netinst.iso
