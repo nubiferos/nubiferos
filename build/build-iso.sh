@@ -327,19 +327,19 @@ create_bootable_iso() {
     
     # Create GRUB configuration for BIOS
     cat > "${ISO_DIR}/boot/grub/grub.cfg" << EOF
-set timeout=10
+set timeout=3
 set default=0
 
 insmod all_video
 insmod gfxterm
 terminal_output gfxterm
 
-menuentry "${DISTRO_FULLNAME} ${DISTRO_VERSION} - Live" {
+menuentry "${DISTRO_FULLNAME} ${DISTRO_VERSION} - Installer" {
     linux /boot/vmlinuz boot=live components quiet splash
     initrd /boot/initrd.img
 }
 
-menuentry "${DISTRO_FULLNAME} ${DISTRO_VERSION} - Live (Safe Mode)" {
+menuentry "${DISTRO_FULLNAME} ${DISTRO_VERSION} - Installer (Safe Mode)" {
     linux /boot/vmlinuz boot=live components nomodeset
     initrd /boot/initrd.img
 }
@@ -351,7 +351,7 @@ EOF
     
     # Create embedded GRUB config that loads from CD
     cat > "${ISO_DIR}/boot/grub/embedded.cfg" << 'EOF'
-set root=(cd0)
+search --no-floppy --set=root --file /boot/grub/grub.cfg
 set prefix=($root)/boot/grub
 configfile ($root)/boot/grub/grub.cfg
 EOF
