@@ -349,9 +349,9 @@ EOF
     mkdir -p "${ISO_DIR}/EFI/boot"
     cp "${ISO_DIR}/boot/grub/grub.cfg" "${ISO_DIR}/EFI/boot/grub.cfg"
     
-    # Create embedded GRUB config that searches for the ISO
+    # Create embedded GRUB config that loads from CD
     cat > "${ISO_DIR}/boot/grub/embedded.cfg" << 'EOF'
-search --no-floppy --set=root --file /boot/grub/grub.cfg
+set root=(cd0)
 set prefix=($root)/boot/grub
 configfile ($root)/boot/grub/grub.cfg
 EOF
