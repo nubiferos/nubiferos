@@ -443,15 +443,8 @@ jobs:
         - **Latest symlink**: Always points to this build
         EOF
         
-    - name: Upload artifacts (backup)
-      uses: actions/upload-artifact@v4
-      if: always()
-      with:
-        name: nubiferos-iso-${{ env.VERSION }}
-        path: |
-          output/SHA256SUMS
-          output/MD5SUMS
-        retention-days: 1  # Only keep checksums, ISO is in S3
+    # Artifact upload removed - checksums are uploaded to S3 alongside the ISO
+    # No need for GitHub artifact storage since everything is in S3
         
     - name: Trigger CodeBuild for AMI creation (on release tags)
       if: success() && startsWith(github.ref, 'refs/tags/v')
