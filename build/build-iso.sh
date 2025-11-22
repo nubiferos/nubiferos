@@ -350,48 +350,56 @@ EOF
     mkdir -p "${ISO_DIR}/EFI/boot"
     cp "${ISO_DIR}/boot/grub/grub.cfg" "${ISO_DIR}/EFI/boot/grub.cfg"
     
-    # Create embedded GRUB config that tries multiple CD device names
+    # Create embedded GRUB config - try loading config from common device names
+    # This uses error handling instead of conditionals
     cat > "${ISO_DIR}/boot/grub/embedded.cfg" << 'EOF'
-# Try common CD device names
-if [ -e (cd)/boot/grub/grub.cfg ]; then
-    set root=(cd)
-elif [ -e (cd0)/boot/grub/grub.cfg ]; then
-    set root=(cd0)
-elif [ -e (cd1)/boot/grub/grub.cfg ]; then
-    set root=(cd1)
-fi
-
-set prefix=($root)/boot/grub
-configfile ($root)/boot/grub/grub.cfg
+# Try to load grub.cfg from common CD device names
+# GRUB will silently fail and try the next one if a device doesn't exist
+set root=(cd)
+configfile (cd)/boot/grub/grub.cfg
+set root=(cd0)
+configfile (cd0)/boot/grub/grub.cfg
+set root=(cd1)
+configfile (cd1)/boot/grub/grub.cfg
+# If we get here, none worked - drop to rescue shell
+echo "Error: Could not find grub.cfg on any CD device"
+echo "Available devices:"
+ls
 EOF
     
     # Create GRUB standalone image for BIOS boot
     log "INFO" "Creating GRUB boot images..."
+    
+    # Change to ISO directory so relative paths work correctly
+    cd "${ISO_DIR}"
+    
     grub-mkstandalone \
         --format=i386-pc \
-        --output="${ISO_DIR}/boot/grub/core.img" \
+        --output="boot/grub/core.img" \
         --install-modules="linux normal iso9660 biosdisk memdisk search search_fs_file search_fs_uuid tar ls all_video gfxterm configfile" \
         --modules="linux normal iso9660 biosdisk search search_fs_file configfile" \
         --locales="" \
         --fonts="" \
-        "boot/grub/embedded.cfg=${ISO_DIR}/boot/grub/embedded.cfg"
+        "boot/grub/grub.cfg=boot/grub/embedded.cfg"
+    
+    # Return to original directory
+    cd - > /dev/null
     
     # Combine with GRUB boot sector
     cat /usr/lib/grub/i386-pc/cdboot.img "${ISO_DIR}/boot/grub/core.img" > "${ISO_DIR}/boot/grub/bios.img"
     
     # Create embedded GRUB config for EFI (same logic)
     cat > "${ISO_DIR}/EFI/boot/embedded.cfg" << 'EOF'
-# Try common CD device names
-if [ -e (cd)/boot/grub/grub.cfg ]; then
-    set root=(cd)
-elif [ -e (cd0)/boot/grub/grub.cfg ]; then
-    set root=(cd0)
-elif [ -e (cd1)/boot/grub/grub.cfg ]; then
-    set root=(cd1)
-fi
-
-set prefix=($root)/boot/grub
-configfile ($root)/boot/grub/grub.cfg
+# Try to load grub.cfg from common CD device names
+set root=(cd)
+configfile (cd)/boot/grub/grub.cfg
+set root=(cd0)
+configfile (cd0)/boot/grub/grub.cfg
+set root=(cd1)
+configfile (cd1)/boot/grub/grub.cfg
+echo "Error: Could not find grub.cfg on any CD device"
+echo "Available devices:"
+ls
 EOF
     
     # Create GRUB EFI image
