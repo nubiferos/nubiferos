@@ -362,8 +362,8 @@ EOF
     grub-mkstandalone \
         --format=i386-pc \
         --output="${ISO_DIR}/boot/grub/core.img" \
-        --install-modules="linux normal iso9660 biosdisk memdisk search tar ls all_video gfxterm configfile" \
-        --modules="linux normal iso9660 biosdisk search configfile" \
+        --install-modules="linux normal iso9660 biosdisk memdisk search search_fs_file search_fs_uuid tar ls all_video gfxterm configfile" \
+        --modules="linux normal iso9660 biosdisk search search_fs_file configfile" \
         --locales="" \
         --fonts="" \
         "boot/grub/embedded.cfg=${ISO_DIR}/boot/grub/embedded.cfg"
