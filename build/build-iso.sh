@@ -327,7 +327,7 @@ create_bootable_iso() {
     
     # Create GRUB configuration for BIOS
     cat > "${ISO_DIR}/boot/grub/grub.cfg" << EOF
-set root=(cd0)
+# Root device is set by embedded.cfg via search
 set timeout=3
 set default=0
 
