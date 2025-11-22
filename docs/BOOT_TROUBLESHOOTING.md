@@ -95,11 +95,12 @@ set gfxpayload=keep
 - Error about missing vmlinuz or initrd.img
 
 **Causes:**
-- Kernel files not copied to ISO
+- Kernel files not copied to ISO (live boot issue)
 - Wrong paths in GRUB config
-- Kernel not installed in chroot
+- Kernel not installed in chroot (ISO build issue)
+- Kernel not installed on disk (post-installation issue)
 
-**Solution:**
+**Solution for Live ISO:**
 1. Verify kernel is installed:
 ```bash
 chroot_exec "apt-get install -y linux-image-amd64"
@@ -116,6 +117,10 @@ cp "${CHROOT_DIR}/boot/initrd.img-"* "${ISO_DIR}/boot/initrd.img"
 linux /boot/vmlinuz ...
 initrd /boot/initrd.img
 ```
+
+**Solution for Installed System:**
+
+If this error occurs after installation (not from live ISO), see the [Post-Installation Boot Fix Guide](POST_INSTALL_BOOT_FIX.md) for detailed recovery instructions.
 
 ## VirtualBox Specific Issues
 
