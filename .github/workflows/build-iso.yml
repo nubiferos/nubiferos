@@ -90,7 +90,7 @@ jobs:
       run: |
         echo "Generating Calamares installer configuration..."
         cd build
-        chmod +x setup-calamares-minimal.sh install-calamares.sh
+        chmod +x setup-calamares-minimal.sh install-calamares.sh configure-installer-autostart.sh
         ./setup-calamares-minimal.sh
         cd ..
         
