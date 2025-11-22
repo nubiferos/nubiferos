@@ -145,6 +145,10 @@ build_iso() {
     log "INFO" "Step 6/7: Installing Calamares installer..."
     "${SCRIPT_DIR}/install-calamares.sh"
     
+    # Step 6.5: Configure auto-login and Calamares auto-launch
+    log "INFO" "Step 6.5/7: Configuring installer auto-start..."
+    "${SCRIPT_DIR}/configure-installer-autostart.sh"
+    
     # Step 7: Install NubiferOS components
     log "INFO" "Step 7/7: Installing NubiferOS components..."
     install_nubifer_components
