@@ -350,9 +350,17 @@ EOF
     mkdir -p "${ISO_DIR}/EFI/boot"
     cp "${ISO_DIR}/boot/grub/grub.cfg" "${ISO_DIR}/EFI/boot/grub.cfg"
     
-    # Create embedded GRUB config that loads from CD
+    # Create embedded GRUB config that tries multiple CD device names
     cat > "${ISO_DIR}/boot/grub/embedded.cfg" << 'EOF'
-search --no-floppy --set=root --file /boot/grub/grub.cfg
+# Try common CD device names
+if [ -e (cd)/boot/grub/grub.cfg ]; then
+    set root=(cd)
+elif [ -e (cd0)/boot/grub/grub.cfg ]; then
+    set root=(cd0)
+elif [ -e (cd1)/boot/grub/grub.cfg ]; then
+    set root=(cd1)
+fi
+
 set prefix=($root)/boot/grub
 configfile ($root)/boot/grub/grub.cfg
 EOF
@@ -371,9 +379,17 @@ EOF
     # Combine with GRUB boot sector
     cat /usr/lib/grub/i386-pc/cdboot.img "${ISO_DIR}/boot/grub/core.img" > "${ISO_DIR}/boot/grub/bios.img"
     
-    # Create embedded GRUB config for EFI
+    # Create embedded GRUB config for EFI (same logic)
     cat > "${ISO_DIR}/EFI/boot/embedded.cfg" << 'EOF'
-search --no-floppy --set=root --file /boot/grub/grub.cfg
+# Try common CD device names
+if [ -e (cd)/boot/grub/grub.cfg ]; then
+    set root=(cd)
+elif [ -e (cd0)/boot/grub/grub.cfg ]; then
+    set root=(cd0)
+elif [ -e (cd1)/boot/grub/grub.cfg ]; then
+    set root=(cd1)
+fi
+
 set prefix=($root)/boot/grub
 configfile ($root)/boot/grub/grub.cfg
 EOF
