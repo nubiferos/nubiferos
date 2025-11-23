@@ -115,10 +115,12 @@ bootstrap_debian() {
     
     # Run debootstrap
     log "INFO" "Running debootstrap (this will take several minutes)..."
+    # Note: polkitd package may cause configuration issues during debootstrap
+    # We'll install it later in the chroot environment where we have more control
     debootstrap \
         --arch="${ARCH}" \
         --variant=minbase \
-        --include=systemd,systemd-sysv,udev,dbus,sudo,policykit-1,wget,ca-certificates,gnupg \
+        --include=systemd,systemd-sysv,udev,dbus,sudo,wget,ca-certificates,gnupg \
         "${BASE_CODENAME}" \
         "${CHROOT_DIR}" \
         "${DEBIAN_MIRROR}"
@@ -189,6 +191,23 @@ update_chroot() {
     log "INFO" "✓ Package lists updated"
 }
 
+# Install polkit after base system is configured
+install_polkit() {
+    log "INFO" "Installing polkit in chroot..."
+    
+    # Install polkit with proper configuration
+    chroot "${CHROOT_DIR}" /bin/bash -c "DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends polkitd policykit-1" || {
+        log "WARN" "Failed to install polkit packages, trying alternative approach..."
+        # Try installing just policykit-1 if polkitd fails
+        chroot "${CHROOT_DIR}" /bin/bash -c "DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends policykit-1" || {
+            log "WARN" "Polkit installation failed, will retry later in the build process"
+            return 0
+        }
+    }
+    
+    log "INFO" "✓ Polkit installed"
+}
+
 # Main execution
 main() {
     log "INFO" "=========================================="
@@ -213,6 +232,9 @@ main() {
     
     # Update package lists
     update_chroot
+    
+    # Install polkit after base system is ready
+    install_polkit
     
     log "INFO" "=========================================="
     log "INFO" "Debian base system ready: ${CHROOT_DIR}"
