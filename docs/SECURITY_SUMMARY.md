@@ -16,17 +16,19 @@ NubiferOS is built on three core security principles:
 
 ```
 ┌─────────────────────────────────────────────────────┐
-│  Layer 7: User Education & Policies                 │
+│  Layer 8: User Education & Policies                 │
 ├─────────────────────────────────────────────────────┤
-│  Layer 6: Application Sandboxing (Firejail)        │
+│  Layer 7: Application Sandboxing (Firejail)        │
 ├─────────────────────────────────────────────────────┤
-│  Layer 5: Credential Encryption (GPG/pass)         │
+│  Layer 6: Credential Encryption (GPG/pass)         │
 ├─────────────────────────────────────────────────────┤
-│  Layer 4: Desktop Isolation (Wayland)              │
+│  Layer 5: Desktop Isolation (Wayland)              │
 ├─────────────────────────────────────────────────────┤
-│  Layer 3: Mandatory Access Control (AppArmor)      │
+│  Layer 4: Mandatory Access Control (AppArmor)      │
 ├─────────────────────────────────────────────────────┤
-│  Layer 2: Kernel Hardening & Firewall              │
+│  Layer 3: Kernel Hardening & Firewall              │
+├─────────────────────────────────────────────────────┤
+│  Layer 2: CPU Security Mitigations                 │
 ├─────────────────────────────────────────────────────┤
 │  Layer 1: Full Disk Encryption (LUKS)              │
 └─────────────────────────────────────────────────────┘
@@ -47,6 +49,37 @@ NubiferOS is built on three core security principles:
 - **Algorithm**: AES-256-XTS
 - **Key Size**: 512-bit
 - **Status**: Mandatory (cannot be disabled)
+
+---
+
+## 2. CPU Security Mitigations
+
+### What It Protects
+- ✅ Spectre v1, v2, v4 attacks
+- ⚠️ RETBleed attacks (partial by default)
+- ✅ Meltdown attacks
+- ✅ MDS (Microarchitectural Data Sampling)
+- ✅ TAA (TSX Asynchronous Abort)
+
+### Implementation
+- **Default**: Spectre v2 mitigation enabled
+- **RETBleed**: Warning shown, full mitigation optional
+- **Performance Impact**: 5-10% (default), 15-30% (full)
+- **Configuration**: See `docs/CPU_SECURITY_MITIGATIONS.md`
+
+### RETBleed Warning
+
+You may see this warning on boot:
+```
+RETBleed: WARNING: Spectre v2 mitigation leaves CPU vulnerable to RETBleed attacks
+```
+
+**This is normal and acceptable for most users.** See `RETBLEED_WARNING.md` for details.
+
+### Tools
+- `testing/check-cpu-mitigations.sh` - Check current status
+- `configs/security/enable-retbleed-mitigation.sh` - Enable full protection
+- `configs/security/configure-cpu-mitigations.sh` - Interactive configuration
 
 ### Features
 - Encrypted root partition
