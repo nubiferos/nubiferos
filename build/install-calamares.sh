@@ -15,8 +15,15 @@ chroot_exec "DEBIAN_FRONTEND=noninteractive apt-get install -y \
     calamares-settings-debian \
     qml-module-qtquick2 \
     qml-module-qtquick-controls \
+    qml-module-qtquick-controls2 \
     qml-module-qtquick-layouts \
-    qml-module-qtquick-window2"
+    qml-module-qtquick-window2 \
+    qml-module-qtquick-dialogs \
+    qml-module-qtgraphicaleffects \
+    libkf5config-bin \
+    libkf5coreaddons5 \
+    libkpmcore12 \
+    libpolkit-qt5-1-1"
 
 # Create Calamares configuration directory
 log "INFO" "Creating Calamares configuration..."
