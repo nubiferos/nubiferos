@@ -28,6 +28,11 @@ mkdir -p "${CHROOT_DIR}/etc/calamares/branding/nubiferos"
 log "INFO" "Copying configuration files..."
 cp -r "${PROJECT_ROOT}/installer/calamares/"* "${CHROOT_DIR}/etc/calamares/" || true
 
+# Fix sudoers permissions issue
+log "INFO" "Fixing sudoers permissions..."
+chroot_exec "chmod 755 /etc/sudoers.d || true"
+chroot_exec "chmod 440 /etc/sudoers.d/* || true"
+
 # Create autostart entry for installer user
 log "INFO" "Creating autostart configuration..."
 mkdir -p "${CHROOT_DIR}/etc/skel/.config/autostart"
