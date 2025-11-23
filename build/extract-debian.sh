@@ -118,7 +118,7 @@ bootstrap_debian() {
     debootstrap \
         --arch="${ARCH}" \
         --variant=minbase \
-        --include=systemd,systemd-sysv,udev,dbus \
+        --include=systemd,systemd-sysv,udev,dbus,sudo,policykit-1,wget,ca-certificates,gnupg \
         "${BASE_CODENAME}" \
         "${CHROOT_DIR}" \
         "${DEBIAN_MIRROR}"
