@@ -20,6 +20,12 @@ images:
     productWelcome:      "welcome.png"
 
 slideshow:              "show.qml"
+slideshowAPI:           2
+
+stylesheet:             "stylesheet.qss"
+
+sidebar:                "widget"
+navigation:             "widget"
 
 style:
    sidebarBackground:    "#2c3e50"
