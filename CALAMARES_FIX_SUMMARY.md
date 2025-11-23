@@ -72,19 +72,26 @@ sudo ./build-nubiferos.sh
 ## Files Changed
 
 - `build/install-calamares.sh` - Added autostart configuration
+- `build/build-iso.sh` - Added `username=live` to boot parameters
 - `testing/test-calamares.sh` - Comprehensive test script (new)
 - `testing/quick-calamares-test.sh` - Quick manual test (new)
+- `testing/check-users.sh` - User verification script (new)
 - `docs/CALAMARES_TESTING.md` - Full testing and troubleshooting guide (new)
+- `docs/LIVE_USER_EXPLANATION.md` - Explains the multiple user situation (new)
 
 ## User Account Info
 
-The live ISO uses:
+The live ISO creates:
 - **Username:** `live`
 - **Password:** `live`
 - **Auto-login:** Enabled
 - **Sudo access:** Yes
 
-(Note: There is no "installer" user - only "live")
+**Note:** You may see multiple users at the login screen:
+- `live` - The main user (use this one)
+- `installer` - May be created by live-boot/live-config (also works)
+
+Both users should have the autostart configuration, but `live` is the intended user. The boot parameters now explicitly set `username=live` to ensure consistency.
 
 ## Verification Checklist
 
