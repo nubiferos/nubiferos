@@ -340,12 +340,12 @@ insmod gfxterm
 terminal_output gfxterm
 
 menuentry "${DISTRO_FULLNAME} ${DISTRO_VERSION} - Installer" {
-    linux /boot/vmlinuz boot=live components quiet splash
+    linux /boot/vmlinuz boot=live components quiet splash username=live
     initrd /boot/initrd.img
 }
 
 menuentry "${DISTRO_FULLNAME} ${DISTRO_VERSION} - Installer (Safe Mode)" {
-    linux /boot/vmlinuz boot=live components nomodeset
+    linux /boot/vmlinuz boot=live components nomodeset username=live
     initrd /boot/initrd.img
 }
 EOF

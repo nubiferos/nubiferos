@@ -215,11 +215,13 @@ sudo fdisk -l  # Look for boot flag
 
 ## Common Issues and Solutions
 
-### Issue: "No installer user found"
+### Issue: "Multiple users at login screen"
 
-**Solution:** The live ISO uses a "live" user, not "installer". Log in as:
+**Solution:** You may see both "live" and "installer" users at the login screen. Both should work, but use "live":
 - Username: `live`
 - Password: `live`
+
+The "installer" user may be created automatically by the live-boot system. The boot parameters now explicitly set `username=live` to ensure the correct user is used.
 
 ### Issue: Calamares window is blank/white
 
