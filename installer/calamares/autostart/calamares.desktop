@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Install NubiferOS
+Exec=pkexec calamares
+Icon=calamares
+Terminal=false
+Categories=System;
+X-GNOME-Autostart-enabled=true
