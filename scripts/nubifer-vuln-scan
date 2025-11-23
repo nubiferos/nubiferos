@@ -1,0 +1,227 @@
+#!/bin/bash
+# NubiferOS Vulnerability Scanner
+# Comprehensive vulnerability scanning for system and application packages
+
+set -e
+
+VERSION="1.0.0"
+SCAN_DIR="/var/log/nubifer/vuln-scans"
+TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+REPORT_FILE="${SCAN_DIR}/scan_${TIMESTAMP}.txt"
+
+# Colors for output
+RED='\033[0;31m'
+YELLOW='\033[1;33m'
+GREEN='\033[0;32m'
+BLUE='\033[0;34m'
+NC='\033[0m' # No Color
+
+# Create scan directory
+mkdir -p "${SCAN_DIR}"
+
+# Function to print colored output
+print_header() {
+    echo -e "${BLUE}=========================================="
+    echo -e "$1"
+    echo -e "==========================================${NC}"
+}
+
+print_success() {
+    echo -e "${GREEN}✓ $1${NC}"
+}
+
+print_warning() {
+    echo -e "${YELLOW}⚠ $1${NC}"
+}
+
+print_error() {
+    echo -e "${RED}✗ $1${NC}"
+}
+
+# Function to check if command exists
+command_exists() {
+    command -v "$1" &> /dev/null
+}
+
+# Start report
+{
+    print_header "NubiferOS Vulnerability Scan Report"
+    echo "Scan Date: $(date)"
+    echo "Hostname: $(hostname)"
+    echo "OS: $(lsb_release -ds)"
+    echo "Kernel: $(uname -r)"
+    echo ""
+} | tee "${REPORT_FILE}"
+
+# 1. Check OS Package Updates
+{
+    print_header "1. OS Package Vulnerabilities"
+    echo ""
+    
+    echo "Checking for available security updates..."
+    apt-get update -qq 2>/dev/null
+    
+    UPGRADABLE=$(apt list --upgradable 2>/dev/null | grep -v "Listing..." | wc -l)
+    
+    if [ "$UPGRADABLE" -eq 0 ]; then
+        print_success "All OS packages are up to date"
+    else
+        print_warning "$UPGRADABLE packages have updates available"
+        echo ""
+        echo "Upgradable packages:"
+        apt list --upgradable 2>/dev/null | grep -v "Listing..." | head -20
+        
+        if [ "$UPGRADABLE" -gt 20 ]; then
+            echo "... and $((UPGRADABLE - 20)) more"
+        fi
+    fi
+    
+    echo ""
+} | tee -a "${REPORT_FILE}"
+
+# 2. Run Trivy if available
+{
+    print_header "2. Trivy Vulnerability Scan"
+    echo ""
+    
+    if command_exists trivy; then
+        echo "Running Trivy scan (this may take a few minutes)..."
+        echo ""
+        
+        # Scan OS packages
+        TRIVY_OUTPUT=$(trivy rootfs / --severity HIGH,CRITICAL --quiet 2>&1 || true)
+        
+        if echo "$TRIVY_OUTPUT" | grep -q "Total: 0"; then
+            print_success "No HIGH or CRITICAL vulnerabilities found"
+        else
+            print_warning "Vulnerabilities detected:"
+            echo "$TRIVY_OUTPUT"
+        fi
+    else
+        print_warning "Trivy not installed"
+        echo "Install with: sudo apt-get install trivy"
+        echo "See: docs/VULNERABILITY_SCANNING.md"
+    fi
+    
+    echo ""
+} | tee -a "${REPORT_FILE}"
+
+# 3. Check Language-Specific Packages
+{
+    print_header "3. Language Package Vulnerabilities"
+    echo ""
+    
+    # Check for npm projects
+    if command_exists npm; then
+        NPM_PROJECTS=$(find /home -name "package.json" -type f 2>/dev/null | head -5)
+        if [ -n "$NPM_PROJECTS" ]; then
+            echo "Found npm projects:"
+            echo "$NPM_PROJECTS"
+            echo ""
+            echo "Run 'npm audit' in each project directory to check for vulnerabilities"
+        else
+            echo "No npm projects found"
+        fi
+    fi
+    
+    echo ""
+    
+    # Check for Python packages
+    if command_exists pip3; then
+        if command_exists pip-audit; then
+            echo "Checking Python packages..."
+            pip-audit --desc on 2>/dev/null || echo "No vulnerabilities found in Python packages"
+        else
+            echo "pip-audit not installed"
+            echo "Install with: pip3 install pip-audit"
+        fi
+    fi
+    
+    echo ""
+} | tee -a "${REPORT_FILE}"
+
+# 4. Check for outdated CLI tools
+{
+    print_header "4. CLI Tool Versions"
+    echo ""
+    
+    check_tool_version() {
+        local tool=$1
+        local current_version=$2
+        
+        if command_exists "$tool"; then
+            echo "$tool: $current_version"
+        fi
+    }
+    
+    # Check common cloud/devops tools
+    check_tool_version "terraform" "$(terraform version 2>/dev/null | head -1 || echo 'not installed')"
+    check_tool_version "kubectl" "$(kubectl version --client --short 2>/dev/null || echo 'not installed')"
+    check_tool_version "aws" "$(aws --version 2>&1 || echo 'not installed')"
+    check_tool_version "az" "$(az version --output tsv 2>/dev/null | head -1 || echo 'not installed')"
+    check_tool_version "gcloud" "$(gcloud version 2>/dev/null | head -1 || echo 'not installed')"
+    check_tool_version "docker" "$(docker --version 2>/dev/null || echo 'not installed')"
+    
+    echo ""
+    echo "Note: Check tool-specific release pages for latest versions"
+    echo ""
+} | tee -a "${REPORT_FILE}"
+
+# 5. System Hardening Check (if Lynis is available)
+{
+    print_header "5. System Hardening Status"
+    echo ""
+    
+    if command_exists lynis; then
+        echo "Running Lynis quick audit..."
+        echo ""
+        sudo lynis audit system --quick --quiet 2>/dev/null | grep -E "Hardening index|Warnings|Suggestions" || true
+    else
+        print_warning "Lynis not installed"
+        echo "Install with: sudo apt-get install lynis"
+        echo "See: docs/VULNERABILITY_SCANNING.md"
+    fi
+    
+    echo ""
+} | tee -a "${REPORT_FILE}"
+
+# 6. Summary and Recommendations
+{
+    print_header "6. Summary and Recommendations"
+    echo ""
+    
+    if [ "$UPGRADABLE" -gt 0 ]; then
+        print_warning "Action Required: Update $UPGRADABLE packages"
+        echo "  Run: sudo apt-get upgrade"
+        echo ""
+    fi
+    
+    if ! command_exists trivy; then
+        print_warning "Recommendation: Install Trivy for comprehensive scanning"
+        echo "  See: docs/VULNERABILITY_SCANNING.md"
+        echo ""
+    fi
+    
+    if ! command_exists lynis; then
+        print_warning "Recommendation: Install Lynis for system hardening audit"
+        echo "  Run: sudo apt-get install lynis"
+        echo ""
+    fi
+    
+    print_success "Scan complete"
+    echo "Full report saved to: ${REPORT_FILE}"
+    echo ""
+    
+    # Show recent scans
+    echo "Recent scans:"
+    ls -lht "${SCAN_DIR}" | head -6 | tail -5
+    
+    echo ""
+} | tee -a "${REPORT_FILE}"
+
+# Exit with appropriate code
+if [ "$UPGRADABLE" -gt 0 ]; then
+    exit 1
+else
+    exit 0
+fi

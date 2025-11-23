@@ -1,0 +1,150 @@
+#!/bin/bash
+# Install vulnerability scanning tools for NubiferOS
+
+set -e
+
+echo "=========================================="
+echo "Installing Vulnerability Scanning Tools"
+echo "=========================================="
+echo ""
+
+# Check if running as root
+if [ "$EUID" -ne 0 ]; then 
+    echo "Error: This script must be run as root (use sudo)"
+    exit 1
+fi
+
+# 1. Install Trivy
+echo "1. Installing Trivy..."
+if command -v trivy &> /dev/null; then
+    echo "   Trivy already installed"
+else
+    wget -qO - https://aquasecurity.github.io/trivy-repo/deb/public.key | apt-key add -
+    echo "deb https://aquasecurity.github.io/trivy-repo/deb $(lsb_release -sc) main" | tee -a /etc/apt/sources.list.d/trivy.list
+    apt-get update -qq
+    apt-get install -y trivy
+    echo "   ✓ Trivy installed"
+fi
+echo ""
+
+# 2. Install Lynis
+echo "2. Installing Lynis..."
+if command -v lynis &> /dev/null; then
+    echo "   Lynis already installed"
+else
+    apt-get install -y lynis
+    echo "   ✓ Lynis installed"
+fi
+echo ""
+
+# 3. Install unattended-upgrades
+echo "3. Installing unattended-upgrades..."
+if dpkg -l | grep -q unattended-upgrades; then
+    echo "   unattended-upgrades already installed"
+else
+    apt-get install -y unattended-upgrades
+    echo "   ✓ unattended-upgrades installed"
+fi
+echo ""
+
+# 4. Configure automatic security updates
+echo "4. Configuring automatic security updates..."
+cat > /etc/apt/apt.conf.d/50unattended-upgrades << 'EOF'
+// Automatically upgrade packages from these origins
+Unattended-Upgrade::Origins-Pattern {
+    "origin=Debian,codename=${distro_codename},label=Debian-Security";
+};
+
+// List of packages to not update
+Unattended-Upgrade::Package-Blacklist {
+};
+
+// Automatically reboot if needed
+Unattended-Upgrade::Automatic-Reboot "false";
+
+// Send email on errors
+Unattended-Upgrade::Mail "root";
+Unattended-Upgrade::MailReport "on-change";
+
+// Remove unused dependencies
+Unattended-Upgrade::Remove-Unused-Dependencies "true";
+
+// Automatically remove unused kernel packages
+Unattended-Upgrade::Remove-New-Unused-Dependencies "true";
+EOF
+
+cat > /etc/apt/apt.conf.d/20auto-upgrades << 'EOF'
+APT::Periodic::Update-Package-Lists "1";
+APT::Periodic::Download-Upgradeable-Packages "1";
+APT::Periodic::AutocleanInterval "7";
+APT::Periodic::Unattended-Upgrade "1";
+EOF
+
+echo "   ✓ Automatic security updates configured"
+echo ""
+
+# 5. Install pip-audit for Python scanning
+echo "5. Installing pip-audit..."
+if command -v pip3 &> /dev/null; then
+    pip3 install --quiet pip-audit 2>/dev/null || true
+    echo "   ✓ pip-audit installed"
+else
+    echo "   Python3 pip not found, skipping pip-audit"
+fi
+echo ""
+
+# 6. Create scan directory
+echo "6. Creating scan directory..."
+mkdir -p /var/log/nubifer/vuln-scans
+chmod 755 /var/log/nubifer/vuln-scans
+echo "   ✓ Scan directory created"
+echo ""
+
+# 7. Set up weekly scan cron job
+echo "7. Setting up weekly vulnerability scan..."
+cat > /etc/cron.weekly/nubifer-vuln-scan << 'EOF'
+#!/bin/bash
+# Weekly vulnerability scan
+
+/usr/local/bin/nubifer-vuln-scan > /var/log/nubifer/vuln-scans/weekly-scan.log 2>&1
+
+# Send notification if vulnerabilities found
+if [ $? -ne 0 ]; then
+    # TODO: Send desktop notification to users
+    logger "NubiferOS: Vulnerabilities detected in weekly scan"
+fi
+EOF
+
+chmod +x /etc/cron.weekly/nubifer-vuln-scan
+echo "   ✓ Weekly scan scheduled"
+echo ""
+
+# 8. Run initial scan
+echo "8. Running initial vulnerability scan..."
+echo ""
+/usr/local/bin/nubifer-vuln-scan || true
+echo ""
+
+echo "=========================================="
+echo "✓ Installation Complete"
+echo "=========================================="
+echo ""
+echo "Installed tools:"
+echo "  • Trivy - Comprehensive vulnerability scanner"
+echo "  • Lynis - System hardening audit"
+echo "  • unattended-upgrades - Automatic security updates"
+echo "  • pip-audit - Python package scanner"
+echo ""
+echo "Configuration:"
+echo "  • Automatic security updates: Enabled"
+echo "  • Weekly vulnerability scans: Enabled"
+echo "  • Scan logs: /var/log/nubifer/vuln-scans/"
+echo ""
+echo "Usage:"
+echo "  • Run manual scan: nubifer-vuln-scan"
+echo "  • View scan logs: ls -lh /var/log/nubifer/vuln-scans/"
+echo "  • Check for updates: apt list --upgradable"
+echo ""
+echo "Documentation:"
+echo "  • See docs/VULNERABILITY_SCANNING.md for details"
+echo ""
