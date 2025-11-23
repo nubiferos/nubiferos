@@ -1,2 +1,0 @@
-# Placeholder - replace with actual logo.png
-# For now, Calamares will use default
