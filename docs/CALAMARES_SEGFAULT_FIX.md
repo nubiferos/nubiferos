@@ -8,6 +8,7 @@ Calamares crashes with "Segmentation fault" after checking battery/power status.
 2. **Missing QML modules** - Required Qt/QML libraries may be missing
 3. **Branding configuration** - Malformed branding files can cause crashes
 4. **Module configuration** - Invalid module configs trigger segfaults
+5. **XDG_RUNTIME_DIR not set** - Qt applications need this environment variable set for root user
 
 ## Fixes Applied
 
@@ -33,37 +34,59 @@ qml-module-qtquick-window2
 - No complex animations
 - Basic text and colors only
 
+### 4. XDG_RUNTIME_DIR Configuration
+Created `/etc/tmpfiles.d/xdg-runtime-root.conf` to ensure `/run/user/0` exists:
+```
+d /run/user/0 0700 root root -
+```
+
+This prevents the "QStandardPaths: XDG_RUNTIME_DIR not set" error that causes segfaults.
+
 ## Testing in Live Environment
 
 If Calamares still crashes, try these commands:
 
 ```bash
-# 1. Check if all QML modules are present
+# 1. Ensure XDG_RUNTIME_DIR exists for root
+sudo mkdir -p /run/user/0
+sudo chmod 700 /run/user/0
+
+# 2. Check if all QML modules are present
 dpkg -l | grep qml-module
 
-# 2. Test Calamares with debug output
-calamares -d 2>&1 | tee /tmp/calamares-debug.log
+# 3. Test Calamares with debug output and proper environment
+sudo XDG_RUNTIME_DIR=/run/user/0 calamares -d 2>&1 | tee /tmp/calamares-debug.log
 
-# 3. Check for missing libraries
+# 4. Check for missing libraries
 ldd /usr/bin/calamares | grep "not found"
 
-# 4. Try without branding
-sudo calamares -d --config /etc/calamares/settings.conf
+# 5. Try without branding
+sudo XDG_RUNTIME_DIR=/run/user/0 calamares -d --config /etc/calamares/settings.conf
 
-# 5. Check dmesg for crash details
+# 6. Check dmesg for crash details
 dmesg | tail -20
 ```
 
 ## Workaround: Manual Launch
 
-If autostart fails, manually launch:
+If autostart fails, manually launch with proper environment:
 ```bash
-sudo calamares -d
+# Ensure runtime directory exists
+sudo mkdir -p /run/user/0
+sudo chmod 700 /run/user/0
+
+# Launch with debug
+sudo XDG_RUNTIME_DIR=/run/user/0 calamares -d
 ```
 
-Or without debug:
+Or use the provided launch script:
 ```bash
-sudo calamares
+./testing/launch-calamares.sh
+```
+
+Or the quick test script:
+```bash
+./testing/quick-calamares-test.sh
 ```
 
 ## Permanent Fix for Next Build

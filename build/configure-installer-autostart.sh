@@ -34,6 +34,10 @@ Type=simple
 User=live
 Environment=DISPLAY=:0
 Environment=XDG_RUNTIME_DIR=/run/user/1000
+# Ensure XDG_RUNTIME_DIR exists before launching
+ExecStartPre=/bin/mkdir -p /run/user/1000
+ExecStartPre=/bin/chown live:live /run/user/1000
+ExecStartPre=/bin/chmod 700 /run/user/1000
 ExecStartPre=/bin/sleep 5
 ExecStart=/usr/bin/pkexec /usr/bin/calamares -d
 Restart=on-failure

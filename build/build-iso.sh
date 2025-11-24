@@ -248,8 +248,15 @@ EOF
     # Note: CLI wrapper symlinks will be created during post-install
     # This allows users to opt-in to Firejail isolation
     
+    # Install systemd tmpfiles configuration for XDG_RUNTIME_DIR
+    log "INFO" "Installing systemd tmpfiles configuration..."
+    mkdir -p "${CHROOT_DIR}/etc/tmpfiles.d"
+    cp "${PROJECT_ROOT}/configs/system/xdg-runtime-root.conf" "${CHROOT_DIR}/etc/tmpfiles.d/"
+    chmod 644 "${CHROOT_DIR}/etc/tmpfiles.d/xdg-runtime-root.conf"
+    
     log "INFO" "  ✓ Workspace Manager installed"
     log "INFO" "  ✓ Firejail integration installed"
+    log "INFO" "  ✓ XDG runtime directory configuration installed"
     
     # Copy workspace manager installer scripts
     mkdir -p "${CHROOT_DIR}/usr/share/nubifer/installer"
