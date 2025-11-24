@@ -12,13 +12,38 @@ else
     exit 1
 fi
 
-# Test 2: Can we launch it?
+# Test 2: Prepare environment
+echo ""
+echo "Preparing environment..."
+
+# Ensure XDG_RUNTIME_DIR exists for root
+sudo mkdir -p /run/user/0
+sudo chmod 700 /run/user/0
+
+# Test 3: Launch it
 echo ""
 echo "Launching Calamares installer..."
 echo "(You may be prompted for password)"
 echo ""
 
-pkexec calamares &
+# Create wrapper script with proper environment
+WRAPPER=$(mktemp)
+cat > "$WRAPPER" << 'EOFWRAPPER'
+#!/bin/bash
+export DISPLAY="${DISPLAY:-:0}"
+export XDG_RUNTIME_DIR="/run/user/0"
+export QT_X11_NO_MITSHM=1
+exec /usr/bin/calamares "$@"
+EOFWRAPPER
+
+chmod +x "$WRAPPER"
+
+# Launch with pkexec
+pkexec "$WRAPPER" &
+
+# Clean up after a moment
+sleep 2
+rm -f "$WRAPPER"
 
 echo ""
 echo "Calamares should now be launching..."
