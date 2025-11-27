@@ -24,8 +24,16 @@ slideshowAPI:           2
 
 stylesheet:             "stylesheet.qss"
 
-sidebar:                "widget"
-navigation:             "widget"
+# Window settings
+windowExpanding:        normal
+windowPlacement:        free
+windowSize:             800px,520px
+
+# Panel settings
+sidebar:                widget
+sidebarPosition:        left
+navigation:             widget
+navigationPosition:     bottom
 
 style:
    sidebarBackground:    "#2c3e50"
