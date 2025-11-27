@@ -91,8 +91,18 @@ install_gnome() {
         gedit \
         file-roller"
     
+    # Install SPICE guest agent for VM clipboard support
+    log "INFO" "Installing SPICE guest agent for VM support..."
+    chroot_exec "DEBIAN_FRONTEND=noninteractive apt-get install -y \
+        spice-vdagent \
+        qemu-guest-agent"
+    
     # Set GDM3 as default display manager
     chroot_exec "systemctl enable gdm3"
+    
+    # Enable SPICE and QEMU guest agents
+    chroot_exec "systemctl enable spice-vdagent"
+    chroot_exec "systemctl enable qemu-guest-agent"
     
     log "INFO" "✓ GNOME installed"
 }
