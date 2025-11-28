@@ -15,23 +15,23 @@ strings:
     knownIssuesUrl:      "https://github.com/nubiferos/nubiferos/issues"
     releaseNotesUrl:     "https://github.com/nubiferos/nubiferos/releases"
 
-# PHASE 2: Images (commented out for testing)
-# images:
-#     productLogo:         "logo.png"
-#     productIcon:         "logo.png"
-#     productWelcome:      "welcome.png"
+# PHASE 2: Images
+images:
+    productLogo:         "logo.png"
+    productIcon:         "logo.png"
+    productWelcome:      "welcome.png"
 
 # PHASE 3: Slideshow (disabled - known to cause segfault)
 # slideshow:              "show.qml"
 # slideshowAPI:           2
 
-# PHASE 4: Stylesheet (commented out for testing)
-# stylesheet:             "stylesheet.qss"
+# PHASE 4: Stylesheet
+stylesheet:             "stylesheet.qss"
 
-# PHASE 5: Window settings (commented out for testing)
-# windowExpanding:        normal
-# windowPlacement:        free
-# windowSize:             800px,520px
+# PHASE 5: Window settings
+windowExpanding:        normal
+windowPlacement:        free
+windowSize:             800px,520px
 
 # PHASE 6: Panel settings (commented out for testing)
 # sidebar:                widget
