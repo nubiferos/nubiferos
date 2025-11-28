@@ -1,6 +1,7 @@
 ---
 componentName:  nubiferos
 
+# PHASE 1: Minimal branding - strings only
 strings:
     productName:         "NubiferOS"
     shortProductName:    "NubiferOS"
@@ -14,30 +15,33 @@ strings:
     knownIssuesUrl:      "https://github.com/nubiferos/nubiferos/issues"
     releaseNotesUrl:     "https://github.com/nubiferos/nubiferos/releases"
 
-images:
-    productLogo:         "logo.png"
-    productIcon:         "logo.png"
-    productWelcome:      "welcome.png"
+# PHASE 2: Images (commented out for testing)
+# images:
+#     productLogo:         "logo.png"
+#     productIcon:         "logo.png"
+#     productWelcome:      "welcome.png"
 
-# Slideshow disabled - causes QThread segfault in VMs
+# PHASE 3: Slideshow (disabled - known to cause segfault)
 # slideshow:              "show.qml"
 # slideshowAPI:           2
 
-stylesheet:             "stylesheet.qss"
+# PHASE 4: Stylesheet (commented out for testing)
+# stylesheet:             "stylesheet.qss"
 
-# Window settings
-windowExpanding:        normal
-windowPlacement:        free
-windowSize:             800px,520px
+# PHASE 5: Window settings (commented out for testing)
+# windowExpanding:        normal
+# windowPlacement:        free
+# windowSize:             800px,520px
 
-# Panel settings
-sidebar:                widget
-sidebarPosition:        left
-navigation:             widget
-navigationPosition:     bottom
+# PHASE 6: Panel settings (commented out for testing)
+# sidebar:                widget
+# sidebarPosition:        left
+# navigation:             widget
+# navigationPosition:     bottom
 
-style:
-   sidebarBackground:    "#2c3e50"
-   sidebarText:          "#ffffff"
-   sidebarTextSelect:    "#3498db"
-   sidebarTextHighlight: "#3498db"
+# PHASE 7: Style colors (commented out for testing)
+# style:
+#    sidebarBackground:    "#2c3e50"
+#    sidebarText:          "#ffffff"
+#    sidebarTextSelect:    "#3498db"
+#    sidebarTextHighlight: "#3498db"
