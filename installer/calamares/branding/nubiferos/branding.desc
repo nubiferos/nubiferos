@@ -21,9 +21,9 @@ images:
     productIcon:         "logo.png"
     productWelcome:      "welcome.png"
 
-# PHASE 3: Slideshow (disabled - known to cause segfault)
-# slideshow:              "show.qml"
-# slideshowAPI:           2
+# PHASE 3: Slideshow (using simple static version to avoid threading issues)
+slideshow:              "show-empty.qml"
+slideshowAPI:           2
 
 # PHASE 4: Stylesheet
 stylesheet:             "stylesheet.qss"
