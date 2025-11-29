@@ -33,15 +33,15 @@ windowExpanding:        normal
 windowPlacement:        free
 windowSize:             800px,520px
 
-# PHASE 6: Panel settings (commented out for testing)
-# sidebar:                widget
-# sidebarPosition:        left
-# navigation:             widget
-# navigationPosition:     bottom
+# PHASE 6: Panel settings
+sidebar:                widget
+sidebarPosition:        left
+navigation:             widget
+navigationPosition:     bottom
 
-# PHASE 7: Style colors (commented out for testing)
-# style:
-#    sidebarBackground:    "#2c3e50"
-#    sidebarText:          "#ffffff"
-#    sidebarTextSelect:    "#3498db"
-#    sidebarTextHighlight: "#3498db"
+# PHASE 7: Style colors
+style:
+   sidebarBackground:    "#2c3e50"
+   sidebarText:          "#ffffff"
+   sidebarTextSelect:    "#3498db"
+   sidebarTextHighlight: "#3498db"
