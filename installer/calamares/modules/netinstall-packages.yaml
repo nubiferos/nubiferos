@@ -1,0 +1,36 @@
+---
+# Package groups for netinstall module
+# Simpler format than packagechooser
+
+- name: "Cloud Development Tools"
+  description: "AWS CLI, Terraform, kubectl, Docker, and other cloud tools"
+  selected: true
+  critical: false
+  packages:
+    - awscli
+    - terraform
+    - kubectl
+    - docker-ce
+    - docker-compose
+
+- name: "Development Tools"
+  description: "VS Code, Git, build tools, and development utilities"
+  selected: true
+  critical: false
+  packages:
+    - code
+    - git
+    - build-essential
+    - python3-dev
+    - nodejs
+    - npm
+
+- name: "Security & Hardening"
+  description: "Firejail, AppArmor, and security monitoring tools"
+  selected: true
+  critical: true
+  packages:
+    - firejail
+    - apparmor
+    - apparmor-utils
+    - fail2ban
