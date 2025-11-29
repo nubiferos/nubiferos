@@ -32,6 +32,7 @@ echo "  ✓ Clipboard sharing (bidirectional)"
 echo "  ✓ QXL graphics driver"
 echo "  ✓ USB redirection"
 echo "  ✓ 4GB RAM"
+echo "  ✓ 20GB virtual disk"
 echo "  ✓ KVM acceleration"
 echo ""
 echo "Connect with:"
@@ -69,10 +70,19 @@ echo ""
 echo "Starting QEMU..."
 echo ""
 
+# Create virtual disk if it doesn't exist
+DISK_FILE="testing/nubiferos-test-disk.qcow2"
+if [ ! -f "$DISK_FILE" ]; then
+    echo "Creating 20GB virtual disk for testing..."
+    qemu-img create -f qcow2 "$DISK_FILE" 20G
+    echo "✓ Virtual disk created: $DISK_FILE"
+fi
+
 # Launch QEMU with SPICE
 qemu-system-x86_64 \
     $KVM_OPTS \
     -drive file="$ISO_FILE",media=cdrom,readonly=on,format=raw,if=ide \
+    -drive file="$DISK_FILE",format=qcow2,if=virtio \
     -m 4096 \
     -smp 2 \
     -boot d \
