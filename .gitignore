@@ -3,8 +3,10 @@ work/
 output/
 iso/
 logs/
+downloads/
 *.iso
 *.log
+*.qcow2
 
 # IDE
 .kiro/
