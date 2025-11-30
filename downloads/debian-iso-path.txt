@@ -1,1 +1,0 @@
-/mnt/c/Users/jesse/OneDrive/Code/nubiferOS/downloads/debian-12.8.0-amd64-netinst.iso
