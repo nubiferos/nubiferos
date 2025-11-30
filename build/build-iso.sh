@@ -196,6 +196,10 @@ install_nubifer_components() {
     cp "${PROJECT_ROOT}/configs/ide/install-ide-plugins.sh" "${CHROOT_DIR}/usr/local/bin/install-ide-plugins"
     chmod +x "${CHROOT_DIR}/usr/local/bin/install-ide-plugins"
     
+    # IDE installer (VS Code, IntelliJ, PyCharm)
+    cp "${PROJECT_ROOT}/scripts/install-ides.sh" "${CHROOT_DIR}/usr/local/bin/install-ides"
+    chmod +x "${CHROOT_DIR}/usr/local/bin/install-ides"
+    
     # Copy documentation
     mkdir -p "${CHROOT_DIR}/usr/share/doc/nubifer"
     cp "${PROJECT_ROOT}"/docs/*.md "${CHROOT_DIR}/usr/share/doc/nubifer/"

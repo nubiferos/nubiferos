@@ -30,14 +30,15 @@
     - wget
 
 - name: "IDEs and Editors"
-  description: "Code editors and development environments"
+  description: "Text editors (VS Code, IntelliJ, PyCharm available post-install)"
   selected: false
   critical: false
   packages:
     - vim
+    - neovim
     - emacs
     - geany
-    - code-oss
+    - kate
 
 - name: "Security & Hardening"
   description: "Firejail, AppArmor, and security monitoring tools (REQUIRED)"
