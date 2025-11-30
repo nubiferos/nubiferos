@@ -44,10 +44,10 @@ Added to required security group:
 - Selected by default
 
 ### IDEs and Editors (NEW)
-- vim, emacs
-- geany (lightweight IDE)
-- code-oss (VS Code open source)
+- vim, neovim, emacs
+- geany, kate (lightweight editors)
 - NOT selected by default (optional)
+- **Note:** VS Code, IntelliJ IDEA, PyCharm available via post-install script
 
 ### Security & Hardening
 - firejail, apparmor, fail2ban
@@ -57,11 +57,26 @@ Added to required security group:
 
 ## Post-Install Tools
 
+### IDEs (VS Code, IntelliJ, PyCharm)
+
+Run the IDE installer script after system installation:
+
+```bash
+sudo /usr/local/bin/install-ides
+```
+
+This interactive script installs:
+- VS Code (Microsoft official)
+- IntelliJ IDEA Community Edition
+- PyCharm Community Edition
+
+**Location:** `scripts/install-ides.sh`
+
+### Cloud Tools (Terraform, kubectl)
+
 For tools not in Debian repos, create post-install scripts:
 
 ```bash
-# /usr/local/bin/install-cloud-tools
-#!/bin/bash
 # Install terraform
 curl -fsSL https://apt.releases.hashicorp.com/gpg | sudo apt-key add -
 sudo apt-add-repository "deb [arch=amd64] https://apt.releases.hashicorp.com $(lsb_release -cs) main"
@@ -70,12 +85,6 @@ sudo apt-get update && sudo apt-get install terraform
 # Install kubectl
 curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
 sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
-
-# Install VS Code (full version)
-wget -qO- https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor > packages.microsoft.gpg
-sudo install -D -o root -g root -m 644 packages.microsoft.gpg /etc/apt/keyrings/packages.microsoft.gpg
-sudo sh -c 'echo "deb [arch=amd64,arm64,armhf signed-by=/etc/apt/keyrings/packages.microsoft.gpg] https://packages.microsoft.com/repos/code stable main" > /etc/apt/sources.list.d/vscode.list'
-sudo apt-get update && sudo apt-get install code
 ```
 
 ## Testing
