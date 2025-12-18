@@ -11,8 +11,8 @@
     - docker-compose
     - python3-boto3
     - python3-azure
-    - python3-google-cloud-storage
     - awscli
+    # Note: GCP SDK not available in Debian repos - install via pip if needed
 
 - name: "Development Tools"
   description: "Git, build tools, and development utilities"

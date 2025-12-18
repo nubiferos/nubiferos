@@ -354,6 +354,14 @@ create_live_user() {
     # Add to sudo group
     chroot_exec "usermod -aG sudo live"
     
+    # Configure passwordless sudo for live user (TESTING ONLY)
+    cat > "${CHROOT_DIR}/etc/sudoers.d/live-user" << 'EOF'
+# Allow live user to run sudo without password (TESTING ONLY)
+# This file will be removed when live CD is removed before Alpha
+live ALL=(ALL) NOPASSWD: ALL
+EOF
+    chmod 440 "${CHROOT_DIR}/etc/sudoers.d/live-user"
+    
     # Configure auto-login for GDM
     mkdir -p "${CHROOT_DIR}/etc/gdm3"
     cat > "${CHROOT_DIR}/etc/gdm3/custom.conf" << 'EOF'

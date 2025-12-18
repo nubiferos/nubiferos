@@ -23,7 +23,7 @@ images:
 
 # PHASE 3: Slideshow (disabled - ANY QML slideshow causes threading segfault)
 # slideshow:              "show-empty.qml"
-# slideshowAPI:           2
+slideshowAPI:           2
 
 # PHASE 4: Stylesheet
 stylesheet:             "stylesheet.qss"
@@ -34,10 +34,12 @@ windowPlacement:        free
 windowSize:             800px,520px
 
 # PHASE 6: Panel settings
-sidebar:                widget
-sidebarPosition:        left
-navigation:             widget
-navigationPosition:     bottom
+sidebar:
+    side: left
+    widget: true
+navigation:
+    side: bottom
+    widget: true
 
 # PHASE 7: Style colors
 style:
