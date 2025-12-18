@@ -39,7 +39,7 @@ ExecStartPre=/bin/mkdir -p /run/user/1000
 ExecStartPre=/bin/chown live:live /run/user/1000
 ExecStartPre=/bin/chmod 700 /run/user/1000
 ExecStartPre=/bin/sleep 5
-ExecStart=/usr/bin/pkexec /usr/bin/calamares -d
+ExecStart=/usr/bin/sudo /usr/bin/calamares -d
 Restart=on-failure
 RestartSec=3
 StandardOutput=journal
@@ -79,7 +79,7 @@ log "INFO" "Creating .xinitrc for live user..."
 cat > "${CHROOT_DIR}/home/live/.xinitrc" << 'EOF'
 #!/bin/bash
 # Start Calamares installer
-exec pkexec calamares -d
+exec sudo calamares -d
 EOF
 chmod +x "${CHROOT_DIR}/home/live/.xinitrc"
 chroot_exec "chown live:live /home/live/.xinitrc"
@@ -91,7 +91,7 @@ cat > "${CHROOT_DIR}/home/live/.config/autostart/calamares.desktop" << 'EOF'
 [Desktop Entry]
 Type=Application
 Name=Install NubiferOS
-Exec=pkexec calamares -d
+Exec=sudo calamares -d
 Icon=calamares
 Terminal=false
 Hidden=false
@@ -114,5 +114,30 @@ else
 fi
 EOF
 chmod +x "${CHROOT_DIR}/usr/local/bin/calamares-exit-handler"
+
+# Create simple launcher script for manual restart
+log "INFO" "Creating manual launcher script..."
+cat > "${CHROOT_DIR}/usr/local/bin/install-nubiferos" << 'EOF'
+#!/bin/bash
+# Simple script to launch Calamares installer
+echo "Starting NubiferOS installer..."
+sudo calamares -d
+EOF
+chmod +x "${CHROOT_DIR}/usr/local/bin/install-nubiferos"
+
+# Create desktop shortcut
+cat > "${CHROOT_DIR}/home/live/Desktop/Install NubiferOS.desktop" << 'EOF'
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Install NubiferOS
+Comment=Install NubiferOS to hard drive
+Exec=install-nubiferos
+Icon=calamares
+Terminal=false
+Categories=System;
+EOF
+chmod +x "${CHROOT_DIR}/home/live/Desktop/Install NubiferOS.desktop"
+chroot_exec "chown live:live '/home/live/Desktop/Install NubiferOS.desktop'"
 
 log "INFO" "✓ Auto-login and Calamares auto-launch configured"
