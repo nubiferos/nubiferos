@@ -200,6 +200,14 @@ install_nubifer_components() {
     cp "${PROJECT_ROOT}/scripts/install-ides.sh" "${CHROOT_DIR}/usr/local/bin/install-ides"
     chmod +x "${CHROOT_DIR}/usr/local/bin/install-ides"
     
+    # GRUB LUKS wrapper for encrypted installations
+    cp "${PROJECT_ROOT}/scripts/grub-install-luks-wrapper.sh" "${CHROOT_DIR}/usr/local/bin/grub-install-luks-wrapper"
+    chmod +x "${CHROOT_DIR}/usr/local/bin/grub-install-luks-wrapper"
+    
+    # Cloud SDK installer
+    cp "${PROJECT_ROOT}/scripts/install-cloud-sdks.sh" "${CHROOT_DIR}/usr/local/bin/install-cloud-sdks"
+    chmod +x "${CHROOT_DIR}/usr/local/bin/install-cloud-sdks"
+    
     # Copy documentation
     mkdir -p "${CHROOT_DIR}/usr/share/doc/nubifer"
     cp "${PROJECT_ROOT}"/docs/*.md "${CHROOT_DIR}/usr/share/doc/nubifer/"
