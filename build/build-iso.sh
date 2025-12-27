@@ -381,21 +381,16 @@ EOF
     mkdir -p "${ISO_DIR}/EFI/boot"
     cp "${ISO_DIR}/boot/grub/grub.cfg" "${ISO_DIR}/EFI/boot/grub.cfg"
     
-    # Create embedded GRUB config - try loading config from common device names
-    # This uses error handling instead of conditionals
+    # Create embedded GRUB config for proper UEFI/BIOS boot
     cat > "${ISO_DIR}/boot/grub/embedded.cfg" << 'EOF'
-# Try to load grub.cfg from common CD device names
-# GRUB will silently fail and try the next one if a device doesn't exist
-set root=(cd)
-configfile (cd)/boot/grub/grub.cfg
+set timeout=5
+set default=0
 set root=(cd0)
-configfile (cd0)/boot/grub/grub.cfg
-set root=(cd1)
-configfile (cd1)/boot/grub/grub.cfg
-# If we get here, none worked - drop to rescue shell
-echo "Error: Could not find grub.cfg on any CD device"
-echo "Available devices:"
-ls
+if [ ! -e ($root)/boot/grub/grub.cfg ]; then
+    search --file --set=root /boot/grub/grub.cfg
+fi
+set prefix=($root)/boot/grub
+configfile ($prefix)/grub.cfg
 EOF
     
     # Create GRUB standalone image for BIOS boot
@@ -419,41 +414,28 @@ EOF
     # Combine with GRUB boot sector
     cat /usr/lib/grub/i386-pc/cdboot.img "${ISO_DIR}/boot/grub/core.img" > "${ISO_DIR}/boot/grub/bios.img"
     
-    # Create embedded GRUB config for EFI (same logic)
-    cat > "${ISO_DIR}/EFI/boot/embedded.cfg" << 'EOF'
-# Try to load grub.cfg from common CD device names
-set root=(cd)
-configfile (cd)/boot/grub/grub.cfg
-set root=(cd0)
-configfile (cd0)/boot/grub/grub.cfg
-set root=(cd1)
-configfile (cd1)/boot/grub/grub.cfg
-echo "Error: Could not find grub.cfg on any CD device"
-echo "Available devices:"
-ls
-EOF
-    
-    # Create GRUB EFI image
+    # Create GRUB EFI image with canonical path
+    mkdir -p "${ISO_DIR}/EFI/BOOT"
     grub-mkstandalone \
         --format=x86_64-efi \
-        --output="${ISO_DIR}/EFI/boot/bootx64.efi" \
+        --output="${ISO_DIR}/EFI/BOOT/BOOTX64.EFI" \
         --locales="" \
         --fonts="" \
-        "boot/grub/embedded.cfg=${ISO_DIR}/EFI/boot/embedded.cfg"
+        "boot/grub/grub.cfg=${ISO_DIR}/boot/grub/embedded.cfg"
     
     # Create FAT EFI boot image
     log "INFO" "Creating EFI boot image..."
     dd if=/dev/zero of="${ISO_DIR}/boot/grub/efi.img" bs=1M count=10
     mkfs.vfat "${ISO_DIR}/boot/grub/efi.img"
     
-    # Mount and populate EFI image
+    # Mount and populate EFI image with canonical paths
     local EFI_MOUNT="${WORK_DIR}/efi_mount"
     mkdir -p "${EFI_MOUNT}"
     mount -o loop "${ISO_DIR}/boot/grub/efi.img" "${EFI_MOUNT}"
     
-    mkdir -p "${EFI_MOUNT}/EFI/boot"
-    cp "${ISO_DIR}/EFI/boot/bootx64.efi" "${EFI_MOUNT}/EFI/boot/"
-    cp "${ISO_DIR}/EFI/boot/grub.cfg" "${EFI_MOUNT}/EFI/boot/"
+    mkdir -p "${EFI_MOUNT}/EFI/BOOT"
+    cp "${ISO_DIR}/EFI/BOOT/BOOTX64.EFI" "${EFI_MOUNT}/EFI/BOOT/"
+    cp "${ISO_DIR}/boot/grub/grub.cfg" "${EFI_MOUNT}/EFI/BOOT/"
     
     umount "${EFI_MOUNT}"
     rmdir "${EFI_MOUNT}"
