@@ -4,8 +4,55 @@
 
 set -e
 
+# Parse arguments
+BUILD_TYPE="installer"  # Default to installer-only (production)
+NON_INTERACTIVE=true
+
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --installer-only)
+            BUILD_TYPE="installer"
+            shift
+            ;;
+        --live)
+            BUILD_TYPE="live"
+            shift
+            ;;
+        --interactive)
+            NON_INTERACTIVE=false
+            shift
+            ;;
+        --help)
+            cat << EOF
+NubiferOS ISO Build Script
+
+Usage: $0 [options]
+
+Build Types:
+  --installer-only   Build production installer-only ISO (default)
+  --live            Build development live ISO (testing only)
+
+Options:
+  --interactive     Enable interactive prompts
+  --help           Show this help message
+
+Examples:
+  sudo $0 --installer-only    # Production ISO (recommended)
+  sudo $0 --live              # Development ISO (testing only)
+
+EOF
+            exit 0
+            ;;
+        *)
+            echo "Unknown option: $1"
+            echo "Run with --help for usage"
+            exit 1
+            ;;
+    esac
+done
+
 # Enable non-interactive mode for automated builds
-export NON_INTERACTIVE=true
+export NON_INTERACTIVE
 
 echo "=========================================="
 echo "NubiferOS ISO Builder"
@@ -72,6 +119,14 @@ echo "  Distribution: NubiferOS 1.0 (Nimbus)"
 echo "  Base: Debian 12 (Bookworm)"
 echo "  Desktop: GNOME with Wayland"
 echo "  Architecture: amd64"
+if [ "$BUILD_TYPE" = "installer" ]; then
+    echo "  Type: Production Installer-Only ISO"
+    echo "  Security: Minimal attack surface, mandatory encryption"
+else
+    echo "  Type: Development Live ISO"
+    echo "  ⚠️  WARNING: TESTING ONLY - NOT FOR PRODUCTION"
+    echo "  Security: Reduced (live environment)"
+fi
 echo ""
 
 # Estimate time
@@ -101,7 +156,11 @@ echo ""
 
 # Start build
 cd build
-./build-iso.sh
+if [ "$BUILD_TYPE" = "installer" ]; then
+    ./build-iso.sh --installer-only
+else
+    ./build-iso.sh --live
+fi
 
 echo ""
 echo "=========================================="
