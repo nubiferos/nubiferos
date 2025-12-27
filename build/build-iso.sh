@@ -28,6 +28,7 @@ init_config
 # Parse arguments
 ENABLE_TESTS=false
 SKIP_DOWNLOAD=false
+BUILD_TYPE="installer"  # Default to installer-only (production)
 
 while [[ $# -gt 0 ]]; do
     case $1 in
@@ -39,15 +40,43 @@ while [[ $# -gt 0 ]]; do
             SKIP_DOWNLOAD=true
             shift
             ;;
+        --installer-only)
+            BUILD_TYPE="installer"
+            shift
+            ;;
+        --live)
+            BUILD_TYPE="live"
+            shift
+            ;;
         --help)
             cat << EOF
 NubiferOS ISO Build Script
 
 Usage: $0 [options]
 
+Build Types:
+  --installer-only   Build production installer-only ISO (default)
+  --live            Build development live ISO (testing only)
+
 Options:
   --enable-tests     Enable post-installation testing
   --skip-download    Skip Debian ISO download (use existing)
+  --help            Show this help message
+
+Examples:
+  sudo $0 --installer-only    # Production ISO
+  sudo $0 --live              # Development ISO
+
+EOF
+            exit 0
+            ;;
+        *)
+            echo "Unknown option: $1"
+            echo "Run with --help for usage"
+            exit 1
+            ;;
+    esac
+done
   --help            Show this help message
 
 Example:
@@ -69,6 +98,14 @@ log "INFO" "NubiferOS ISO Build"
 log "INFO" "=========================================="
 log "INFO" "Version: ${DISTRO_VERSION}"
 log "INFO" "Codename: ${DISTRO_CODENAME}"
+if [ "$BUILD_TYPE" = "installer" ]; then
+    log "INFO" "Build Type: Production Installer-Only ISO"
+    log "INFO" "Security: Minimal attack surface, mandatory encryption"
+else
+    log "INFO" "Build Type: Development Live ISO"
+    log "WARN" "⚠️  WARNING: TESTING ONLY - NOT FOR PRODUCTION"
+    log "INFO" "Security: Reduced (live environment)"
+fi
 log "INFO" "Test Mode: ${ENABLE_TESTS}"
 log "INFO" "=========================================="
 
@@ -134,8 +171,13 @@ build_iso() {
     log "INFO" "Step 3/7: Skipping cloud tools (will be installed via Calamares)"
     
     # Step 4: Install desktop environment
-    log "INFO" "Step 4/7: Installing GNOME desktop..."
-    "${SCRIPT_DIR}/install-desktop.sh"
+    if [ "$BUILD_TYPE" = "installer" ]; then
+        log "INFO" "Step 4/7: Installing GNOME desktop (installer-only)..."
+        "${SCRIPT_DIR}/install-desktop-installer.sh"
+    else
+        log "INFO" "Step 4/7: Installing GNOME desktop (live environment)..."
+        "${SCRIPT_DIR}/install-desktop-live.sh"
+    fi
     
     # Step 5: Apply security hardening
     log "INFO" "Step 5/7: Applying security hardening..."
