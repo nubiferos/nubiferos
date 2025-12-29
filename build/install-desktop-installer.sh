@@ -79,18 +79,12 @@ install_gnome() {
         nautilus \
         gdm3"
     
-    # Install SPICE guest agent for VM clipboard support
-    log "INFO" "Installing SPICE guest agent for VM support..."
-    chroot_exec "DEBIAN_FRONTEND=noninteractive apt-get install -y \
-        spice-vdagent \
-        qemu-guest-agent"
+    # NOTE: Guest agents NOT installed in installer-only ISO
+    # They are only needed for live/testing environments
+    log "INFO" "Skipping guest agents (installer-only mode)"
     
     # Set GDM3 as default display manager
     chroot_exec "systemctl enable gdm3"
-    
-    # Enable SPICE and QEMU guest agents
-    chroot_exec "systemctl enable spice-vdagent"
-    chroot_exec "systemctl enable qemu-guest-agent"
     
     log "INFO" "✓ GNOME installed (minimal for installer)"
 }
@@ -109,8 +103,7 @@ configure_wayland() {
 # Enable Wayland
 WaylandEnable=true
 # Disable X11 for security (Wayland only)
-# Uncomment to force Wayland only:
-# XorgEnable=false
+XorgEnable=false
 
 # NO AUTO-LOGIN - Installer-only ISO
 
@@ -188,35 +181,21 @@ install_fonts() {
     log "INFO" "✓ Essential fonts installed"
 }
 
-# Cleanup unnecessary locales (keep only English)
+# Cleanup unnecessary locales (deterministic method)
 cleanup_locales() {
     log "INFO" "=========================================="
-    log "INFO" "Cleaning Up Unnecessary Locales"
+    log "INFO" "Cleaning Up Unnecessary Locales (CI-Safe)"
     log "INFO" "=========================================="
     
     log "INFO" "Keeping only English locales (saves space)"
     
-    # Install localepurge to remove unnecessary locales
-    chroot_exec "DEBIAN_FRONTEND=noninteractive apt-get install -y localepurge"
+    # Use deterministic file removal instead of localepurge
+    # This is more reliable in CI environments
+    chroot_exec "find /usr/share/locale -mindepth 1 -maxdepth 1 ! -name 'en*' -exec rm -rf {} + 2>/dev/null || true"
+    chroot_exec "find /usr/share/man -mindepth 1 -maxdepth 1 ! -name 'man[1-9]' ! -name 'en*' -exec rm -rf {} + 2>/dev/null || true"
+    chroot_exec "find /usr/share/doc -name '*.txt' -o -name '*.html' | grep -v '/en/' | head -1000 | xargs rm -f 2>/dev/null || true"
     
-    # Configure localepurge to keep only English
-    cat > "${CHROOT_DIR}/etc/locale.nopurge" << 'EOF'
-# Keep only English locales
-en
-en_US
-en_US.UTF-8
-MANDELETE
-DONTBOTHERNEWLOCALE
-SHOWFREEDSPACE
-EOF
-    
-    # Run localepurge
-    chroot_exec "localepurge"
-    
-    # Remove locale files manually for additional space savings
-    chroot_exec "find /usr/share/locale -mindepth 1 -maxdepth 1 ! -name 'en*' -exec rm -rf {} +"
-    
-    log "INFO" "✓ Unnecessary locales removed"
+    log "INFO" "✓ Unnecessary locales removed (CI-safe method)"
 }
 
 # NO LIVE USER CREATION - Installer-only ISO

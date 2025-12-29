@@ -25,10 +25,29 @@ source "${SCRIPT_DIR}/config.sh"
 
 init_config
 
-# Parse arguments
+# Parse arguments and environment variables
 ENABLE_TESTS=false
 SKIP_DOWNLOAD=false
-BUILD_TYPE="installer"  # Default to installer-only (production)
+
+# Mode resolution: CLI flag > Environment variable > Default
+BUILD_TYPE=""
+if [ -n "${ISO_MODE}" ]; then
+    case "${ISO_MODE}" in
+        installer|live)
+            BUILD_TYPE="${ISO_MODE}"
+            ;;
+        *)
+            echo "ERROR: Invalid ISO_MODE value: ${ISO_MODE}"
+            echo "Valid values: installer, live"
+            exit 1
+            ;;
+    esac
+fi
+
+# Default to installer-only (production) if not set
+if [ -z "${BUILD_TYPE}" ]; then
+    BUILD_TYPE="installer"
+fi
 
 while [[ $# -gt 0 ]]; do
     case $1 in
@@ -39,6 +58,23 @@ while [[ $# -gt 0 ]]; do
         --skip-download)
             SKIP_DOWNLOAD=true
             shift
+            ;;
+        --mode)
+            if [ -z "$2" ]; then
+                echo "ERROR: --mode requires a value (installer|live)"
+                exit 1
+            fi
+            case "$2" in
+                installer|live)
+                    BUILD_TYPE="$2"
+                    ;;
+                *)
+                    echo "ERROR: Invalid mode: $2"
+                    echo "Valid modes: installer, live"
+                    exit 1
+                    ;;
+            esac
+            shift 2
             ;;
         --installer-only)
             BUILD_TYPE="installer"
@@ -55,6 +91,7 @@ NubiferOS ISO Build Script
 Usage: $0 [options]
 
 Build Types:
+  --mode <type>      Set build mode (installer|live)
   --installer-only   Build production installer-only ISO (default)
   --live            Build development live ISO (testing only)
 
@@ -63,9 +100,15 @@ Options:
   --skip-download    Skip Debian ISO download (use existing)
   --help            Show this help message
 
+Environment Variables:
+  ISO_MODE          Set build mode (installer|live)
+                    CLI --mode flag takes precedence over environment
+
 Examples:
-  sudo $0 --installer-only    # Production ISO
-  sudo $0 --live              # Development ISO
+  sudo $0 --mode installer        # Production ISO
+  sudo $0 --live                  # Development ISO
+  sudo ISO_MODE=installer $0      # Production ISO via environment
+  sudo ISO_MODE=live $0           # Development ISO via environment
 
 EOF
             exit 0
@@ -399,7 +442,8 @@ create_bootable_iso() {
     log "INFO" "✓ Kernel and initrd copied successfully"
     
     # Create GRUB configuration for BIOS
-    cat > "${ISO_DIR}/boot/grub/grub.cfg" << EOF
+    if [ "$BUILD_TYPE" = "installer" ]; then
+        cat > "${ISO_DIR}/boot/grub/grub.cfg" << EOF
 # Root device is set by embedded.cfg via search
 set timeout=3
 set default=0
@@ -409,15 +453,36 @@ insmod gfxterm
 terminal_output gfxterm
 
 menuentry "${DISTRO_FULLNAME} ${DISTRO_VERSION} - Installer" {
-    linux /boot/vmlinuz boot=live components quiet splash username=live
+    linux /boot/vmlinuz components quiet splash
     initrd /boot/initrd.img
 }
 
 menuentry "${DISTRO_FULLNAME} ${DISTRO_VERSION} - Installer (Safe Mode)" {
+    linux /boot/vmlinuz components nomodeset
+    initrd /boot/initrd.img
+}
+EOF
+    else
+        cat > "${ISO_DIR}/boot/grub/grub.cfg" << EOF
+# Root device is set by embedded.cfg via search
+set timeout=3
+set default=0
+
+insmod all_video
+insmod gfxterm
+terminal_output gfxterm
+
+menuentry "${DISTRO_FULLNAME} ${DISTRO_VERSION} - Live" {
+    linux /boot/vmlinuz boot=live components quiet splash username=live
+    initrd /boot/initrd.img
+}
+
+menuentry "${DISTRO_FULLNAME} ${DISTRO_VERSION} - Live (Safe Mode)" {
     linux /boot/vmlinuz boot=live components nomodeset username=live
     initrd /boot/initrd.img
 }
 EOF
+    fi
     
     # Create GRUB configuration for UEFI (same content, different location)
     mkdir -p "${ISO_DIR}/EFI/boot"

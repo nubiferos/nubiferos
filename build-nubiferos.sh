@@ -4,12 +4,58 @@
 
 set -e
 
-# Parse arguments
-BUILD_TYPE="installer"  # Default to installer-only (production)
-NON_INTERACTIVE=true
+#!/bin/bash
+# NubiferOS ISO Build Script
+# Simple wrapper that checks dependencies and builds the ISO
 
+set -e
+
+# Mode resolution: CLI flag > Environment variable > Default
+BUILD_TYPE=""
+if [ -n "${ISO_MODE}" ]; then
+    case "${ISO_MODE}" in
+        installer|live)
+            BUILD_TYPE="${ISO_MODE}"
+            ;;
+        *)
+            echo "ERROR: Invalid ISO_MODE value: ${ISO_MODE}"
+            echo "Valid values: installer, live"
+            exit 1
+            ;;
+    esac
+fi
+
+# Default to installer-only (production) if not set
+if [ -z "${BUILD_TYPE}" ]; then
+    BUILD_TYPE="installer"
+fi
+
+# Detect CI environment for non-interactive mode
+NON_INTERACTIVE=false
+if [ -n "${CI}" ] || [ -n "${GITHUB_ACTIONS}" ] || [ -n "${GITLAB_CI}" ] || [ -n "${JENKINS_URL}" ] || [ ! -t 0 ]; then
+    NON_INTERACTIVE=true
+fi
+
+# Parse arguments
 while [[ $# -gt 0 ]]; do
     case $1 in
+        --mode)
+            if [ -z "$2" ]; then
+                echo "ERROR: --mode requires a value (installer|live)"
+                exit 1
+            fi
+            case "$2" in
+                installer|live)
+                    BUILD_TYPE="$2"
+                    ;;
+                *)
+                    echo "ERROR: Invalid mode: $2"
+                    echo "Valid modes: installer, live"
+                    exit 1
+                    ;;
+            esac
+            shift 2
+            ;;
         --installer-only)
             BUILD_TYPE="installer"
             shift
@@ -22,6 +68,10 @@ while [[ $# -gt 0 ]]; do
             NON_INTERACTIVE=false
             shift
             ;;
+        --non-interactive)
+            NON_INTERACTIVE=true
+            shift
+            ;;
         --help)
             cat << EOF
 NubiferOS ISO Build Script
@@ -29,16 +79,25 @@ NubiferOS ISO Build Script
 Usage: $0 [options]
 
 Build Types:
+  --mode <type>      Set build mode (installer|live)
   --installer-only   Build production installer-only ISO (default)
   --live            Build development live ISO (testing only)
 
 Options:
-  --interactive     Enable interactive prompts
-  --help           Show this help message
+  --interactive      Enable interactive prompts (default in terminal)
+  --non-interactive  Disable interactive prompts (default in CI)
+  --help            Show this help message
+
+Environment Variables:
+  ISO_MODE          Set build mode (installer|live)
+                    CLI --mode flag takes precedence over environment
+  CI                Auto-detected for non-interactive mode
 
 Examples:
-  sudo $0 --installer-only    # Production ISO (recommended)
-  sudo $0 --live              # Development ISO (testing only)
+  sudo $0 --mode installer        # Production ISO
+  sudo $0 --live                  # Development ISO
+  sudo ISO_MODE=installer $0      # Production ISO via environment
+  sudo ISO_MODE=live $0           # Development ISO via environment
 
 EOF
             exit 0
@@ -71,7 +130,7 @@ AVAILABLE=$(df -BG . | tail -1 | awk '{print $4}' | sed 's/G//')
 if [ "$AVAILABLE" -lt 50 ]; then
     echo "⚠️  Warning: Low disk space (${AVAILABLE}GB available)"
     echo "   Recommended: 50GB+ free space"
-    if [ "$NON_INTERACTIVE" != "true" ]; then
+    if [ "$NON_INTERACTIVE" = "false" ]; then
         echo ""
         read -p "Continue anyway? [y/N] " -n 1 -r
         echo ""
@@ -79,7 +138,7 @@ if [ "$AVAILABLE" -lt 50 ]; then
             exit 1
         fi
     else
-        echo "   Continuing in non-interactive mode..."
+        echo "   Continuing automatically in non-interactive mode..."
     fi
 fi
 
@@ -137,7 +196,7 @@ echo "  - Install packages: 15-20 min"
 echo "  - Create ISO: 5-10 min"
 echo ""
 
-if [ "$NON_INTERACTIVE" != "true" ]; then
+if [ "$NON_INTERACTIVE" = "false" ]; then
     read -p "Start build? [Y/n] " -n 1 -r
     echo ""
     if [[ $REPLY =~ ^[Nn]$ ]]; then
@@ -145,7 +204,7 @@ if [ "$NON_INTERACTIVE" != "true" ]; then
         exit 0
     fi
 else
-    echo "Starting build in non-interactive mode..."
+    echo "Starting build automatically in non-interactive mode..."
 fi
 
 echo ""
