@@ -585,6 +585,59 @@ sudo ./post-install-tests.sh
 
 ---
 
+## Pre-install vs Post-install Security
+
+### Pre-install Security (Installation Phase)
+
+**Trust Boundary**: Limited to installer ISO and installation process
+
+**Security Measures**:
+- Installer ISO integrity verification (checksums)
+- Kiosk-mode installer environment (restricted session)
+- Mandatory full disk encryption during installation
+- No live user or general workstation functionality
+
+**Threats Addressed**:
+- Installer ISO tampering (via checksum verification)
+- Accidental installation to wrong disk (via Calamares UI)
+- Installation without encryption (mandatory LUKS)
+
+**Threats NOT Addressed**:
+- Compromised installation media or download source
+- Network-based attacks during installation
+- Hardware-level attacks on installation system
+- UEFI/BIOS firmware compromise
+
+**Note**: The installer environment provides minimal attack surface but cannot protect against all pre-install threats. Users must verify ISO integrity and use trusted installation media.
+
+### Post-install Security (Operational Phase)
+
+**Trust Boundary**: Full NubiferOS system with all security layers active
+
+**Security Measures**:
+- All 8 security layers (encryption, isolation, access control, etc.)
+- Credential management and workspace isolation
+- Network security and intrusion prevention
+- Audit logging and monitoring
+- Automatic security updates
+
+**Threats Addressed**:
+- Application-level credential theft
+- Cross-workspace credential leakage
+- Physical device theft (encrypted disk)
+- Malware and privilege escalation
+- Network intrusions and brute force attacks
+
+**Threats NOT Addressed**:
+- Hardware-level attacks and side channels
+- Nation-state and advanced persistent threats
+- Social engineering and user behavior
+- Third-party application vulnerabilities
+
+**Note**: Post-install security provides comprehensive protection for the defined threat model but has explicit scope boundaries documented in [SECURITY_NON_GOALS.md](SECURITY_NON_GOALS.md).
+
+---
+
 ## Threat Model
 
 ### What NubiferOS Protects Against

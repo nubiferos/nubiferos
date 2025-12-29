@@ -231,6 +231,54 @@ def calculate_security_score():
 
 ## Future Enhancements
 
+### Most Risky Workspace
+
+The Security Dashboard includes a "Most Risky Workspace" feature that provides a computed attention signal to help users prioritize workspace security maintenance.
+
+#### Definition
+The Most Risky Workspace is a **computed, read-only signal** that identifies the single workspace with the highest relative risk across all configured workspaces. This feature is designed to direct user attention, not take automated actions.
+
+#### Key Characteristics
+- **Read-only signal**: Displays information only, never executes actions
+- **Attention-directing**: Helps users prioritize which workspace needs review
+- **Relative ranking**: Compares risk across workspaces, not absolute threat levels
+- **User judgment preserved**: Does not replace user decision-making
+
+#### Explicit Non-Actions
+The Most Risky Workspace feature explicitly:
+- **Does not expose secrets** or credential content
+- **Does not execute actions** or make changes automatically
+- **Does not replace user judgment** about workspace security
+- **Does not imply compromise** - only indicates elevated relative risk
+
+#### Risk Input Examples
+The risk calculation considers factors such as (non-exhaustive, adjustable):
+- **Credential age**: Older credentials weighted higher in risk calculation
+- **Write-enabled mode**: Production environments with write access enabled
+- **Workspace inactivity**: Unused workspaces with still-valid credentials
+- **Security check status**: Missing or failed recent security validations
+- **Posture drift**: Deviation from recommended settings (e.g., read-only mode disabled)
+
+#### Output Characteristics
+- **Single workspace surfaced**: Only one workspace highlighted at a time
+- **Clickable interface**: Selecting the workspace drills into detailed workspace view
+- **Neutral labeling**: Marked as "Requires Attention" rather than "Unsafe" or "Compromised"
+- **Local computation**: Risk assessment computed from locally indexed metadata
+- **Rank-only display**: No numerical scores exposed to users
+
+#### Technical Non-Goals
+- **No provider-specific logic**: Risk calculation remains cloud-agnostic at this layer
+- **No automatic remediation**: Feature provides information only, never takes corrective action
+- **No cloud API calls**: Risk assessment does not trigger external service requests
+- **No scoring exposure**: Users see relative ranking only, not numerical risk scores
+
+#### Future Evolution
+- **Risk inputs and weights may evolve** based on user feedback and threat landscape changes
+- **User-configurable policies may be added** in later versions for customizable risk assessment
+- **Initial versions use conservative defaults** to minimize false positives and user alarm
+
+This feature integrates with the global dashboard → drill-down model, allowing users to quickly identify and investigate workspaces that may benefit from security attention.
+
 ### Phase 2
 - Real-time monitoring with live updates
 - Historical security score tracking
