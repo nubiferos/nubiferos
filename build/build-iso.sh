@@ -120,21 +120,6 @@ EOF
             ;;
     esac
 done
-  --help            Show this help message
-
-Example:
-  sudo $0 --enable-tests
-
-EOF
-            exit 0
-            ;;
-        *)
-            echo "Unknown option: $1"
-            echo "Run with --help for usage"
-            exit 1
-            ;;
-    esac
-done
 
 log "INFO" "=========================================="
 log "INFO" "NubiferOS ISO Build"

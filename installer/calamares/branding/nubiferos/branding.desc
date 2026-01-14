@@ -14,6 +14,14 @@ strings:
     supportUrl:          "https://github.com/nubiferos/nubiferos"
     knownIssuesUrl:      "https://github.com/nubiferos/nubiferos/issues"
     releaseNotesUrl:     "https://github.com/nubiferos/nubiferos/releases"
+    
+    # Welcome screen text
+    welcomeStyleCalamares:   false
+    welcomeExpandingLogo:    true
+    
+    # Installation messages (shown during exec phase)
+    installationMessage:     "Installing NubiferOS - The Cloud Engineer's Workstation"
+    installationDescription: "Setting up secure workspace isolation, credential management, and cloud tools..."
 
 # PHASE 2: Images
 images:
@@ -21,8 +29,8 @@ images:
     productIcon:         "logo.png"
     productWelcome:      "welcome.png"
 
-# PHASE 3: Slideshow (disabled - ANY QML slideshow causes threading segfault)
-# slideshow:              "show-empty.qml"
+# PHASE 3: Slideshow - Simple text-based slideshow (no complex animations)
+slideshow:              "show.qml"
 slideshowAPI:           2
 
 # PHASE 4: Stylesheet
