@@ -139,19 +139,24 @@
     - Add to /etc/bash.bashrc for automatic loading
     - _Requirements: 5.6_
 
-- [ ] 6. Implement CLI wrapper scripts
-  - [ ] 6.1 Create credential injection wrappers
+- [x] 6. Implement CLI wrapper scripts
+  - [x] 6.1 Create credential injection wrappers
     - Write wrapper scripts for aws, az, gcloud that inject credentials from Credential Manager
     - Place wrappers in /usr/local/bin/ to override default CLI tools
+    - Implement secure credential injection without environment variable exposure
     - _Requirements: 3.4_
 
-  - [ ] 6.2 Implement read-only mode enforcement
+  - [x] 6.2 Implement read-only mode enforcement
     - Add logic to wrappers to block write operations when workspace is in read-only mode
     - Show clear error messages when write operations are blocked
+    - Pattern matching for AWS, Azure, GCP write operations
+    - Command-based blocking for Terraform and Kubectl
     - _Requirements: 8.2, 8.3_
 
-  - [ ] 6.3 Add workspace context to CLI commands
+  - [x] 6.3 Add workspace context to CLI commands
     - Ensure all CLI commands use the current workspace's credentials and configuration
+    - Check for active workspace before execution
+    - Integrate with Context Manager via D-Bus
     - _Requirements: 4.3, 4.4_
 
 - [ ] 7. Implement basic Resource Viewer application
