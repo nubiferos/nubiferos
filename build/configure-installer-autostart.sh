@@ -1,10 +1,17 @@
 #!/bin/bash
 # Configure auto-login and Calamares auto-launch for installer environment
+# This script is only needed for live ISOs with a live user
 
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/config.sh"
+
+# Skip if no live user exists (installer-only mode)
+if [ ! -d "${CHROOT_DIR}/home/live" ]; then
+    log "INFO" "No live user found - skipping auto-login configuration (installer-only mode)"
+    exit 0
+fi
 
 log "INFO" "Configuring auto-login and Calamares auto-launch..."
 
@@ -76,18 +83,23 @@ EOF
 
 # Create .xinitrc for live user to launch Calamares
 log "INFO" "Creating .xinitrc for live user..."
-cat > "${CHROOT_DIR}/home/live/.xinitrc" << 'EOF'
+if [ -d "${CHROOT_DIR}/home/live" ]; then
+    cat > "${CHROOT_DIR}/home/live/.xinitrc" << 'EOF'
 #!/bin/bash
 # Start Calamares installer
 exec sudo calamares -d
 EOF
-chmod +x "${CHROOT_DIR}/home/live/.xinitrc"
-chroot_exec "chown live:live /home/live/.xinitrc"
+    chmod +x "${CHROOT_DIR}/home/live/.xinitrc"
+    chroot_exec "chown live:live /home/live/.xinitrc"
+else
+    log "WARN" "Live user home directory not found, skipping .xinitrc creation"
+fi
 
 # Create desktop autostart entry as backup
 log "INFO" "Creating desktop autostart entry..."
-mkdir -p "${CHROOT_DIR}/home/live/.config/autostart"
-cat > "${CHROOT_DIR}/home/live/.config/autostart/calamares.desktop" << 'EOF'
+if [ -d "${CHROOT_DIR}/home/live" ]; then
+    mkdir -p "${CHROOT_DIR}/home/live/.config/autostart"
+    cat > "${CHROOT_DIR}/home/live/.config/autostart/calamares.desktop" << 'EOF'
 [Desktop Entry]
 Type=Application
 Name=Install NubiferOS
@@ -97,7 +109,10 @@ Terminal=false
 Hidden=false
 X-GNOME-Autostart-enabled=true
 EOF
-chroot_exec "chown -R live:live /home/live/.config"
+    chroot_exec "chown -R live:live /home/live/.config"
+else
+    log "WARN" "Live user home directory not found, skipping desktop autostart creation"
+fi
 
 # Configure Calamares exit behavior
 log "INFO" "Configuring exit behavior..."
