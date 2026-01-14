@@ -68,7 +68,7 @@
     - Add interactive prompts for credential input
     - _Requirements: 3.1, 3.2_
 
-  - [ ] 3.5 Create systemd service definition
+  - [x] 3.5 Create systemd service definition
     - Write systemd service file for credential manager
     - Configure service to start on boot
     - _Requirements: 3.1_
@@ -111,32 +111,32 @@
     - Add set-readonly command
     - _Requirements: 4.1, 4.2, 4.3_
 
-  - [ ] 4.7 Create systemd service definition
+  - [x] 4.7 Create systemd service definition
     - Write systemd service file for context manager
     - Configure service dependencies (requires credential manager)
     - _Requirements: 4.1_
     - _Note: Deferred to beta - run manually for now_
 
-- [ ] 5. Implement Context Indicator UI
-  - [ ] 5.1 Create GNOME Shell extension
+- [x] 5. Implement Context Indicator UI
+  - [x] 5.1 Create GNOME Shell extension
     - Implement GNOME Shell extension skeleton with panel indicator
     - Subscribe to D-Bus signals from Context Manager for workspace changes
     - Display current provider, account, region, and read-only status
     - _Requirements: 5.1, 5.2, 5.3, 5.4, 5.6_
 
-  - [ ] 5.2 Implement visual theming
+  - [x] 5.2 Implement visual theming
     - Add color coding for different cloud providers (AWS orange, Azure blue, GCP red)
     - Implement distinct visual indicators for read-only vs read-write mode
     - _Requirements: 5.4, 5.5_
 
-  - [ ] 5.3 Add workspace switcher menu
+  - [x] 5.3 Add workspace switcher menu
     - Implement dropdown menu showing all workspaces
     - Add click handlers to switch workspaces from the indicator
     - _Requirements: 4.3, 5.5_
 
-  - [ ] 5.4 Implement terminal prompt integration
+  - [x] 5.4 Implement terminal prompt integration
     - Create shell integration script that modifies PS1 with workspace context
-    - Add to /etc/bash.bashrc for automatic loading
+    - Add to /etc/profile.d/ for automatic loading
     - _Requirements: 5.6_
 
 - [x] 6. Implement CLI wrapper scripts

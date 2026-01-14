@@ -1,0 +1,13 @@
+{
+  "name": "NubiferOS Context Indicator",
+  "description": "Always-visible cloud account context indicator for secure multi-cloud management",
+  "uuid": "nubiferos-context@nubiferos.org",
+  "shell-version": [
+    "42",
+    "43",
+    "44",
+    "45"
+  ],
+  "url": "https://github.com/nubiferos/nubiferos",
+  "version": 1
+}

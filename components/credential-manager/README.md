@@ -26,6 +26,12 @@ cd components/credential-manager
 sudo ./install.sh
 ```
 
+This installs:
+- Source files to `/usr/local/lib/nubiferos/credential-manager/`
+- CLI tool: `/usr/local/bin/nubifer-creds`
+- D-Bus service: `/usr/local/bin/nubifer-creds-service`
+- Systemd service files (optional, not enabled by default)
+
 ## Prerequisites
 
 1. **GPG Key**: Required for pass encryption
@@ -157,6 +163,27 @@ CREATE TABLE credentials (
 **Service Name**: `org.nubiferos.CredentialManager`  
 **Object Path**: `/org/nubiferos/CredentialManager`  
 **Interface**: `org.nubiferos.CredentialManager`
+
+### Running the D-Bus Service
+
+**Option 1: Manual (for testing/development)**
+```bash
+nubifer-creds-service
+```
+
+**Option 2: Systemd (for production/auto-start)**
+```bash
+# Enable auto-start on login
+systemctl --user enable nubifer-credential-manager.service
+systemctl --user start nubifer-credential-manager.service
+
+# Check status
+systemctl --user status nubifer-credential-manager.service
+```
+
+**Option 3: D-Bus Activation (automatic)**
+
+The service supports D-Bus activation and will start automatically when accessed via D-Bus.
 
 ### Methods
 
@@ -304,7 +331,7 @@ python3 -m py_compile src/*.py
 
 ## Future Enhancements (Deferred to Beta)
 
-- [ ] Systemd service for D-Bus interface
+- [x] Systemd service (implemented but not enabled by default)
 - [ ] OIDC/SSO authentication
 - [ ] Hardware key support (YubiKey)
 - [ ] Automatic credential rotation
