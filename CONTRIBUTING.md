@@ -1,6 +1,6 @@
-# Contributing to CloudOS
+# Contributing to NubiferOS
 
-Thank you for your interest in contributing to CloudOS! This document provides guidelines and instructions for contributing to the project.
+Thank you for your interest in contributing to NubiferOS! This document provides guidelines and instructions for contributing to the project.
 
 ## Code of Conduct
 
@@ -9,7 +9,7 @@ By participating in this project, you agree to maintain a respectful and inclusi
 ## Getting Started
 
 1. Fork the repository
-2. Clone your fork: `git clone https://github.com/your-username/cloudos.git`
+2. Clone your fork: `git clone https://github.com/your-username/nubiferos.git`
 3. Create a feature branch: `git checkout -b feature/your-feature-name`
 4. Make your changes
 5. Test your changes thoroughly
@@ -150,7 +150,7 @@ npm test
 
 ### Reporting Security Issues
 
-Please report security vulnerabilities privately to security@cloudos.org. Do not open public issues for security problems.
+Please report security vulnerabilities privately to security@nubiferos.org. Do not open public issues for security problems.
 
 ## Component-Specific Guidelines
 
@@ -305,4 +305,4 @@ Contributors will be recognized in:
 - Release notes
 - Project website (when available)
 
-Thank you for contributing to CloudOS!
+Thank you for contributing to NubiferOS!

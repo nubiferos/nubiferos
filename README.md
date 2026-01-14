@@ -174,7 +174,7 @@ Supported IDEs:
 - **Vim / Neovim**: vim-terraform, Dockerfile.vim, vim-kubernetes, LSP support
 - **Emacs**: terraform-mode, dockerfile-mode, kubernetes, magit
 
-See [IDE Plugins Documentation](docs/IDE_PLUGINS.md) for details.
+See [IDE Plugins Documentation](docs/guides/IDE_PLUGINS.md) for details.
 
 ### Documentation Access
 
@@ -184,7 +184,7 @@ All installed tools have documentation bookmarked in Firefox:
 - IDE extension documentation
 - Learning resources and tutorials
 
-See [Browser Configuration](docs/BROWSER_CONFIGURATION.md) for the complete bookmark structure.
+See [Browser Configuration](docs/guides/BROWSER_CONFIGURATION.md) for the complete bookmark structure.
 
 ## Security
 
@@ -199,9 +199,13 @@ NubiferOS implements multiple layers of security:
 
 ## Documentation
 
-- [Requirements](/.kiro/specs/custom-linux-distro/requirements.md)
-- [Design](/.kiro/specs/custom-linux-distro/design.md)
-- [Implementation Tasks](/.kiro/specs/custom-linux-distro/tasks.md)
+- [Documentation Index](docs/INDEX.md) - Complete documentation catalog
+- [Quickstart Guide](docs/QUICKSTART.md) - Get started quickly
+- [Quick Build Guide](docs/QUICK_BUILD_GUIDE.md) - Build the ISO
+- [Project Structure](docs/PROJECT_STRUCTURE.md) - Codebase organization
+- [Design Decisions](docs/DESIGN_DECISIONS.md) - Architecture rationale
+- [Security Documentation](docs/SECURITY_SUMMARY.md) - Security overview
+- [Calamares Documentation](docs/calamares/) - Installer documentation
 
 ## Development
 

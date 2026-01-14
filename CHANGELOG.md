@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to CloudOS will be documented in this file.
+All notable changes to NubiferOS will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
@@ -53,7 +53,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## Version History
 
 ### Version 1.0 - "Nimbus" (Planned)
-First stable release of CloudOS with core functionality for multi-cloud management.
+First stable release of NubiferOS with core functionality for multi-cloud management.
 
 ---
 
@@ -69,5 +69,5 @@ Each release will include:
 
 ---
 
-[Unreleased]: https://github.com/cloudos/cloudos/compare/v1.0.0...HEAD
-[1.0.0]: https://github.com/cloudos/cloudos/releases/tag/v1.0.0
+[Unreleased]: https://github.com/nubiferos/nubiferos/compare/v1.0.0...HEAD
+[1.0.0]: https://github.com/nubiferos/nubiferos/releases/tag/v1.0.0

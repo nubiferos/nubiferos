@@ -1,6 +1,6 @@
-# CloudOS Documentation
+# NubiferOS Documentation
 
-Welcome to the CloudOS documentation.
+Welcome to the NubiferOS documentation.
 
 ## Documentation Structure
 
@@ -38,7 +38,7 @@ Welcome to the CloudOS documentation.
 ## Quick Links
 
 ### Getting Started
-1. [Building CloudOS](../build/README.md)
+1. [Building NubiferOS](../build/README.md)
 2. [Installation Guide](installation.md) (To be added)
 3. [First Steps](user-guide.md) (To be added)
 
@@ -97,8 +97,8 @@ See [CONTRIBUTING.md](../CONTRIBUTING.md) for guidelines on contributing to docu
 
 If you can't find what you're looking for:
 1. Check the [FAQ](faq.md) (To be added)
-2. Search existing [GitHub Issues](https://github.com/cloudos/cloudos/issues)
-3. Ask in [GitHub Discussions](https://github.com/cloudos/cloudos/discussions)
+2. Search existing [GitHub Issues](https://github.com/nubiferos/nubiferos/issues)
+3. Ask in [GitHub Discussions](https://github.com/nubiferos/nubiferos/discussions)
 
 ## Documentation TODO
 

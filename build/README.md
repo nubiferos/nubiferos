@@ -60,7 +60,7 @@ Master build script that orchestrates the ISO creation process:
 2. Extracts and customizes filesystem
 3. Applies security hardening
 4. Installs cloud tools
-5. Installs CloudOS components
+5. Installs NubiferOS components
 6. Configures desktop environment
 7. Creates bootable ISO
 
@@ -74,9 +74,9 @@ Script to install all cloud CLI tools:
 
 ### customize-system.sh (To be implemented)
 Script to customize the base system:
-- Install CloudOS components
+- Install NubiferOS components
 - Configure desktop environment
-- Apply CloudOS branding
+- Apply NubiferOS branding
 - Set up systemd services
 - Configure security policies
 
@@ -140,7 +140,7 @@ export SIGN_ISO=true
    - Install IaC tools
    - Install container tools
 
-5. **CloudOS Components**
+5. **NubiferOS Components**
    - Build and install credential manager
    - Build and install context manager
    - Build and install resource viewer
@@ -148,7 +148,7 @@ export SIGN_ISO=true
 
 6. **Desktop Configuration**
    - Install GNOME/KDE
-   - Apply CloudOS theme
+   - Apply NubiferOS theme
    - Configure extensions/widgets
    - Set up shell integration
 
@@ -215,10 +215,10 @@ sudo rm -rf iso/ output/
 
 ```bash
 # Verify checksum
-sha256sum -c output/CloudOS-1.0-x86_64.iso.sha256
+sha256sum -c output/NubiferOS-1.0-x86_64.iso.sha256
 
 # Verify GPG signature (if signed)
-gpg --verify output/CloudOS-1.0-x86_64.iso.sig output/CloudOS-1.0-x86_64.iso
+gpg --verify output/NubiferOS-1.0-x86_64.iso.sig output/NubiferOS-1.0-x86_64.iso
 ```
 
 ## Configuration Reference
