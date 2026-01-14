@@ -473,29 +473,16 @@ EOF
     mkdir -p "${ISO_DIR}/EFI/boot"
     cp "${ISO_DIR}/boot/grub/grub.cfg" "${ISO_DIR}/EFI/boot/grub.cfg"
     
-    # Create embedded GRUB config for proper UEFI/BIOS boot
-    cat > "${ISO_DIR}/boot/grub/embedded.cfg" << 'EOF'
-# Load essential modules first
-insmod iso9660
-insmod biosdisk
-
-# Set root to CD-ROM
-set timeout=5
-set default=0
-set root=(cd0)
-
-# Search for grub.cfg if not found on cd0
-if [ ! -e ($root)/boot/grub/grub.cfg ]; then
-    search --file --set=root /boot/grub/grub.cfg
-fi
-
-# Set prefix and load config
+    # Create GRUB standalone image for BIOS boot
+    log "INFO" "Creating GRUB boot images..."
+    
+    # Create embedded config as a temporary file
+    # This config is embedded into the GRUB image itself
+    cat > "${WORK_DIR}/grub-early.cfg" << 'EOF'
+search --file --set=root /boot/grub/grub.cfg
 set prefix=($root)/boot/grub
 configfile ($prefix)/grub.cfg
 EOF
-    
-    # Create GRUB standalone image for BIOS boot
-    log "INFO" "Creating GRUB boot images..."
     
     # Change to ISO directory so relative paths work correctly
     cd "${ISO_DIR}"
@@ -507,7 +494,7 @@ EOF
         --modules="linux normal iso9660 biosdisk memdisk search search_fs_file configfile part_msdos part_gpt" \
         --locales="" \
         --fonts="" \
-        "boot/grub/grub.cfg=boot/grub/embedded.cfg"
+        "boot/grub/grub.cfg=${WORK_DIR}/grub-early.cfg"
     
     # Return to original directory
     cd - > /dev/null
@@ -524,7 +511,7 @@ EOF
         --modules="linux normal iso9660 efi_gop efi_uga search search_fs_file configfile part_msdos part_gpt" \
         --locales="" \
         --fonts="" \
-        "boot/grub/grub.cfg=${ISO_DIR}/boot/grub/embedded.cfg"
+        "boot/grub/grub.cfg=${WORK_DIR}/grub-early.cfg"
     
     # Create FAT EFI boot image
     log "INFO" "Creating EFI boot image..."
