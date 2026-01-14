@@ -1,0 +1,10 @@
+# NubiferOS Context Manager Dependencies
+
+# D-Bus integration
+dbus-python>=1.2.18
+
+# CLI
+click>=8.1.0
+
+# Database
+# (sqlite3 is built into Python)
