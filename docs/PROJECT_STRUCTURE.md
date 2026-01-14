@@ -1,11 +1,11 @@
-# CloudOS Project Structure
+# NubiferOS Project Structure
 
-This document provides a detailed overview of the CloudOS project structure.
+This document provides a detailed overview of the NubiferOS project structure.
 
 ## Directory Tree
 
 ```
-cloudos/
+nubiferos/
 ├── .kiro/                                    # Kiro specifications
 │   └── specs/
 │       └── custom-linux-distro/
@@ -86,16 +86,16 @@ cloudos/
 ## Key Directories
 
 ### Build System (`build/`)
-Contains all scripts and configuration for building the CloudOS ISO image.
+Contains all scripts and configuration for building the NubiferOS ISO image.
 
 **Key Files**:
 - `config.sh`: Central configuration with all build parameters
 - `build-iso.sh`: Master build orchestration script
 - `install-cloud-tools.sh`: Installs AWS, Azure, GCP tools
-- `customize-system.sh`: Applies CloudOS customizations
+- `customize-system.sh`: Applies NubiferOS customizations
 
 ### Components (`components/`)
-Custom CloudOS components that provide core functionality.
+Custom NubiferOS components that provide core functionality.
 
 **Components**:
 1. **credential-manager**: Secure credential storage with encryption
@@ -188,12 +188,12 @@ All build parameters are centralized in `build/config.sh`:
 ### Component Configuration
 Each component has its own configuration:
 - Stored in component's `config/` directory
-- Installed to `/etc/cloudos/` on target system
+- Installed to `/etc/nubiferos/` on target system
 - Can be customized per installation
 
 ### Security Configuration
 Security policies are in `configs/security/`:
-- AppArmor profiles for CloudOS services
+- AppArmor profiles for NubiferOS services
 - Firewall rules (ufw configuration)
 - Audit rules (auditd configuration)
 - Kernel hardening parameters

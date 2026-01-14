@@ -1,10 +1,10 @@
 #!/bin/bash
-# Initialize Git repository for CloudOS
+# Initialize Git repository for NubiferOS
 
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "${PROJECT_ROOT}"
 
-echo "Initializing Git repository for CloudOS..."
+echo "Initializing Git repository for NubiferOS..."
 echo ""
 
 # Check if git is installed
@@ -31,7 +31,7 @@ git add .
 
 # Create initial commit
 echo "Creating initial commit..."
-git commit -m "Initial commit: CloudOS project structure
+git commit -m "Initial commit: NubiferOS project structure
 
 - Set up build system and project structure
 - Created directory structure for components, configs, installer

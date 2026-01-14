@@ -1,10 +1,10 @@
 #!/bin/bash
-# CloudOS Project Structure Validation Script
+# NubiferOS Project Structure Validation Script
 
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "${PROJECT_ROOT}"
 
-echo "Validating CloudOS project structure..."
+echo "Validating NubiferOS project structure..."
 echo ""
 
 # Color codes
@@ -128,6 +128,6 @@ if [ ${FAILED} -gt 0 ]; then
 else
     echo -e "${GREEN}All checks passed!${NC}"
     echo ""
-    echo "CloudOS project structure is valid and ready for development."
+    echo "NubiferOS project structure is valid and ready for development."
     exit 0
 fi

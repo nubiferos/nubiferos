@@ -1,6 +1,6 @@
-# CloudOS Components
+# NubiferOS Components
 
-This directory contains the custom components that make up CloudOS.
+This directory contains the custom components that make up NubiferOS.
 
 ## Components
 

@@ -1,4 +1,4 @@
-# CloudOS Quick Start Guide
+# NubiferOS Quick Start Guide
 
 ## Project Setup
 
@@ -30,9 +30,9 @@ print_config
 ## Project Structure Overview
 
 ```
-cloudos/
+nubiferos/
 ├── build/                    # Build system and scripts
-├── components/               # Custom CloudOS components
+├── components/               # Custom NubiferOS components
 │   ├── credential-manager/  # Secure credential storage
 │   ├── context-manager/     # Workspace management
 │   ├── resource-viewer/     # GUI resource browser
