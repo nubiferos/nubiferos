@@ -475,12 +475,21 @@ EOF
     
     # Create embedded GRUB config for proper UEFI/BIOS boot
     cat > "${ISO_DIR}/boot/grub/embedded.cfg" << 'EOF'
+# Load essential modules first
+insmod iso9660
+insmod biosdisk
+
+# Set root to CD-ROM
 set timeout=5
 set default=0
 set root=(cd0)
+
+# Search for grub.cfg if not found on cd0
 if [ ! -e ($root)/boot/grub/grub.cfg ]; then
     search --file --set=root /boot/grub/grub.cfg
 fi
+
+# Set prefix and load config
 set prefix=($root)/boot/grub
 configfile ($prefix)/grub.cfg
 EOF
@@ -494,8 +503,8 @@ EOF
     grub-mkstandalone \
         --format=i386-pc \
         --output="boot/grub/core.img" \
-        --install-modules="linux normal iso9660 biosdisk memdisk search search_fs_file search_fs_uuid tar ls all_video gfxterm configfile" \
-        --modules="linux normal iso9660 biosdisk search search_fs_file configfile" \
+        --install-modules="linux normal iso9660 biosdisk memdisk search search_fs_file search_fs_uuid tar ls all_video gfxterm configfile part_msdos part_gpt" \
+        --modules="linux normal iso9660 biosdisk memdisk search search_fs_file configfile part_msdos part_gpt" \
         --locales="" \
         --fonts="" \
         "boot/grub/grub.cfg=boot/grub/embedded.cfg"
@@ -511,6 +520,8 @@ EOF
     grub-mkstandalone \
         --format=x86_64-efi \
         --output="${ISO_DIR}/EFI/BOOT/BOOTX64.EFI" \
+        --install-modules="linux normal iso9660 efi_gop efi_uga search search_fs_file search_fs_uuid tar ls all_video gfxterm configfile part_msdos part_gpt" \
+        --modules="linux normal iso9660 efi_gop efi_uga search search_fs_file configfile part_msdos part_gpt" \
         --locales="" \
         --fonts="" \
         "boot/grub/grub.cfg=${ISO_DIR}/boot/grub/embedded.cfg"
