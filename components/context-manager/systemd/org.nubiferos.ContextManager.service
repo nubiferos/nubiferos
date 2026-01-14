@@ -1,0 +1,5 @@
+[D-BUS Service]
+Name=org.nubiferos.ContextManager
+Exec=/usr/local/bin/nubifer-context-service
+User=
+SystemdService=nubifer-context-manager.service

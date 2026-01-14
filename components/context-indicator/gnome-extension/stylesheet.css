@@ -1,0 +1,59 @@
+/* NubiferOS Context Indicator Stylesheet */
+
+.nubiferos-context-box {
+    spacing: 8px;
+    padding: 4px 12px;
+    border-radius: 4px;
+    transition-duration: 200ms;
+}
+
+.nubiferos-context-box:hover {
+    background-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+.nubiferos-context-label {
+    font-weight: bold;
+    font-size: 11pt;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+/* Provider-specific styles (fallback if inline styles don't work) */
+.nubiferos-aws {
+    background-color: #FF9900;
+    color: #FFFFFF;
+}
+
+.nubiferos-azure {
+    background-color: #0078D4;
+    color: #FFFFFF;
+}
+
+.nubiferos-gcp {
+    background-color: #EA4335;
+    color: #FFFFFF;
+}
+
+.nubiferos-oracle {
+    background-color: #FF0000;
+    color: #FFFFFF;
+}
+
+.nubiferos-multi {
+    background-color: #6B46C1;
+    color: #FFFFFF;
+}
+
+.nubiferos-none {
+    background-color: #555555;
+    color: #CCCCCC;
+}
+
+/* Read-only indicator */
+.nubiferos-readonly {
+    border: 2px solid #DC3545;
+}
+
+/* Read-write indicator */
+.nubiferos-readwrite {
+    border: 2px solid #28A745;
+}

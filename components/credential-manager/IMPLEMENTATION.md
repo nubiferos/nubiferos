@@ -92,6 +92,22 @@ Implemented NubiferOS Credential Manager (Task 3) with pass-based architecture f
 - `delete` - Delete credentials
 - `status` - Check system status
 
+### 5. Systemd Service (`systemd/`)
+- User service for D-Bus interface
+- D-Bus activation support
+- Security hardening (NoNewPrivileges, PrivateTmp, ProtectSystem)
+- Automatic restart on failure
+- Not enabled by default (manual opt-in)
+
+**Files**:
+- `nubifer-credential-manager.service` - Systemd user service unit
+- `org.nubiferos.CredentialManager.service` - D-Bus activation file
+- `README.md` - Service documentation
+
+**Installation**: Automatically installed by `install.sh` but not enabled
+
+**Enable**: `systemctl --user enable nubifer-credential-manager.service`
+
 ## Security Features
 
 ✅ **Encryption at Rest**: All credentials encrypted with GPG  
@@ -180,7 +196,6 @@ Tests:
 
 ## Deferred to Beta
 
-- ❌ Systemd service (run manually for now)
 - ❌ OIDC/SSO authentication
 - ❌ Hardware key support (YubiKey)
 - ❌ Automatic credential rotation
@@ -188,13 +203,15 @@ Tests:
 - ❌ Audit logging
 - ❌ Multi-user support
 
+**Note**: Systemd service is implemented but not enabled by default. Users can manually enable it if desired.
+
 ## Task Completion
 
 ✅ Task 3.1 - Credential Storage Backend  
 ✅ Task 3.2 - D-Bus Interface  
 ✅ Task 3.3 - Access Key Authentication  
 ✅ Task 3.4 - CLI Tool  
-⏸️ Task 3.5 - Systemd Service (deferred)
+✅ Task 3.5 - Systemd Service (implemented, not enabled by default)
 
 ## Files Created
 
@@ -205,14 +222,18 @@ components/credential-manager/
 │   ├── credential_service.py    # Core service (350 lines)
 │   ├── dbus_interface.py        # D-Bus interface (200 lines)
 │   └── cli.py                   # CLI tool (450 lines)
+├── systemd/
+│   ├── nubifer-credential-manager.service      # Systemd user service
+│   ├── org.nubiferos.CredentialManager.service # D-Bus activation
+│   └── README.md                               # Service documentation
 ├── requirements.txt             # Python dependencies
-├── install.sh                   # Installation script
+├── install.sh                   # Installation script (updated)
 ├── test_manual.sh               # Manual test script
-├── README.md                    # User documentation
-└── IMPLEMENTATION.md            # This file
+├── README.md                    # User documentation (updated)
+└── IMPLEMENTATION.md            # This file (updated)
 ```
 
-**Total**: ~1,280 lines of Python code + documentation
+**Total**: ~1,280 lines of Python code + systemd configuration + documentation
 
 ## Next Steps
 

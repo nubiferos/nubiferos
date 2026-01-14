@@ -66,6 +66,41 @@ EOF
 
 chmod +x "$BIN_DIR/nubifer-creds-service"
 
+# Install systemd service files (optional - for auto-start on boot)
+if [ -d "$SCRIPT_DIR/systemd" ]; then
+    echo "Installing systemd service files..."
+    
+    # Install user service file
+    SYSTEMD_USER_DIR="/usr/lib/systemd/user"
+    mkdir -p "$SYSTEMD_USER_DIR"
+    
+    if [ -f "$SCRIPT_DIR/systemd/nubifer-credential-manager.service" ]; then
+        cp "$SCRIPT_DIR/systemd/nubifer-credential-manager.service" "$SYSTEMD_USER_DIR/"
+        echo "  ✓ Installed user service: $SYSTEMD_USER_DIR/nubifer-credential-manager.service"
+    fi
+    
+    # Install D-Bus service file for auto-activation
+    DBUS_SERVICES_DIR="/usr/share/dbus-1/services"
+    mkdir -p "$DBUS_SERVICES_DIR"
+    
+    if [ -f "$SCRIPT_DIR/systemd/org.nubiferos.CredentialManager.service" ]; then
+        cp "$SCRIPT_DIR/systemd/org.nubiferos.CredentialManager.service" "$DBUS_SERVICES_DIR/"
+        echo "  ✓ Installed D-Bus service: $DBUS_SERVICES_DIR/org.nubiferos.CredentialManager.service"
+    fi
+    
+    # Reload systemd daemon
+    systemctl daemon-reload 2>/dev/null || true
+    
+    echo ""
+    echo "Systemd service installed but NOT enabled by default."
+    echo "To enable auto-start on boot (per-user):"
+    echo "  systemctl --user enable nubifer-credential-manager.service"
+    echo "  systemctl --user start nubifer-credential-manager.service"
+    echo ""
+    echo "To check service status:"
+    echo "  systemctl --user status nubifer-credential-manager.service"
+fi
+
 echo ""
 echo "✓ Installation complete!"
 echo ""
@@ -73,4 +108,7 @@ echo "Next steps:"
 echo "  1. Initialize pass store: nubifer-creds init"
 echo "  2. Add credentials: nubifer-creds add --provider aws --account-id 123456789012 --account-name prod"
 echo "  3. List credentials: nubifer-creds list"
+echo ""
+echo "Optional - Enable D-Bus service to start on boot:"
+echo "  systemctl --user enable nubifer-credential-manager.service"
 echo ""

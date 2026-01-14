@@ -1,0 +1,28 @@
+[Unit]
+Description=NubiferOS Context Manager D-Bus Service
+Documentation=file:///usr/local/lib/nubiferos/context-manager/README.md
+After=dbus.service nubifer-credential-manager.service
+Requires=dbus.service
+Wants=nubifer-credential-manager.service
+
+[Service]
+Type=dbus
+BusName=org.nubiferos.ContextManager
+ExecStart=/usr/local/bin/nubifer-context-service
+Restart=on-failure
+RestartSec=5
+
+# Security hardening
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=%h/.config/nubiferos
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=nubifer-context-manager
+
+[Install]
+WantedBy=default.target
