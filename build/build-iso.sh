@@ -478,8 +478,18 @@ EOF
     
     # Create embedded config as a temporary file
     # This config is embedded into the GRUB image itself
+    # Try both (cd) and (cd0) device names for compatibility
     cat > "${WORK_DIR}/grub-early.cfg" << 'EOF'
-search --file --set=root /boot/grub/grub.cfg
+# Try to find grub.cfg on common CD-ROM device names
+if [ -e (cd)/boot/grub/grub.cfg ]; then
+    set root=(cd)
+elif [ -e (cd0)/boot/grub/grub.cfg ]; then
+    set root=(cd0)
+else
+    # Fallback: search all devices
+    search --file --set=root /boot/grub/grub.cfg
+fi
+
 set prefix=($root)/boot/grub
 configfile ($prefix)/grub.cfg
 EOF
