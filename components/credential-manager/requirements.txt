@@ -1,3 +1,13 @@
-# No Python dependencies required
-# Uses pass (password-store) which must be installed via apt:
-#   apt-get install pass gnupg
+# NubiferOS Credential Manager Dependencies
+
+# D-Bus integration
+dbus-python>=1.2.18
+
+# Database
+# (sqlite3 is built into Python)
+
+# CLI
+click>=8.1.0
+
+# Validation
+pydantic>=2.0.0
