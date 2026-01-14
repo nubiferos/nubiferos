@@ -199,6 +199,26 @@ cleanup_locales() {
 }
 
 # NO LIVE USER CREATION - Installer-only ISO
+# WAIT - We DO need a live user for the installer to run!
+create_installer_user() {
+    log "INFO" "=========================================="
+    log "INFO" "Creating Installer User"
+    log "INFO" "=========================================="
+    
+    # Create installer user (temporary, for running Calamares)
+    log "INFO" "Creating installer user..."
+    chroot_exec "useradd -m -s /bin/bash -c 'Installer User' installer"
+    chroot_exec "echo 'installer:installer' | chpasswd"
+    
+    # Add to necessary groups
+    chroot_exec "usermod -aG sudo,audio,video,plugdev,netdev installer"
+    
+    # Configure sudo without password for installer user
+    echo "installer ALL=(ALL) NOPASSWD: ALL" > "${CHROOT_DIR}/etc/sudoers.d/installer"
+    chmod 0440 "${CHROOT_DIR}/etc/sudoers.d/installer"
+    
+    log "INFO" "✓ Installer user created (username: installer, password: installer)"
+}
 
 # Main execution
 main() {
@@ -215,6 +235,7 @@ main() {
     configure_wayland
     configure_gnome_settings
     install_fonts
+    create_installer_user
     cleanup_locales
     
     log "INFO" "=========================================="

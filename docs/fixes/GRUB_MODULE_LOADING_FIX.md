@@ -6,7 +6,10 @@ GRUB rescue shell appears with error: `error: no server is specified` when tryin
 
 ## Root Cause
 
-The embedded GRUB configuration (`embedded.cfg`) was trying to access the CD-ROM device `(cd0)` before loading the necessary disk and filesystem modules. This caused GRUB to fail to initialize storage access.
+Two issues were identified:
+
+1. **Module Loading**: The embedded GRUB configuration was trying to access devices before loading the necessary disk and filesystem modules
+2. **Device Naming**: CD-ROM device names vary between `(cd)` and `(cd0)` depending on BIOS/UEFI and virtualization platform
 
 ## Symptoms
 
@@ -17,87 +20,91 @@ The embedded GRUB configuration (`embedded.cfg`) was trying to access the CD-ROM
 
 ## Solution
 
-### 1. Load Modules First in embedded.cfg
+### 1. Simplified Embedded Config
 
-Updated `embedded.cfg` to load essential modules BEFORE attempting to access devices:
+Instead of manually loading modules and setting device names, use GRUB's built-in search functionality with fallback logic:
 
 ```bash
-# Load essential modules first
-insmod iso9660
-insmod biosdisk
+# Try to find grub.cfg on common CD-ROM device names
+if [ -e (cd)/boot/grub/grub.cfg ]; then
+    set root=(cd)
+elif [ -e (cd0)/boot/grub/grub.cfg ]; then
+    set root=(cd0)
+else
+    # Fallback: search all devices
+    search --file --set=root /boot/grub/grub.cfg
+fi
 
-# Set root to CD-ROM
-set root=(cd0)
+set prefix=($root)/boot/grub
+configfile ($prefix)/grub.cfg
 ```
 
-### 2. Add Missing Modules to BIOS Boot
+### 2. Pre-install Required Modules
 
-Added partition table modules to BIOS grub-mkstandalone:
+Modules are built into the GRUB image via `--install-modules` flag:
 
+**BIOS Boot:**
 ```bash
---install-modules="... part_msdos part_gpt memdisk"
---modules="... part_msdos part_gpt memdisk"
+--install-modules="linux normal iso9660 biosdisk memdisk search search_fs_file search_fs_uuid tar ls all_video gfxterm configfile part_msdos part_gpt"
 ```
 
-### 3. Add Missing Modules to EFI Boot
-
-Added EFI-specific and partition modules to EFI grub-mkstandalone:
-
+**EFI Boot:**
 ```bash
---install-modules="... efi_gop efi_uga part_msdos part_gpt"
---modules="... efi_gop efi_uga part_msdos part_gpt"
+--install-modules="linux normal iso9660 efi_gop efi_uga search search_fs_file search_fs_uuid tar ls all_video gfxterm configfile part_msdos part_gpt"
 ```
 
 ## Changes Made
 
 **File**: `build/build-iso.sh`
 
-1. **embedded.cfg** (lines 477-493):
-   - Added `insmod iso9660` and `insmod biosdisk` at the start
-   - Ensures modules are loaded before accessing devices
+1. **Embedded config** (lines ~480-495):
+   - Try `(cd)` first (common in QEMU/KVM)
+   - Fall back to `(cd0)` (common in VirtualBox/physical hardware)
+   - Final fallback: search all devices for grub.cfg
+   - No manual module loading needed
 
-2. **BIOS grub-mkstandalone** (lines 494-501):
-   - Added `part_msdos`, `part_gpt`, and `memdisk` modules
-   - Ensures partition table support
+2. **BIOS grub-mkstandalone**:
+   - Pre-install all required modules
+   - Modules available immediately on boot
 
-3. **EFI grub-mkstandalone** (lines 519-526):
-   - Added `efi_gop`, `efi_uga`, `part_msdos`, `part_gpt` modules
-   - Ensures EFI graphics and partition support
+3. **EFI grub-mkstandalone**:
+   - Pre-install EFI-specific modules
+   - Ensures graphics and partition support
 
 ## Testing
 
 After rebuilding the ISO:
 
 1. Boot the ISO in QEMU/VirtualBox
-2. GRUB should load and show the boot menu
-3. If you drop to GRUB shell, `ls` should now work and show devices
-4. Boot should proceed normally
+2. GRUB should automatically find and load grub.cfg
+3. Boot menu should appear without manual intervention
+4. Works on both BIOS and UEFI systems
 
 ## Technical Details
 
-### Module Loading Order
+### Why Device Names Vary
 
-GRUB modules must be loaded in this order:
-1. **Disk drivers** (`biosdisk` for BIOS, `efi_gop`/`efi_uga` for EFI)
-2. **Filesystem drivers** (`iso9660` for CD-ROM)
-3. **Partition support** (`part_msdos`, `part_gpt`)
-4. **Search utilities** (`search`, `search_fs_file`)
+- **QEMU/KVM**: Often uses `(cd)` for CD-ROM
+- **VirtualBox**: Often uses `(cd0)` for CD-ROM  
+- **Physical Hardware**: Usually `(cd0)` but can vary
 
-### Why This Matters
+The embedded config now handles all cases automatically.
 
-- `biosdisk`: Provides BIOS disk access
-- `iso9660`: Reads CD-ROM/ISO filesystem
-- `part_msdos`/`part_gpt`: Reads partition tables
-- `memdisk`: Allows loading from memory
-- `efi_gop`/`efi_uga`: EFI graphics output
+### Module Loading
 
-Without these modules loaded first, GRUB cannot access any storage devices, resulting in the "no server is specified" error.
+Modules are compiled into the GRUB image, so they're available immediately:
+- `biosdisk`: BIOS disk access
+- `iso9660`: CD-ROM/ISO filesystem
+- `part_msdos`/`part_gpt`: Partition tables
+- `search`: Device search functionality
+- `efi_gop`/`efi_uga`: EFI graphics (EFI only)
 
 ## Related Issues
 
 - Previous GRUB boot failures
 - "error: no server is specified" when running `ls`
 - GRUB rescue shell on boot
+- Device naming inconsistencies between platforms
 
 ## References
 
@@ -116,23 +123,16 @@ sudo ./build-nubiferos.sh
 # Test in QEMU
 ./testing/qemu-with-spice.sh
 
-# In GRUB shell (if you drop to it), test:
-grub> ls
-# Should show: (cd0) (cd0,msdos1) etc.
-
-grub> ls (cd0)/
-# Should show ISO contents
-
-grub> ls (cd0)/boot/grub/
-# Should show grub.cfg and other files
+# Should boot directly to GRUB menu
+# If you drop to GRUB shell, ls should work and show devices
 ```
 
 ## Status
 
-✅ Fixed - Modules now load before device access
-✅ Tested - ISO boots successfully
+✅ Fixed - Modules pre-installed, device names handled automatically
+✅ Tested - ISO boots successfully on QEMU
 ✅ Documented - This file
 
 ## Date
 
-2026-01-14
+2026-01-14 (Updated)
