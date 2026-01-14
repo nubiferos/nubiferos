@@ -146,6 +146,7 @@ EOF
 chmod +x "${CHROOT_DIR}/usr/local/bin/install-nubiferos"
 
 # Create desktop shortcut
+mkdir -p "${CHROOT_DIR}/home/${BOOT_USER}/Desktop"
 cat > "${CHROOT_DIR}/home/${BOOT_USER}/Desktop/Install NubiferOS.desktop" << 'EOF'
 [Desktop Entry]
 Version=1.0
