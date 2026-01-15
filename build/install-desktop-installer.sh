@@ -98,28 +98,10 @@ configure_wayland() {
     log "INFO" "Configuring Wayland"
     log "INFO" "=========================================="
     
-    # Enable Wayland, disable X11 fallback for security
-    cat > "${CHROOT_DIR}/etc/gdm3/custom.conf" << 'EOF'
-# GDM configuration storage
-
-[daemon]
-# Enable Wayland
-WaylandEnable=true
-# Disable X11 for security (Wayland only)
-XorgEnable=false
-
-# NO AUTO-LOGIN - Installer-only ISO
-
-[security]
-
-[xdmcp]
-
-[chooser]
-
-[debug]
-EOF
+    # Note: GDM configuration is handled by configure-installer-autostart.sh
+    # which sets up auto-login for the installer user
     
-    log "INFO" "✓ Wayland configured (no auto-login)"
+    log "INFO" "✓ Wayland will be configured by installer autostart script"
 }
 
 # Configure GNOME settings (minimal)
