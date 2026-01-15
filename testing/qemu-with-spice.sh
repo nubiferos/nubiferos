@@ -79,10 +79,12 @@ if [ ! -f "$DISK_FILE" ]; then
 fi
 
 # Launch QEMU with SPICE
+# Note: Using IDE interface for disk instead of virtio to ensure GRUB can install
+# Virtio disks appear as /dev/vda which can cause GRUB installation issues
 qemu-system-x86_64 \
     $KVM_OPTS \
     -drive file="$ISO_FILE",media=cdrom,readonly=on,format=raw,if=ide \
-    -drive file="$DISK_FILE",format=qcow2,if=virtio \
+    -drive file="$DISK_FILE",format=qcow2,if=ide \
     -m 4096 \
     -smp 2 \
     -boot d \
