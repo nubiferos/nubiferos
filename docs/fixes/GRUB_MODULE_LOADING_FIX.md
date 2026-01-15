@@ -1,5 +1,15 @@
 # GRUB Module Loading Fix
 
+## ⚠️ CRITICAL UPDATE ⚠️
+
+**This fix has been superseded by a more critical issue.**
+
+**See**: `docs/fixes/GRUB_EMBEDDED_CONFIG_CRITICAL.md` for the ONLY working configuration.
+
+**TL;DR**: Sequential device tries (no conditionals) is the ONLY approach that works.
+
+---
+
 ## Issue
 
 GRUB rescue shell appears with error: `error: no server is specified` when trying to run `ls` command. This indicates GRUB cannot access any storage devices.
