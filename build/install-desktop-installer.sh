@@ -39,12 +39,15 @@ install_kernel() {
     log "INFO" "Installing Linux Kernel (Installer-Only)"
     log "INFO" "=========================================="
     
-    # Install kernel and required packages (NO live-boot packages)
+    # Install kernel and required packages (including live-boot for ISO boot)
+    # NOTE: Even "installer-only" ISOs need live-boot to boot from CD/USB
     log "INFO" "Installing kernel packages..."
     chroot_exec "DEBIAN_FRONTEND=noninteractive apt-get install -y \
         linux-image-amd64 \
         linux-headers-amd64 \
-        initramfs-tools"
+        initramfs-tools \
+        live-boot \
+        live-boot-initramfs-tools"
     
     # Install GRUB binaries (not the full packages to avoid conflicts)
     # We need both for hybrid BIOS/UEFI support
@@ -55,11 +58,11 @@ install_kernel() {
         grub-common \
         grub2-common"
     
-    # Update initramfs (no live-boot support needed)
+    # Update initramfs (with live-boot support for ISO boot)
     log "INFO" "Updating initramfs..."
     chroot_exec "update-initramfs -u -k all"
     
-    log "INFO" "✓ Kernel installed (installer-only mode)"
+    log "INFO" "✓ Kernel installed (with live-boot for ISO boot)"
 }
 
 # Install GNOME desktop (minimal for installer)
