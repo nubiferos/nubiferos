@@ -7,8 +7,8 @@
  *   Calamares is Free Software: see the License-Identifier above.
  *
  *
- *   NubiferOS Custom Slideshow
- *   Simple text-based slideshow without complex QML animations
+ *   NubiferOS Custom Slideshow - Three-Part Format
+ *   Headline / Technical / Plain English
  */
 
 import QtQuick 2.0;
@@ -40,12 +40,12 @@ Presentation
             
             Column {
                 anchors.centerIn: parent
-                spacing: 20
-                width: parent.width * 0.8
+                spacing: 25
+                width: parent.width * 0.85
                 
                 Text {
                     text: "☁️ Welcome to NubiferOS"
-                    font.pixelSize: 32
+                    font.pixelSize: 36
                     font.bold: true
                     color: "#3498db"
                     width: parent.width
@@ -55,7 +55,7 @@ Presentation
                 
                 Text {
                     text: "The Cloud Engineer's Workstation"
-                    font.pixelSize: 20
+                    font.pixelSize: 22
                     color: "#ecf0f1"
                     width: parent.width
                     wrapMode: Text.WordWrap
@@ -63,7 +63,17 @@ Presentation
                 }
                 
                 Text {
-                    text: "Built for managing multiple cloud accounts securely, without the complexity."
+                    text: "What's that really mean?"
+                    font.pixelSize: 18
+                    font.italic: true
+                    color: "#95a5a6"
+                    width: parent.width
+                    wrapMode: Text.WordWrap
+                    horizontalAlignment: Text.AlignHCenter
+                }
+                
+                Text {
+                    text: "A Linux distro built specifically for managing AWS, Azure, and GCP accounts. No more 'oops, wrong account' disasters."
                     font.pixelSize: 16
                     color: "#bdc3c7"
                     width: parent.width
@@ -83,12 +93,12 @@ Presentation
             
             Column {
                 anchors.centerIn: parent
-                spacing: 20
-                width: parent.width * 0.8
+                spacing: 25
+                width: parent.width * 0.85
                 
                 Text {
                     text: "🔒 Workspace Isolation"
-                    font.pixelSize: 32
+                    font.pixelSize: 36
                     font.bold: true
                     color: "#e74c3c"
                     width: parent.width
@@ -97,8 +107,8 @@ Presentation
                 }
                 
                 Text {
-                    text: "Each cloud account gets its own isolated workspace."
-                    font.pixelSize: 18
+                    text: "Each cloud account runs in isolated Linux namespaces using Firejail"
+                    font.pixelSize: 22
                     color: "#ecf0f1"
                     width: parent.width
                     wrapMode: Text.WordWrap
@@ -106,7 +116,17 @@ Presentation
                 }
                 
                 Text {
-                    text: "NubiferOS uses Firejail namespaces - your AWS prod credentials can never leak to your dev environment."
+                    text: "What's that really mean?"
+                    font.pixelSize: 18
+                    font.italic: true
+                    color: "#95a5a6"
+                    width: parent.width
+                    wrapMode: Text.WordWrap
+                    horizontalAlignment: Text.AlignHCenter
+                }
+                
+                Text {
+                    text: "Your AWS prod credentials physically cannot leak to your dev environment. It's like having separate computers for each account."
                     font.pixelSize: 16
                     color: "#bdc3c7"
                     width: parent.width
@@ -126,12 +146,12 @@ Presentation
             
             Column {
                 anchors.centerIn: parent
-                spacing: 20
-                width: parent.width * 0.8
+                spacing: 25
+                width: parent.width * 0.85
                 
                 Text {
-                    text: "👁️ Visual Context"
-                    font.pixelSize: 32
+                    text: "👁️ Visual Context Indicator"
+                    font.pixelSize: 36
                     font.bold: true
                     color: "#3498db"
                     width: parent.width
@@ -140,8 +160,8 @@ Presentation
                 }
                 
                 Text {
-                    text: "Always know which account you're in."
-                    font.pixelSize: 18
+                    text: "Real-time display shows active cloud provider, account name, and region"
+                    font.pixelSize: 22
                     color: "#ecf0f1"
                     width: parent.width
                     wrapMode: Text.WordWrap
@@ -149,7 +169,17 @@ Presentation
                 }
                 
                 Text {
-                    text: "The context indicator shows your active cloud provider, account, and region in real-time. No more 'wrong account' disasters."
+                    text: "What's that really mean?"
+                    font.pixelSize: 18
+                    font.italic: true
+                    color: "#95a5a6"
+                    width: parent.width
+                    wrapMode: Text.WordWrap
+                    horizontalAlignment: Text.AlignHCenter
+                }
+                
+                Text {
+                    text: "You'll always know which account you're in. No more 'terraform destroy' in production by accident."
                     font.pixelSize: 16
                     color: "#bdc3c7"
                     width: parent.width
@@ -169,12 +199,12 @@ Presentation
             
             Column {
                 anchors.centerIn: parent
-                spacing: 20
-                width: parent.width * 0.8
+                spacing: 25
+                width: parent.width * 0.85
                 
                 Text {
                     text: "🔐 Triple-Layer Encryption"
-                    font.pixelSize: 32
+                    font.pixelSize: 36
                     font.bold: true
                     color: "#e74c3c"
                     width: parent.width
@@ -183,8 +213,8 @@ Presentation
                 }
                 
                 Text {
-                    text: "Your credentials are encrypted three times:"
-                    font.pixelSize: 18
+                    text: "LUKS full-disk encryption + GPG credential encryption + GNOME Keyring"
+                    font.pixelSize: 22
                     color: "#ecf0f1"
                     width: parent.width
                     wrapMode: Text.WordWrap
@@ -192,7 +222,17 @@ Presentation
                 }
                 
                 Text {
-                    text: "LUKS disk encryption + GPG encryption + GNOME Keyring. We take security seriously."
+                    text: "What's that really mean?"
+                    font.pixelSize: 18
+                    font.italic: true
+                    color: "#95a5a6"
+                    width: parent.width
+                    wrapMode: Text.WordWrap
+                    horizontalAlignment: Text.AlignHCenter
+                }
+                
+                Text {
+                    text: "Even if someone steals your laptop, your AWS keys are encrypted three separate times. They're not getting in."
                     font.pixelSize: 16
                     color: "#bdc3c7"
                     width: parent.width
