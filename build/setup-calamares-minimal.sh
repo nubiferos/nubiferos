@@ -247,7 +247,8 @@ grubPCInstallOptions:
   - "--force"
 
 # Don't chroot for bootloader installation
-dontChroot: false
+# Set to true to run grub-install on live system (has access to /dev/sda)
+dontChroot: true
 
 # Skip bootloader installation on failure
 skipBootloaderOnFailure: true
