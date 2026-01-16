@@ -217,12 +217,45 @@ cat > "${CALAMARES_DIR}/modules/bootloader.conf" << 'EOF'
 ---
 efiBootLoader: "grub"
 efiBootloaderId: "nubiferos"
-grubInstall: "grub-install"
+grubInstall: "/usr/local/bin/grub-install-safe-wrapper"
 grubMkconfig: "grub-mkconfig"
 grubCfg: "/boot/grub/grub.cfg"
 grubProbe: "grub-probe"
 efiBootMgr: "efibootmgr"
 installEFIFallback: true
+
+# Kernel command line parameters
+kernelLine: ", with Linux"
+fallbackKernelLine: ", with Linux (fallback initramfs)"
+
+# Timeout for bootloader installation (seconds)
+timeout: 120
+
+# GRUB installation options for EFI
+grubInstallOptions:
+  - "--target=x86_64-efi"
+  - "--efi-directory=/boot/efi"
+  - "--bootloader-id=nubiferos"
+  - "--recheck"
+  - "--no-floppy"
+
+# GRUB installation options for BIOS
+grubPCInstallOptions:
+  - "--target=i386-pc"
+  - "--recheck"
+  - "--no-floppy"
+  - "--force"
+
+# Don't chroot for bootloader installation
+dontChroot: false
+
+# Skip bootloader installation on failure
+skipBootloaderOnFailure: true
+
+# Additional GRUB configuration
+grubCfgOptions:
+  - "GRUB_ENABLE_CRYPTODISK=y"
+  - "GRUB_CMDLINE_LINUX_DEFAULT=\"quiet splash\""
 EOF
 
 # Finished module
