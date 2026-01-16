@@ -12,6 +12,50 @@ This document tracks known bugs, issues, and planned fixes for NubiferOS.
 
 ## Active Issues
 
+### 🟡 MEDIUM: Automated Installation Testing Needed
+**Status**: PLANNED  
+**Priority**: After Phase 1 complete  
+**Discovered**: 2026-01-15
+
+**Current State**:
+- Manual testing of installation in QEMU
+- No automated post-installation smoke tests
+- No verification that installed system boots
+- No testing of core features after install
+
+**Desired State**:
+- Automated unattended Calamares installation
+- Post-install smoke tests (network, sudo, CLI tools)
+- Verify installed system boots successfully
+- Test core NubiferOS features work
+
+**Blocked By**:
+- Phase 1 must complete first (basic installer working)
+- Need unattended Calamares configuration
+- Need SSH/serial console access to installed system
+
+**Implementation Plan**:
+1. Create unattended Calamares config
+2. Extend pytest suite with installation tests
+3. Add post-install smoke test script
+4. Integrate into GitHub Actions workflow
+
+**Estimated Effort**: 6-8 hours
+
+**Related Files**:
+- `testing/test-iso-pytest.py` - Existing test suite
+- `.github/workflows/build-iso.yml` - CI workflow
+- Future: `scripts/smoke-test.sh`
+- Future: `installer/calamares/unattended.conf`
+
+**Next Steps**:
+1. Complete Phase 1 (installer working)
+2. Document manual test checklist
+3. Design unattended installation approach
+4. Implement automated tests
+
+---
+
 ### 🔴 CRITICAL: GRUB Installation Fails During Calamares Install
 **Status**: INVESTIGATING  
 **Discovered**: 2026-01-15  
