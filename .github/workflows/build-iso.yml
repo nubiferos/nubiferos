@@ -2,11 +2,11 @@ name: Build NubiferOS ISO
 
 on:
   push:
-    branches: [ main, develop ]
+    branches: [ main, develop, trunk ]
     tags:
       - 'v*'
   pull_request:
-    branches: [ main ]
+    branches: [ main, trunk ]
   workflow_dispatch:  # Allow manual trigger
 
 # Required for OIDC authentication

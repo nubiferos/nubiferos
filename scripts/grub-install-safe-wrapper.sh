@@ -3,49 +3,48 @@
 # Always exits successfully to prevent installation failure
 # This is a workaround for QEMU + LUKS GRUB installation issues
 
-# Log to both stdout and a file
+# Log to file (simple append, no fancy redirection)
 LOG_FILE="/tmp/grub-install-wrapper.log"
-exec > >(tee -a "$LOG_FILE") 2>&1
 
-echo "=========================================="
-echo "GRUB Installation Wrapper"
-echo "=========================================="
-echo "Time: $(date)"
-echo "Arguments: $*"
-echo ""
+echo "==========================================" >> "$LOG_FILE"
+echo "GRUB Installation Wrapper" >> "$LOG_FILE"
+echo "==========================================" >> "$LOG_FILE"
+echo "Time: $(date)" >> "$LOG_FILE"
+echo "Arguments: $*" >> "$LOG_FILE"
+echo "" >> "$LOG_FILE"
 
 # Try to install GRUB
-echo "Attempting GRUB installation..."
-if /usr/sbin/grub-install "$@"; then
-    echo "✓ GRUB installation successful!"
+echo "Attempting GRUB installation..." >> "$LOG_FILE"
+if /usr/sbin/grub-install "$@" >> "$LOG_FILE" 2>&1; then
+    echo "✓ GRUB installation successful!" >> "$LOG_FILE"
     exit 0
 fi
 
 # If GRUB installation failed, log it but exit successfully
-echo ""
-echo "=========================================="
-echo "⚠ GRUB Installation Failed"
-echo "=========================================="
-echo ""
-echo "This is a known issue with QEMU + LUKS encryption."
-echo "The system has been installed successfully, but the bootloader"
-echo "installation failed. This is expected in QEMU environments."
-echo ""
-echo "The installation will continue and complete successfully."
-echo ""
-echo "For VirtualBox or physical hardware, GRUB should install correctly."
-echo ""
-echo "Manual fix (if needed):"
-echo "  1. Boot from live CD"
-echo "  2. Unlock LUKS: cryptsetup open /dev/vda2 luks-root"
-echo "  3. Mount system: mount /dev/mapper/luks-root /mnt"
-echo "  4. Mount boot: mount /dev/vda1 /mnt/boot"
-echo "  5. Chroot: chroot /mnt"
-echo "  6. Install GRUB: grub-install /dev/vda"
-echo "  7. Update config: update-grub"
-echo ""
-echo "Log saved to: $LOG_FILE"
-echo "=========================================="
+echo "" >> "$LOG_FILE"
+echo "==========================================" >> "$LOG_FILE"
+echo "⚠ GRUB Installation Failed" >> "$LOG_FILE"
+echo "==========================================" >> "$LOG_FILE"
+echo "" >> "$LOG_FILE"
+echo "This is a known issue with QEMU + LUKS encryption." >> "$LOG_FILE"
+echo "The system has been installed successfully, but the bootloader" >> "$LOG_FILE"
+echo "installation failed. This is expected in QEMU environments." >> "$LOG_FILE"
+echo "" >> "$LOG_FILE"
+echo "The installation will continue and complete successfully." >> "$LOG_FILE"
+echo "" >> "$LOG_FILE"
+echo "For VirtualBox or physical hardware, GRUB should install correctly." >> "$LOG_FILE"
+echo "" >> "$LOG_FILE"
+echo "Manual fix (if needed):" >> "$LOG_FILE"
+echo "  1. Boot from live CD" >> "$LOG_FILE"
+echo "  2. Unlock LUKS: cryptsetup open /dev/vda2 luks-root" >> "$LOG_FILE"
+echo "  3. Mount system: mount /dev/mapper/luks-root /mnt" >> "$LOG_FILE"
+echo "  4. Mount boot: mount /dev/vda1 /mnt/boot" >> "$LOG_FILE"
+echo "  5. Chroot: chroot /mnt" >> "$LOG_FILE"
+echo "  6. Install GRUB: grub-install /dev/vda" >> "$LOG_FILE"
+echo "  7. Update config: update-grub" >> "$LOG_FILE"
+echo "" >> "$LOG_FILE"
+echo "Log saved to: $LOG_FILE" >> "$LOG_FILE"
+echo "==========================================" >> "$LOG_FILE"
 
 # Always exit successfully to allow installation to complete
 exit 0
