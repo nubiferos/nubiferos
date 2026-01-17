@@ -234,8 +234,7 @@ timeout: 120
 # GRUB installation options for EFI
 grubInstallOptions:
   - "--target=x86_64-efi"
-  - "--efi-directory=@@ROOT@@/boot/efi"
-  - "--boot-directory=@@ROOT@@/boot"
+  - "--efi-directory=/boot/efi"
   - "--bootloader-id=nubiferos"
   - "--recheck"
   - "--no-floppy"
@@ -243,15 +242,14 @@ grubInstallOptions:
 # GRUB installation options for BIOS
 grubPCInstallOptions:
   - "--target=i386-pc"
-  - "--boot-directory=@@ROOT@@/boot"
   - "--recheck"
   - "--no-floppy"
   - "--force"
 
-# Don't chroot for bootloader installation
-# Set to true to run grub-install on live system (has access to /dev/sda)
-# When true, Calamares replaces @@ROOT@@ with the target mount point
-dontChroot: true
+# Use chroot for bootloader installation (default and recommended)
+# Calamares automatically bind-mounts /dev, /proc, /sys into chroot
+# This ensures grub-install can see device nodes properly
+dontChroot: false
 
 # Skip bootloader installation on failure
 skipBootloaderOnFailure: true
