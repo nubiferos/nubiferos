@@ -70,12 +70,28 @@ echo ""
 echo "Starting QEMU..."
 echo ""
 
-# Create virtual disk if it doesn't exist
+# Handle virtual disk
 DISK_FILE="testing/nubiferos-test-disk.qcow2"
+if [ -f "$DISK_FILE" ]; then
+    echo "⚠ Existing virtual disk found: $DISK_FILE"
+    echo ""
+    read -p "Delete existing disk and start fresh? (y/N): " -n 1 -r
+    echo ""
+    if [[ $REPLY =~ ^[Yy]$ ]]; then
+        rm "$DISK_FILE"
+        echo "✓ Old disk deleted"
+        echo ""
+    else
+        echo "Using existing disk (may have old installation)"
+        echo ""
+    fi
+fi
+
 if [ ! -f "$DISK_FILE" ]; then
     echo "Creating 20GB virtual disk for testing..."
     qemu-img create -f qcow2 "$DISK_FILE" 20G
     echo "✓ Virtual disk created: $DISK_FILE"
+    echo ""
 fi
 
 # Launch QEMU with SPICE
