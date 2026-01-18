@@ -209,6 +209,94 @@ This document tracks known bugs, issues, and planned fixes for NubiferOS.
 
 ---
 
+### 🔵 LOW: AI Development Tools Integration
+**Status**: PLANNED  
+**Priority**: Phase 3 (after Phase 1 complete + read-only mode)  
+**Discovered**: 2026-01-18
+
+**Description**:
+Add optional AI development tools during Calamares installation to support cloud engineers working with AI/ML services.
+
+**Scope**:
+
+**1. AI Coding Assistants (Calamares Package Selection)**:
+- Kiro (VS Code extension)
+- Claude Desktop (Anthropic's desktop app)
+- GitHub Copilot (VS Code extension)
+- Cursor (AI-first code editor)
+- Continue.dev (open source AI assistant)
+
+**2. AI CLI Tools**:
+- aider (AI pair programming in terminal)
+- fabric (AI patterns for CLI)
+- llm (Simon Willison's CLI tool)
+
+**3. Cloud Provider AI Services Documentation**:
+
+**AWS AI Services**:
+- Amazon Bedrock (managed LLMs - Claude, Llama, etc.)
+- SageMaker (ML model training/deployment)
+- CodeWhisperer (AI coding assistant)
+- Q Developer (AI assistant for AWS)
+
+**Azure AI Services**:
+- Azure OpenAI Service (GPT-4, GPT-3.5, DALL-E)
+- Azure AI Studio (model deployment)
+- GitHub Copilot (Microsoft-owned)
+- Azure Cognitive Services (vision, speech, language)
+
+**GCP AI Services**:
+- Vertex AI (unified ML platform)
+- Gemini API (Google's LLM)
+- Duet AI (coding assistant)
+- AI Platform (model training/serving)
+
+**4. Implementation Tasks**:
+1. Pre-install CLI tools for AI services (boto3 for Bedrock, Azure SDK, GCP SDK)
+2. Add workspace templates for AI development workflows
+3. Include example configs for common AI/ML tasks
+4. Document API key management for each cloud provider's AI services
+5. Create Calamares `netinstall.conf` module for optional AI tools
+6. Package AI tools via snap/flatpak/npm for easy installation
+7. Post-install script to configure API keys (optional, secure)
+
+**Benefits**:
+- Positions NubiferOS as AI-ready cloud workstation
+- Supports growing AI/ML use cases in cloud engineering
+- Differentiates from generic Linux distros
+- Aligns with market trends (AI adoption in DevOps)
+
+**Implementation Plan**:
+1. Research Calamares netinstall module configuration
+2. Create package groups for AI tools
+3. Document cloud provider AI services
+4. Create workspace templates for AI workflows
+5. Add API key management documentation
+6. Test installation and configuration
+
+**Estimated Effort**: 12-16 hours
+
+**Related Files**:
+- Future: `installer/calamares/modules/netinstall.conf`
+- Future: `docs/AI_TOOLS.md`
+- Future: `docs/CLOUD_AI_SERVICES.md`
+- Future: `scripts/configure-ai-tools.sh`
+- Future: `workspaces/templates/ai-development/`
+
+**Dependencies**:
+- Phase 1 complete (basic installer working)
+- Read-only mode implemented (alpha blocker)
+- Workspace system functional
+
+**Next Steps**:
+1. Complete Phase 1 and read-only mode
+2. Research Calamares netinstall module
+3. Survey popular AI tools and SDKs
+4. Create documentation structure
+5. Design workspace templates
+
+---
+
 ## Fixed Issues
 
 ### ✅ GRUB Boot - ISO Drops to Rescue Shell
