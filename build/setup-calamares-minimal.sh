@@ -113,13 +113,11 @@ initialSwapChoice: small
 
 defaultFileSystemType:  "ext4"
 
-# Explicitly set partition table type to GPT (required for UEFI and modern BIOS)
+# Force GPT partition table (required for UEFI and modern BIOS)
+# Calamares will automatically create boot partition based on firmware:
+# - UEFI: 512MB FAT32 ESP at /boot/efi
+# - BIOS+GPT: 8MB bios_grub partition
 defaultPartitionTableType: "gpt"
-
-# Ensure boot partition is always created
-# For UEFI: 512MB FAT32 ESP
-# For BIOS+GPT: 8MB bios_grub partition
-ensureSuspendToDisk: true
 
 availableFileSystemTypes:
     - "ext4"
