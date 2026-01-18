@@ -19,6 +19,7 @@ fi
 echo "Disk: $DISK_FILE"
 echo ""
 echo "Features enabled:"
+echo "  ✓ UEFI firmware (OVMF)"
 echo "  ✓ SPICE display server"
 echo "  ✓ Clipboard sharing (bidirectional)"
 echo "  ✓ QXL graphics driver"
@@ -46,13 +47,35 @@ echo ""
 echo "Starting QEMU (booting from disk)..."
 echo ""
 
-# Launch QEMU - boot from hard disk (no ISO)
+# Check for OVMF firmware
+OVMF_CODE="/usr/share/OVMF/OVMF_CODE_4M.fd"
+OVMF_VARS="testing/OVMF_VARS.fd"
+
+if [ ! -f "$OVMF_CODE" ]; then
+    # Try alternative path
+    OVMF_CODE="/usr/share/OVMF/OVMF_CODE.fd"
+    if [ ! -f "$OVMF_CODE" ]; then
+        echo "Error: OVMF firmware not found"
+        echo "Install with: sudo apt install ovmf"
+        exit 1
+    fi
+fi
+
+if [ ! -f "$OVMF_VARS" ]; then
+    echo "Error: UEFI variables not found: $OVMF_VARS"
+    echo "Run qemu-with-spice.sh first to create UEFI variables"
+    exit 1
+fi
+
+# Launch QEMU - boot from hard disk (no ISO) with UEFI
 qemu-system-x86_64 \
     $KVM_OPTS \
-    -drive file="$DISK_FILE",format=qcow2,if=ide \
+    -drive if=pflash,format=raw,readonly=on,file="$OVMF_CODE" \
+    -drive if=pflash,format=raw,file="$OVMF_VARS" \
+    -drive file="$DISK_FILE",format=qcow2,if=virtio \
     -m 4096 \
     -smp 2 \
-    -boot c \
+    -boot order=c \
     -vga qxl \
     -spice port=5930,addr=127.0.0.1,disable-ticketing=on \
     -device virtio-serial-pci \
