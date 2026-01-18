@@ -253,10 +253,10 @@ grubPCInstallOptions:
   - "--no-floppy"
   - "--force"
 
-# Use chroot for bootloader installation (default and recommended)
-# Calamares automatically bind-mounts /dev, /proc, /sys into chroot
-# This ensures grub-install can see device nodes properly
-dontChroot: false
+# Use dontChroot for bootloader installation
+# In UEFI mode, grub-install needs access to real device nodes
+# Calamares bind-mounting doesn't always work reliably
+dontChroot: true
 
 # Skip bootloader installation on failure
 skipBootloaderOnFailure: true
