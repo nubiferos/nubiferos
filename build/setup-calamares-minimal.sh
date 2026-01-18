@@ -227,7 +227,7 @@ cat > "${CALAMARES_DIR}/modules/bootloader.conf" << 'EOF'
 efiBootLoader: "grub"
 efiBootloaderId: "nubiferos"
 grubInstall: "/usr/local/bin/grub-install-safe-wrapper"
-grubMkconfig: "grub-mkconfig"
+grubMkconfig: "/usr/local/bin/grub-mkconfig-safe-wrapper"
 grubCfg: "/boot/grub/grub.cfg"
 grubProbe: "grub-probe"
 efiBootMgr: "efibootmgr"
