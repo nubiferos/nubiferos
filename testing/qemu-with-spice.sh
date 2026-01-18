@@ -27,6 +27,7 @@ echo "=========================================="
 echo "ISO: $ISO_FILE"
 echo ""
 echo "Features enabled:"
+echo "  ✓ UEFI firmware (OVMF)"
 echo "  ✓ SPICE display server"
 echo "  ✓ Clipboard sharing (bidirectional)"
 echo "  ✓ QXL graphics driver"
@@ -94,16 +95,34 @@ if [ ! -f "$DISK_FILE" ]; then
     echo ""
 fi
 
-# Launch QEMU with SPICE
-# Note: Using IDE interface for disk instead of virtio to ensure GRUB can install
-# Virtio disks appear as /dev/vda which can cause GRUB installation issues
+# Check for OVMF firmware
+OVMF_CODE="/usr/share/OVMF/OVMF_CODE.fd"
+OVMF_VARS="testing/OVMF_VARS.fd"
+
+if [ ! -f "$OVMF_CODE" ]; then
+    echo "Error: OVMF firmware not found at $OVMF_CODE"
+    echo "Install with: sudo apt install ovmf"
+    exit 1
+fi
+
+# Create OVMF_VARS if it doesn't exist
+if [ ! -f "$OVMF_VARS" ]; then
+    echo "Creating UEFI variables file..."
+    cp /usr/share/OVMF/OVMF_VARS.fd "$OVMF_VARS"
+    echo "✓ UEFI variables created"
+    echo ""
+fi
+
+# Launch QEMU with UEFI and SPICE
 qemu-system-x86_64 \
     $KVM_OPTS \
-    -drive file="$ISO_FILE",media=cdrom,readonly=on,format=raw,if=ide \
-    -drive file="$DISK_FILE",format=qcow2,if=ide \
+    -drive if=pflash,format=raw,readonly=on,file="$OVMF_CODE" \
+    -drive if=pflash,format=raw,file="$OVMF_VARS" \
+    -drive file="$ISO_FILE",media=cdrom,readonly=on,format=raw \
+    -drive file="$DISK_FILE",format=qcow2,if=virtio \
     -m 4096 \
     -smp 2 \
-    -boot d \
+    -boot order=d \
     -vga qxl \
     -spice port=5930,addr=127.0.0.1,disable-ticketing=on \
     -device virtio-serial-pci \
