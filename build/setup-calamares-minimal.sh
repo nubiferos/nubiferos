@@ -224,8 +224,8 @@ cat > "${CALAMARES_DIR}/modules/bootloader.conf" << 'EOF'
 ---
 efiBootLoader: "grub"
 efiBootloaderId: "nubiferos"
-grubInstall: "/usr/local/bin/grub-install-safe-wrapper"
-grubMkconfig: "/usr/local/bin/grub-mkconfig-safe-wrapper"
+grubInstall: "grub-install"
+grubMkconfig: "grub-mkconfig"
 grubCfg: "/boot/grub/grub.cfg"
 grubProbe: "grub-probe"
 efiBootMgr: "efibootmgr"
@@ -241,7 +241,7 @@ timeout: 120
 # GRUB installation options for EFI
 grubInstallOptions:
   - "--target=x86_64-efi"
-  - "--efi-directory=/boot/efi"
+  - "--efi-directory=@@ROOT@@/boot/efi"
   - "--bootloader-id=nubiferos"
   - "--recheck"
   - "--no-floppy"
@@ -253,13 +253,8 @@ grubPCInstallOptions:
   - "--no-floppy"
   - "--force"
 
-# Use dontChroot for bootloader installation
-# In UEFI mode, grub-install needs access to real device nodes
-# Calamares bind-mounting doesn't always work reliably
-dontChroot: true
-
-# Skip bootloader installation on failure
-skipBootloaderOnFailure: true
+# Use standard chroot mode - Calamares handles device mounting properly
+dontChroot: false
 
 # Additional GRUB configuration
 grubCfgOptions:
