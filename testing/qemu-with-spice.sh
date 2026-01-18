@@ -127,11 +127,11 @@ qemu-system-x86_64 \
     $KVM_OPTS \
     -drive if=pflash,format=raw,readonly=on,file="$OVMF_CODE" \
     -drive if=pflash,format=raw,file="$OVMF_VARS" \
-    -drive file="$ISO_FILE",media=cdrom,readonly=on,format=raw \
-    -drive file="$DISK_FILE",format=qcow2,if=virtio \
+    -drive file="$ISO_FILE",media=cdrom,readonly=on,format=raw,index=0 \
+    -drive file="$DISK_FILE",format=qcow2,if=virtio,index=1 \
     -m 4096 \
     -smp 2 \
-    -boot order=d \
+    -boot order=d,menu=on \
     -vga qxl \
     -spice port=5930,addr=127.0.0.1,disable-ticketing=on \
     -device virtio-serial-pci \
