@@ -97,6 +97,7 @@ EOF
 cat > "${CALAMARES_DIR}/modules/partition.conf" << 'EOF'
 ---
 efiSystemPartition:     "/boot/efi"
+
 userSwapChoices:
     - none
     - small
@@ -111,6 +112,14 @@ initialPartitioningChoice: erase
 initialSwapChoice: small
 
 defaultFileSystemType:  "ext4"
+
+# Explicitly set partition table type to GPT (required for UEFI and modern BIOS)
+defaultPartitionTableType: "gpt"
+
+# Ensure boot partition is always created
+# For UEFI: 512MB FAT32 ESP
+# For BIOS+GPT: 8MB bios_grub partition
+ensureSuspendToDisk: true
 
 availableFileSystemTypes:
     - "ext4"
