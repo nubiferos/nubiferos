@@ -96,19 +96,28 @@ if [ ! -f "$DISK_FILE" ]; then
 fi
 
 # Check for OVMF firmware
-OVMF_CODE="/usr/share/OVMF/OVMF_CODE.fd"
+OVMF_CODE="/usr/share/OVMF/OVMF_CODE_4M.fd"
 OVMF_VARS="testing/OVMF_VARS.fd"
 
 if [ ! -f "$OVMF_CODE" ]; then
-    echo "Error: OVMF firmware not found at $OVMF_CODE"
-    echo "Install with: sudo apt install ovmf"
-    exit 1
+    # Try alternative path
+    OVMF_CODE="/usr/share/OVMF/OVMF_CODE.fd"
+    if [ ! -f "$OVMF_CODE" ]; then
+        echo "Error: OVMF firmware not found"
+        echo "Install with: sudo apt install ovmf"
+        exit 1
+    fi
 fi
 
 # Create OVMF_VARS if it doesn't exist
 if [ ! -f "$OVMF_VARS" ]; then
     echo "Creating UEFI variables file..."
-    cp /usr/share/OVMF/OVMF_VARS.fd "$OVMF_VARS"
+    # Try 4M version first, fall back to regular
+    if [ -f "/usr/share/OVMF/OVMF_VARS_4M.fd" ]; then
+        cp /usr/share/OVMF/OVMF_VARS_4M.fd "$OVMF_VARS"
+    else
+        cp /usr/share/OVMF/OVMF_VARS.fd "$OVMF_VARS"
+    fi
     echo "✓ UEFI variables created"
     echo ""
 fi
