@@ -373,7 +373,7 @@ create_bootable_iso() {
     # Create ISO directory structure
     mkdir -p "${SQUASHFS_DIR}"
     mkdir -p "${ISO_DIR}/boot/grub"
-    mkdir -p "${ISO_DIR}/EFI/boot"
+    mkdir -p "${ISO_DIR}/EFI/BOOT"
     
     # Create squashfs filesystem
     log "INFO" "Creating squashfs filesystem (this may take several minutes)..."
@@ -462,8 +462,8 @@ EOF
     fi
     
     # Create GRUB configuration for UEFI (same content, different location)
-    mkdir -p "${ISO_DIR}/EFI/boot"
-    cp "${ISO_DIR}/boot/grub/grub.cfg" "${ISO_DIR}/EFI/boot/grub.cfg"
+    mkdir -p "${ISO_DIR}/EFI/BOOT"
+    cp "${ISO_DIR}/boot/grub/grub.cfg" "${ISO_DIR}/EFI/BOOT/grub.cfg"
     
     # Create GRUB standalone image for BIOS boot
     log "INFO" "Creating GRUB boot images..."
@@ -521,7 +521,7 @@ EOF
     
     # Create embedded GRUB config for EFI (same logic as BIOS)
     # ⚠️ CRITICAL: Keep this identical to BIOS embedded config ⚠️
-    cat > "${ISO_DIR}/EFI/boot/embedded.cfg" << 'EOF'
+    cat > "${ISO_DIR}/EFI/BOOT/embedded.cfg" << 'EOF'
 # Try to load grub.cfg from common CD device names
 set root=(cd)
 configfile (cd)/boot/grub/grub.cfg
@@ -543,7 +543,7 @@ EOF
         --modules="linux normal iso9660 efi_gop efi_uga search search_fs_file configfile part_msdos part_gpt" \
         --locales="" \
         --fonts="" \
-        "boot/grub/grub.cfg=${ISO_DIR}/EFI/boot/embedded.cfg"
+        "boot/grub/grub.cfg=${ISO_DIR}/EFI/BOOT/embedded.cfg"
     
     # Create FAT EFI boot image
     log "INFO" "Creating EFI boot image..."
