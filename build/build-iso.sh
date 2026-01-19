@@ -519,41 +519,28 @@ EOF
     # Combine with GRUB boot sector
     cat /usr/lib/grub/i386-pc/cdboot.img "${ISO_DIR}/boot/grub/core.img" > "${ISO_DIR}/boot/grub/bios.img"
     
-    # Create embedded GRUB config for EFI
-    # UEFI uses different device naming than BIOS, so we use search command
+    # Create embedded GRUB config for EFI (same logic as BIOS)
+    # ⚠️ CRITICAL: Keep this identical to BIOS embedded config ⚠️
     cat > "${ISO_DIR}/EFI/boot/embedded.cfg" << 'EOF'
-# Search for the ISO filesystem and load grub.cfg
-search --no-floppy --set=root --file /boot/grub/grub.cfg
-configfile /boot/grub/grub.cfg
-
-# Fallback: try cd0 (most common in UEFI)
-set root=(cd0)
-configfile /boot/grub/grub.cfg
-
-# Fallback: try cd
+# Try to load grub.cfg from common CD device names
 set root=(cd)
-configfile /boot/grub/grub.cfg
-
-# Fallback: try cd1
+configfile (cd)/boot/grub/grub.cfg
+set root=(cd0)
+configfile (cd0)/boot/grub/grub.cfg
 set root=(cd1)
-configfile /boot/grub/grub.cfg
-
-# If we get here, none worked
-echo "Error: Could not find grub.cfg"
-echo "Tried: search, cd0, cd, cd1"
-echo "Root is: $root"
-echo ""
-echo "Press any key for rescue shell..."
-read
+configfile (cd1)/boot/grub/grub.cfg
+echo "Error: Could not find grub.cfg on any CD device"
+echo "Available devices:"
+ls
 EOF
     
     # Create GRUB EFI image
-    mkdir -p "${ISO_DIR}/EFI/boot"
+    mkdir -p "${ISO_DIR}/EFI/BOOT"
     grub-mkstandalone \
         --format=x86_64-efi \
-        --output="${ISO_DIR}/EFI/boot/BOOTX64.EFI" \
-        --install-modules="linux normal iso9660 efi_gop efi_uga search search_fs_file search_fs_uuid tar ls all_video gfxterm configfile part_msdos part_gpt" \
-        --modules="linux normal iso9660 efi_gop efi_uga search search_fs_file configfile part_msdos part_gpt" \
+        --output="${ISO_DIR}/EFI/BOOT/BOOTX64.EFI" \
+        --install-modules="linux normal iso9660 efi_gop efi_uga search search_fs_file search_fs_uuid tar ls all_video gfxterm configfile part_msdos part_gpt echo test read" \
+        --modules="linux normal iso9660 efi_gop efi_uga search search_fs_file configfile part_msdos part_gpt echo test read" \
         --locales="" \
         --fonts="" \
         "boot/grub/grub.cfg=${ISO_DIR}/EFI/boot/embedded.cfg"
@@ -569,7 +556,7 @@ EOF
     mount -o loop "${ISO_DIR}/boot/grub/efi.img" "${EFI_MOUNT}"
     
     mkdir -p "${EFI_MOUNT}/EFI/BOOT"
-    cp "${ISO_DIR}/EFI/boot/BOOTX64.EFI" "${EFI_MOUNT}/EFI/BOOT/"
+    cp "${ISO_DIR}/EFI/BOOT/BOOTX64.EFI" "${EFI_MOUNT}/EFI/BOOT/"
     cp "${ISO_DIR}/boot/grub/grub.cfg" "${EFI_MOUNT}/EFI/BOOT/"
     
     umount "${EFI_MOUNT}"
