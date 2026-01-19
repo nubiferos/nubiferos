@@ -115,18 +115,25 @@ log "Creating UEFI embedded config..."
 cat > "${ISO_DIR}/EFI/boot/embedded.cfg" << 'EOF'
 # Search for the ISO filesystem and load grub.cfg
 search --no-floppy --set=root --file /boot/grub/grub.cfg
-configfile ($root)/boot/grub/grub.cfg
+if [ -s ($root)/boot/grub/grub.cfg ]; then
+    configfile ($root)/boot/grub/grub.cfg
+fi
 
 # Fallback: try common device names
 set root=(cd)
-configfile (cd)/boot/grub/grub.cfg
+if [ -s (cd)/boot/grub/grub.cfg ]; then
+    configfile (cd)/boot/grub/grub.cfg
+fi
+
 set root=(cd0)
-configfile (cd0)/boot/grub/grub.cfg
+if [ -s (cd0)/boot/grub/grub.cfg ]; then
+    configfile (cd0)/boot/grub/grub.cfg
+fi
 
 # If we get here, none worked
 echo "Error: Could not find grub.cfg"
-echo "Available devices:"
-ls
+echo "Tried: search, (cd), (cd0)"
+echo "Root is set to: $root"
 EOF
 
 # Create GRUB BIOS image
