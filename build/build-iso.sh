@@ -373,7 +373,7 @@ create_bootable_iso() {
     # Create ISO directory structure
     mkdir -p "${SQUASHFS_DIR}"
     mkdir -p "${ISO_DIR}/boot/grub"
-    mkdir -p "${ISO_DIR}/EFI/BOOT"
+    mkdir -p "${ISO_DIR}/EFI/boot"
     
     # Create squashfs filesystem
     log "INFO" "Creating squashfs filesystem (this may take several minutes)..."
@@ -462,8 +462,8 @@ EOF
     fi
     
     # Create GRUB configuration for UEFI (same content, different location)
-    mkdir -p "${ISO_DIR}/EFI/BOOT"
-    cp "${ISO_DIR}/boot/grub/grub.cfg" "${ISO_DIR}/EFI/BOOT/grub.cfg"
+    mkdir -p "${ISO_DIR}/EFI/boot"
+    cp "${ISO_DIR}/boot/grub/grub.cfg" "${ISO_DIR}/EFI/boot/grub.cfg"
     
     # Create GRUB standalone image for BIOS boot
     log "INFO" "Creating GRUB boot images..."
@@ -521,7 +521,7 @@ EOF
     
     # Create embedded GRUB config for EFI
     # UEFI uses different device naming than BIOS, so we use search command
-    cat > "${ISO_DIR}/EFI/BOOT/embedded.cfg" << 'EOF'
+    cat > "${ISO_DIR}/EFI/boot/embedded.cfg" << 'EOF'
 # Search for the ISO filesystem and load grub.cfg
 search --no-floppy --set=root --file /boot/grub/grub.cfg
 configfile ($root)/boot/grub/grub.cfg
@@ -539,15 +539,15 @@ ls
 EOF
     
     # Create GRUB EFI image
-    mkdir -p "${ISO_DIR}/EFI/BOOT"
+    mkdir -p "${ISO_DIR}/EFI/boot"
     grub-mkstandalone \
         --format=x86_64-efi \
-        --output="${ISO_DIR}/EFI/BOOT/BOOTX64.EFI" \
+        --output="${ISO_DIR}/EFI/boot/BOOTX64.EFI" \
         --install-modules="linux normal iso9660 efi_gop efi_uga search search_fs_file search_fs_uuid tar ls all_video gfxterm configfile part_msdos part_gpt" \
         --modules="linux normal iso9660 efi_gop efi_uga search search_fs_file configfile part_msdos part_gpt" \
         --locales="" \
         --fonts="" \
-        "boot/grub/grub.cfg=${ISO_DIR}/EFI/BOOT/embedded.cfg"
+        "boot/grub/grub.cfg=${ISO_DIR}/EFI/boot/embedded.cfg"
     
     # Create FAT EFI boot image
     log "INFO" "Creating EFI boot image..."
@@ -560,7 +560,7 @@ EOF
     mount -o loop "${ISO_DIR}/boot/grub/efi.img" "${EFI_MOUNT}"
     
     mkdir -p "${EFI_MOUNT}/EFI/BOOT"
-    cp "${ISO_DIR}/EFI/BOOT/BOOTX64.EFI" "${EFI_MOUNT}/EFI/BOOT/"
+    cp "${ISO_DIR}/EFI/boot/BOOTX64.EFI" "${EFI_MOUNT}/EFI/BOOT/"
     cp "${ISO_DIR}/boot/grub/grub.cfg" "${EFI_MOUNT}/EFI/BOOT/"
     
     umount "${EFI_MOUNT}"
