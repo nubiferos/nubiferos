@@ -59,12 +59,6 @@ install_grub() {
         "standard")
             grub-install --target=i386-pc --recheck --no-floppy "$device"
             ;;
-        "force")
-            grub-install --target=i386-pc --recheck --no-floppy --force "$device"
-            ;;
-        "skip-fs-probe")
-            grub-install --target=i386-pc --recheck --no-floppy --force --skip-fs-probe "$device"
-            ;;
         *)
             log "ERROR: Unknown installation approach: $approach"
             return 1
@@ -72,8 +66,8 @@ install_grub() {
     esac
 }
 
-# Try different installation approaches
-APPROACHES=("standard" "force" "skip-fs-probe")
+# Try different installation approaches (removed --force as it's deprecated)
+APPROACHES=("standard")
 SUCCESS=false
 
 for approach in "${APPROACHES[@]}"; do

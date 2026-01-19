@@ -253,7 +253,6 @@ grubPCInstallOptions:
   - "--target=i386-pc"
   - "--recheck"
   - "--no-floppy"
-  - "--force"
 
 # Use standard chroot mode - Calamares handles device mounting properly
 dontChroot: false
