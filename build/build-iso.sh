@@ -524,25 +524,27 @@ EOF
     cat > "${ISO_DIR}/EFI/boot/embedded.cfg" << 'EOF'
 # Search for the ISO filesystem and load grub.cfg
 search --no-floppy --set=root --file /boot/grub/grub.cfg
-if [ -s ($root)/boot/grub/grub.cfg ]; then
-    configfile ($root)/boot/grub/grub.cfg
-fi
+configfile /boot/grub/grub.cfg
 
-# Fallback: try common device names
-set root=(cd)
-if [ -s (cd)/boot/grub/grub.cfg ]; then
-    configfile (cd)/boot/grub/grub.cfg
-fi
-
+# Fallback: try cd0 (most common in UEFI)
 set root=(cd0)
-if [ -s (cd0)/boot/grub/grub.cfg ]; then
-    configfile (cd0)/boot/grub/grub.cfg
-fi
+configfile /boot/grub/grub.cfg
+
+# Fallback: try cd
+set root=(cd)
+configfile /boot/grub/grub.cfg
+
+# Fallback: try cd1
+set root=(cd1)
+configfile /boot/grub/grub.cfg
 
 # If we get here, none worked
 echo "Error: Could not find grub.cfg"
-echo "Tried: search, (cd), (cd0)"
-echo "Root is set to: $root"
+echo "Tried: search, cd0, cd, cd1"
+echo "Root is: $root"
+echo ""
+echo "Press any key for rescue shell..."
+read
 EOF
     
     # Create GRUB EFI image
