@@ -519,17 +519,21 @@ EOF
     # Combine with GRUB boot sector
     cat /usr/lib/grub/i386-pc/cdboot.img "${ISO_DIR}/boot/grub/core.img" > "${ISO_DIR}/boot/grub/bios.img"
     
-    # Create embedded GRUB config for EFI (same logic as BIOS)
-    # ⚠️ CRITICAL: Keep this identical to BIOS embedded config ⚠️
+    # Create embedded GRUB config for EFI
+    # UEFI uses different device naming than BIOS, so we use search command
     cat > "${ISO_DIR}/EFI/BOOT/embedded.cfg" << 'EOF'
-# Try to load grub.cfg from common CD device names
+# Search for the ISO filesystem and load grub.cfg
+search --no-floppy --set=root --file /boot/grub/grub.cfg
+configfile ($root)/boot/grub/grub.cfg
+
+# Fallback: try common device names
 set root=(cd)
 configfile (cd)/boot/grub/grub.cfg
 set root=(cd0)
 configfile (cd0)/boot/grub/grub.cfg
-set root=(cd1)
-configfile (cd1)/boot/grub/grub.cfg
-echo "Error: Could not find grub.cfg on any CD device"
+
+# If we get here, none worked
+echo "Error: Could not find grub.cfg"
 echo "Available devices:"
 ls
 EOF
