@@ -274,6 +274,14 @@ install_nubifer_components() {
     cp "${PROJECT_ROOT}/scripts/install-cloud-sdks.sh" "${CHROOT_DIR}/usr/local/bin/install-cloud-sdks"
     chmod +x "${CHROOT_DIR}/usr/local/bin/install-cloud-sdks"
     
+    # GRUB installation wrapper for LUKS
+    cp "${PROJECT_ROOT}/scripts/grub-install-luks-wrapper.sh" "${CHROOT_DIR}/usr/local/bin/grub-install-luks-wrapper"
+    chmod +x "${CHROOT_DIR}/usr/local/bin/grub-install-luks-wrapper"
+    
+    # Calamares config logger for debugging
+    cp "${PROJECT_ROOT}/scripts/calamares-config-logger.sh" "${CHROOT_DIR}/usr/local/bin/calamares-config-logger.sh"
+    chmod +x "${CHROOT_DIR}/usr/local/bin/calamares-config-logger.sh"
+    
     # Copy documentation
     mkdir -p "${CHROOT_DIR}/usr/share/doc/nubifer"
     cp "${PROJECT_ROOT}"/docs/*.md "${CHROOT_DIR}/usr/share/doc/nubifer/"
