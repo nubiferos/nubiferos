@@ -39,14 +39,18 @@ install_kernel() {
     log "INFO" "Installing Linux Kernel (Installer-Only)"
     log "INFO" "=========================================="
     
-    # Install kernel and required packages (live-boot needed for ISO boot)
-    log "INFO" "Installing kernel packages..."
+    # Install live-boot packages FIRST (before kernel generates initramfs)
+    log "INFO" "Installing live-boot packages..."
     chroot_exec "DEBIAN_FRONTEND=noninteractive apt-get install -y \
-        linux-image-amd64 \
-        linux-headers-amd64 \
         initramfs-tools \
         live-boot \
         live-boot-initramfs-tools"
+    
+    # Now install kernel (initramfs will include live-boot hooks)
+    log "INFO" "Installing kernel packages..."
+    chroot_exec "DEBIAN_FRONTEND=noninteractive apt-get install -y \
+        linux-image-amd64 \
+        linux-headers-amd64"
     
     # Install GRUB binaries (not the full packages to avoid conflicts)
     # We need both for hybrid BIOS/UEFI support
@@ -57,9 +61,9 @@ install_kernel() {
         grub-common \
         grub2-common"
     
-    # Update initramfs with live-boot support
-    log "INFO" "Updating initramfs..."
-    chroot_exec "update-initramfs -u -k all"
+    # Verify initramfs has live-boot hooks
+    log "INFO" "Verifying initramfs contents..."
+    chroot_exec "lsinitramfs /boot/initrd.img-* | grep -i live || echo 'WARNING: No live-boot hooks found in initramfs'"
     
     log "INFO" "✓ Kernel installed with live-boot for ISO boot"
 }
