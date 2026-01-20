@@ -477,12 +477,12 @@ insmod gfxterm
 terminal_output gfxterm
 
 menuentry "${DISTRO_FULLNAME} ${DISTRO_VERSION} - Installer" {
-    linux /boot/vmlinuz components quiet splash username=installer
+    linux /boot/vmlinuz boot=live components quiet splash username=installer
     initrd /boot/initrd.img
 }
 
 menuentry "${DISTRO_FULLNAME} ${DISTRO_VERSION} - Installer (Safe Mode)" {
-    linux /boot/vmlinuz components nomodeset username=installer
+    linux /boot/vmlinuz boot=live components nomodeset username=installer
     initrd /boot/initrd.img
 }
 EOF
@@ -497,12 +497,12 @@ insmod gfxterm
 terminal_output gfxterm
 
 menuentry "${DISTRO_FULLNAME} ${DISTRO_VERSION} - Live" {
-    linux /boot/vmlinuz components quiet splash username=live
+    linux /boot/vmlinuz boot=live components quiet splash username=live
     initrd /boot/initrd.img
 }
 
 menuentry "${DISTRO_FULLNAME} ${DISTRO_VERSION} - Live (Safe Mode)" {
-    linux /boot/vmlinuz components nomodeset username=live
+    linux /boot/vmlinuz boot=live components nomodeset username=live
     initrd /boot/initrd.img
 }
 EOF
