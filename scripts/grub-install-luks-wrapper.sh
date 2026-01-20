@@ -56,7 +56,10 @@ install_grub() {
     log "Attempting GRUB installation: $approach"
     
     case "$approach" in
-        "standard")
+        "standard-efi")
+            grub-install --target=x86_64-efi --efi-directory=/boot/efi --bootloader-id=nubiferos --no-nvram --removable
+            ;;
+        "standard-bios")
             grub-install --target=i386-pc --recheck --no-floppy "$device"
             ;;
         *)
@@ -67,7 +70,15 @@ install_grub() {
 }
 
 # Try different installation approaches (removed --force as it's deprecated)
-APPROACHES=("standard")
+# Detect if we're in EFI mode
+if [ -d /sys/firmware/efi ]; then
+    log "EFI mode detected"
+    APPROACHES=("standard-efi")
+else
+    log "BIOS mode detected"
+    APPROACHES=("standard-bios")
+fi
+
 SUCCESS=false
 
 for approach in "${APPROACHES[@]}"; do
