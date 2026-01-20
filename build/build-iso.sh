@@ -286,6 +286,23 @@ install_nubifer_components() {
     mkdir -p "${CHROOT_DIR}/usr/share/doc/nubifer"
     cp "${PROJECT_ROOT}"/docs/*.md "${CHROOT_DIR}/usr/share/doc/nubifer/"
     
+    # Copy version information
+    mkdir -p "${CHROOT_DIR}/usr/share/nubifer"
+    local VERSION=$(cat "${PROJECT_ROOT}/VERSION" | tr -d '\n')
+    local GIT_COMMIT=$(git -C "${PROJECT_ROOT}" rev-parse --short HEAD 2>/dev/null || echo "unknown")
+    local BUILD_DATE=$(date +%Y-%m-%d\ %H:%M:%S)
+    
+    cat > "${CHROOT_DIR}/usr/share/nubifer/VERSION.txt" << EOF
+NubiferOS System Information
+=============================
+Version: ${VERSION}
+Git Commit: ${GIT_COMMIT}
+Build Date: ${BUILD_DATE}
+
+Check for updates:
+  /usr/local/bin/nubifer-update-checker
+EOF
+    
     # Copy browser configuration
     mkdir -p "${CHROOT_DIR}/usr/share/nubifer/browser"
     cp "${PROJECT_ROOT}/configs/browser/firefox-bookmarks.json" "${CHROOT_DIR}/usr/share/nubifer/browser/"
@@ -382,6 +399,28 @@ create_bootable_iso() {
     mkdir -p "${SQUASHFS_DIR}"
     mkdir -p "${ISO_DIR}/boot/grub"
     mkdir -p "${ISO_DIR}/EFI/boot"
+    
+    # Create version info file in ISO
+    local VERSION=$(cat "${PROJECT_ROOT}/VERSION" | tr -d '\n')
+    local GIT_COMMIT=$(git -C "${PROJECT_ROOT}" rev-parse --short HEAD 2>/dev/null || echo "unknown")
+    local BUILD_DATE=$(date +%Y-%m-%d\ %H:%M:%S)
+    
+    cat > "${ISO_DIR}/VERSION.txt" << EOF
+NubiferOS ISO Build Information
+================================
+Version: ${VERSION}
+Git Commit: ${GIT_COMMIT}
+Build Date: ${BUILD_DATE}
+Build Host: $(hostname)
+
+To check version from live CD:
+  cat /run/live/medium/VERSION.txt
+
+To check version from installed system:
+  cat /usr/share/nubifer/VERSION.txt
+EOF
+    
+    log "INFO" "ISO Version: ${VERSION} (${GIT_COMMIT})"
     
     # Create squashfs filesystem
     log "INFO" "Creating squashfs filesystem (this may take several minutes)..."
@@ -574,7 +613,17 @@ EOF
     log "INFO" "Generating ISO file..."
     mkdir -p "${OUTPUT_DIR}"
     
-    local ISO_FILE="${OUTPUT_DIR}/${DISTRO_NAME}-${DISTRO_VERSION}-amd64.iso"
+    # Get version and git commit for filename
+    local VERSION=$(cat "${PROJECT_ROOT}/VERSION" | tr -d '\n')
+    local GIT_COMMIT=$(git -C "${PROJECT_ROOT}" rev-parse --short HEAD 2>/dev/null || echo "unknown")
+    local BUILD_DATE=$(date +%Y%m%d)
+    
+    local ISO_FILE="${OUTPUT_DIR}/${DISTRO_NAME}-${VERSION}-${BUILD_DATE}-${GIT_COMMIT}-amd64.iso"
+    
+    log "INFO" "ISO version: ${VERSION}"
+    log "INFO" "Git commit: ${GIT_COMMIT}"
+    log "INFO" "Build date: ${BUILD_DATE}"
+    log "INFO" "ISO file: ${ISO_FILE}"
     
     # Create hybrid BIOS/UEFI bootable ISO
     xorriso -as mkisofs \
