@@ -28,6 +28,7 @@ init_config
 # Parse arguments and environment variables
 ENABLE_TESTS=false
 SKIP_DOWNLOAD=false
+MINIMAL_TEST=false
 
 # Mode resolution: CLI flag > Environment variable > Default
 BUILD_TYPE=""
@@ -57,6 +58,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         --skip-download)
             SKIP_DOWNLOAD=true
+            shift
+            ;;
+        --minimal)
+            MINIMAL_TEST=true
             shift
             ;;
         --mode)
@@ -98,6 +103,7 @@ Build Types:
 Options:
   --enable-tests     Enable post-installation testing
   --skip-download    Skip Debian ISO download (use existing)
+  --minimal          Build minimal ISO for faster testing (no GNOME)
   --help            Show this help message
 
 Environment Variables:
@@ -199,7 +205,14 @@ build_iso() {
     log "INFO" "Step 3/7: Skipping cloud tools (will be installed via Calamares)"
     
     # Step 4: Install desktop environment
-    if [ "$BUILD_TYPE" = "installer" ]; then
+    if [ "$MINIMAL_TEST" = true ]; then
+        log "INFO" "Step 4/7: Skipping GNOME desktop (--minimal mode for testing)"
+        # Install minimal X and window manager for Calamares
+        chroot_exec "DEBIAN_FRONTEND=noninteractive apt-get install -y \
+            xorg \
+            openbox \
+            calamares"
+    elif [ "$BUILD_TYPE" = "installer" ]; then
         log "INFO" "Step 4/7: Installing GNOME desktop (installer-only)..."
         "${SCRIPT_DIR}/install-desktop-installer.sh"
     else
