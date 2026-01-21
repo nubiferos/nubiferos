@@ -123,6 +123,26 @@ availableFileSystemTypes:
     - "ext4"
     - "btrfs"
     - "xfs"
+
+# Enable encryption by default
+enableLuksAutomatedPartitioning: true
+luksGeneration: luks2
+
+# Require encryption (user cannot disable)
+requiredStorageEncryption: true
+
+# LUKS encryption password requirements
+luksPassphraseRequirements:
+    minLength: 32
+    maxLength: 256
+    
+# Additional LUKS security settings
+luksKeySize: 512
+luksCipher: "aes-xts-plain64"
+luksHashAlgorithm: "sha512"
+
+# Hide encryption checkbox (force encryption)
+showEncryptWidget: false
 EOF
 
 # Users module  
