@@ -1,0 +1,38 @@
+#!/bin/bash
+# Prepare devices before installation
+# Ensures all block devices are visible and ready
+#
+# This script runs with dontChroot: true (in live environment)
+
+echo "=========================================="
+echo "Device Preparation"
+echo "=========================================="
+
+# Trigger udev to rescan devices
+echo "Triggering udev rescan..."
+udevadm trigger --subsystem-match=block
+udevadm settle --timeout=30
+
+# Wait a bit for devices to settle
+sleep 2
+
+# List all block devices
+echo ""
+echo "Block devices:"
+lsblk -o NAME,SIZE,TYPE,FSTYPE,MOUNTPOINT
+
+echo ""
+echo "Raw device nodes:"
+ls -la /dev/vd* 2>/dev/null || echo "No /dev/vd* devices"
+ls -la /dev/sd* 2>/dev/null || echo "No /dev/sd* devices"
+
+echo ""
+echo "blkid output:"
+blkid || echo "blkid returned no devices"
+
+echo ""
+echo "=========================================="
+echo "Device preparation complete"
+echo "=========================================="
+
+exit 0
