@@ -24,24 +24,15 @@ def run():
 
     gs = libcalamares.globalstorage
 
-    # Check if encryption is enabled in partition settings
-    # The partition module stores this in GlobalStorage
-    encrypt = gs.value("encryptedRootPartition")
+    # Check if encryption is enabled by looking for luksPassphrase
+    # This is set by the partition page when user leaves the "show" phase
+    # If encryption is enabled, it contains the (obfuscated) passphrase
+    # If disabled, it's an empty string
+    luks_passphrase = gs.value("luksPassphrase")
 
-    # Also check the partition layout for encryption flag
-    partitions = gs.value("partitions")
-    has_encrypted_root = False
+    debug(f"luksPassphrase present: {bool(luks_passphrase)}")
 
-    if partitions:
-        for part in partitions:
-            if part.get("mountPoint") == "/" and part.get("luksMapperName"):
-                has_encrypted_root = True
-                break
-
-    debug(f"encryptedRootPartition: {encrypt}")
-    debug(f"has_encrypted_root from partitions: {has_encrypted_root}")
-
-    encryption_enabled = encrypt or has_encrypted_root
+    encryption_enabled = bool(luks_passphrase)
 
     if not encryption_enabled:
         # Check for override file
