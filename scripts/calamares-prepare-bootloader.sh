@@ -8,6 +8,36 @@ echo "=========================================="
 echo "Preparing for bootloader installation"
 echo "=========================================="
 
+# Enable GRUB cryptodisk support for LUKS encrypted disks
+echo "Enabling GRUB cryptodisk support..."
+if [ -f /etc/default/grub ]; then
+    # Check if already set
+    if grep -q "GRUB_ENABLE_CRYPTODISK" /etc/default/grub; then
+        # Update existing setting
+        sed -i 's/^#*GRUB_ENABLE_CRYPTODISK=.*/GRUB_ENABLE_CRYPTODISK=y/' /etc/default/grub
+    else
+        # Add the setting
+        echo "" >> /etc/default/grub
+        echo "# Enable LUKS encrypted disk support" >> /etc/default/grub
+        echo "GRUB_ENABLE_CRYPTODISK=y" >> /etc/default/grub
+    fi
+    echo "✓ GRUB_ENABLE_CRYPTODISK=y set in /etc/default/grub"
+    grep CRYPTODISK /etc/default/grub
+else
+    echo "WARNING: /etc/default/grub not found, creating it..."
+    mkdir -p /etc/default
+    cat > /etc/default/grub << 'EOF'
+GRUB_DEFAULT=0
+GRUB_TIMEOUT=5
+GRUB_DISTRIBUTOR="NubiferOS"
+GRUB_CMDLINE_LINUX_DEFAULT="quiet splash"
+GRUB_CMDLINE_LINUX=""
+GRUB_ENABLE_CRYPTODISK=y
+EOF
+    echo "✓ Created /etc/default/grub with cryptodisk support"
+fi
+echo ""
+
 # Ensure all device nodes are settled and visible
 echo "Waiting for device nodes to settle..."
 udevadm settle --timeout=30
