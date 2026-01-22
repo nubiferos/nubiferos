@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=NubiferOS Security Check
+Comment=Reminds users about encryption status
+Exec=/usr/local/bin/nubiferos-encryption-nag.sh
+Icon=security-low
+Terminal=false
+Hidden=false
+X-GNOME-Autostart-enabled=true
+X-GNOME-Autostart-Delay=5

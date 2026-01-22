@@ -60,13 +60,22 @@ for script in "${PROJECT_ROOT}/scripts/calamares-"*.sh; do
 done
 
 # Also copy other helper scripts needed by Calamares
-for script in calamares-config-logger.sh grub-install-luks-wrapper.sh grub-install-safe-wrapper.sh grub-mkconfig-safe-wrapper.sh; do
+for script in calamares-config-logger.sh grub-install-luks-wrapper.sh grub-install-safe-wrapper.sh grub-mkconfig-safe-wrapper.sh calamares-setup-encryption-nag.sh; do
     if [ -f "${PROJECT_ROOT}/scripts/$script" ]; then
         cp "${PROJECT_ROOT}/scripts/$script" "${CHROOT_DIR}/usr/local/bin/"
         chmod +x "${CHROOT_DIR}/usr/local/bin/$script"
         log "INFO" "  Installed: $script"
     fi
 done
+
+# Install encryption nag script to /usr/share/nubiferos for post-install setup
+log "INFO" "Installing encryption nag notification script..."
+mkdir -p "${CHROOT_DIR}/usr/share/nubiferos"
+if [ -f "${PROJECT_ROOT}/scripts/nubiferos-encryption-nag.sh" ]; then
+    cp "${PROJECT_ROOT}/scripts/nubiferos-encryption-nag.sh" "${CHROOT_DIR}/usr/share/nubiferos/"
+    chmod +x "${CHROOT_DIR}/usr/share/nubiferos/nubiferos-encryption-nag.sh"
+    log "INFO" "  Installed: nubiferos-encryption-nag.sh"
+fi
 
 # Fix sudoers permissions issue
 log "INFO" "Fixing sudoers permissions..."
