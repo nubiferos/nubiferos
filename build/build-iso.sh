@@ -207,8 +207,10 @@ build_iso() {
     # Step 4: Install desktop environment
     if [ "$MINIMAL_TEST" = true ]; then
         log "INFO" "Step 4/7: Minimal desktop (--minimal mode for testing)"
-        # Install minimal X and window manager for Calamares
+        # Install kernel, minimal X, and window manager for Calamares
         chroot_exec "DEBIAN_FRONTEND=noninteractive apt-get install -y \
+            linux-image-amd64 \
+            live-boot \
             xorg \
             openbox \
             sudo \
