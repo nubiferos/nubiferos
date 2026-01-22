@@ -48,6 +48,19 @@ mkdir -p "${CHROOT_DIR}/etc/calamares/branding/nubiferos"
 log "INFO" "Copying configuration files..."
 cp -r "${PROJECT_ROOT}/installer/calamares/"* "${CHROOT_DIR}/etc/calamares/" || true
 
+# Copy custom Calamares Python modules to /usr/lib/calamares/modules/
+# Python modules must be in this location, not /etc/calamares/modules/
+log "INFO" "Installing custom Calamares modules..."
+for module_dir in "${PROJECT_ROOT}/installer/calamares/modules/"*/; do
+    module_name=$(basename "$module_dir")
+    # Check if it's a Python module (has main.py)
+    if [ -f "${module_dir}/main.py" ]; then
+        log "INFO" "  Installing Python module: ${module_name}"
+        mkdir -p "${CHROOT_DIR}/usr/lib/calamares/modules/${module_name}"
+        cp -r "${module_dir}"* "${CHROOT_DIR}/usr/lib/calamares/modules/${module_name}/"
+    fi
+done
+
 # Copy Calamares helper scripts to /usr/local/bin
 log "INFO" "Installing Calamares helper scripts..."
 mkdir -p "${CHROOT_DIR}/usr/local/bin"
