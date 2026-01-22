@@ -1,0 +1,5 @@
+---
+type: "job"
+name: "checkrequirements"
+interface: "python"
+script: "main.py"
