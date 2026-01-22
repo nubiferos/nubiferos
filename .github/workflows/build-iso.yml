@@ -7,7 +7,16 @@ on:
       - 'v*'
   pull_request:
     branches: [ main, trunk ]
-  workflow_dispatch:  # Allow manual trigger
+  workflow_dispatch:
+    inputs:
+      build_type:
+        description: 'Build type'
+        required: true
+        default: 'minimal'
+        type: choice
+        options:
+          - minimal
+          - full
 
 # Required for OIDC authentication
 permissions:
@@ -172,13 +181,43 @@ jobs:
         echo "Proceeding with ISO build..."
         echo ""
         
+    - name: Determine build type
+      id: build_type
+      run: |
+        # Determine build type based on trigger
+        # - workflow_dispatch: respect user choice
+        # - release tags (v*): always full build
+        # - push/PR to branches: minimal for fast iteration
+
+        if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+          BUILD_TYPE="${{ github.event.inputs.build_type }}"
+        elif [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+          BUILD_TYPE="full"
+          echo "Release tag detected - using full build"
+        else
+          BUILD_TYPE="minimal"
+          echo "Branch push/PR - using minimal build for fast testing"
+        fi
+
+        echo "build_type=$BUILD_TYPE" >> $GITHUB_OUTPUT
+        echo "Build type: $BUILD_TYPE"
+
     - name: Build ISO
       run: |
         # Set NON_INTERACTIVE mode
         export NON_INTERACTIVE=true
-        
+
+        # Determine build flags
+        BUILD_FLAGS=""
+        if [[ "${{ steps.build_type.outputs.build_type }}" == "minimal" ]]; then
+          BUILD_FLAGS="--minimal"
+          echo "Using MINIMAL build (fast test mode)"
+        else
+          echo "Using FULL build"
+        fi
+
         # Run build with verbose output
-        sudo -E bash -x ./build-nubiferos.sh 2>&1 | tee build.log || {
+        sudo -E bash -x ./build-nubiferos.sh $BUILD_FLAGS 2>&1 | tee build.log || {
           echo ""
           echo "=========================================="
           echo "BUILD FAILED!"
@@ -404,9 +443,10 @@ jobs:
       run: |
         cat >> $GITHUB_STEP_SUMMARY << EOF
         # 🎉 NubiferOS ISO Build Complete!
-        
+
         ## Build Information
         - **Version**: ${{ env.VERSION }}
+        - **Build Type**: ${{ steps.build_type.outputs.build_type }}
         - **ISO Name**: ${{ env.ISO_NAME }}
         - **ISO Size**: ${{ steps.iso_info.outputs.iso_size }}
         - **Build Date**: $(date -u +"%Y-%m-%d %H:%M:%S UTC")

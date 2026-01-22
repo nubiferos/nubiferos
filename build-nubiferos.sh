@@ -37,6 +37,8 @@ if [ -n "${CI}" ] || [ -n "${GITHUB_ACTIONS}" ] || [ -n "${GITLAB_CI}" ] || [ -n
 fi
 
 # Parse arguments
+MINIMAL_BUILD=false
+
 while [[ $# -gt 0 ]]; do
     case $1 in
         --mode)
@@ -64,6 +66,10 @@ while [[ $# -gt 0 ]]; do
             BUILD_TYPE="live"
             shift
             ;;
+        --minimal)
+            MINIMAL_BUILD=true
+            shift
+            ;;
         --interactive)
             NON_INTERACTIVE=false
             shift
@@ -82,6 +88,8 @@ Build Types:
   --mode <type>      Set build mode (installer|live)
   --installer-only   Build production installer-only ISO (default)
   --live            Build development live ISO (testing only)
+  --minimal         Fast test build: xorg+openbox+calamares only (~5-10 min)
+                    Use this to quickly test Calamares/bootloader changes
 
 Options:
   --interactive      Enable interactive prompts (default in terminal)
@@ -94,10 +102,10 @@ Environment Variables:
   CI                Auto-detected for non-interactive mode
 
 Examples:
-  sudo $0 --mode installer        # Production ISO
+  sudo $0 --mode installer        # Production ISO (~35-55 min)
   sudo $0 --live                  # Development ISO
+  sudo $0 --minimal               # Fast test ISO (~5-10 min)
   sudo ISO_MODE=installer $0      # Production ISO via environment
-  sudo ISO_MODE=live $0           # Development ISO via environment
 
 EOF
             exit 0
@@ -176,12 +184,17 @@ echo ""
 echo "Build Configuration:"
 echo "  Distribution: NubiferOS 1.0 (Nimbus)"
 echo "  Base: Debian 12 (Bookworm)"
-echo "  Desktop: GNOME with Wayland"
 echo "  Architecture: amd64"
-if [ "$BUILD_TYPE" = "installer" ]; then
+if [ "$MINIMAL_BUILD" = true ]; then
+    echo "  Desktop: Openbox (minimal)"
+    echo "  Type: FAST TEST BUILD"
+    echo "  ⚠️  WARNING: Minimal desktop - for Calamares/bootloader testing only"
+elif [ "$BUILD_TYPE" = "installer" ]; then
+    echo "  Desktop: GNOME with Wayland"
     echo "  Type: Production Installer-Only ISO"
     echo "  Security: Minimal attack surface, mandatory encryption"
 else
+    echo "  Desktop: GNOME with Wayland"
     echo "  Type: Development Live ISO"
     echo "  ⚠️  WARNING: TESTING ONLY - NOT FOR PRODUCTION"
     echo "  Security: Reduced (live environment)"
@@ -189,11 +202,18 @@ fi
 echo ""
 
 # Estimate time
-echo "Estimated build time: 35-55 minutes"
-echo "  - Download Debian: 5-10 min"
-echo "  - Extract & customize: 10-15 min"
-echo "  - Install packages: 15-20 min"
-echo "  - Create ISO: 5-10 min"
+if [ "$MINIMAL_BUILD" = true ]; then
+    echo "Estimated build time: 5-10 minutes"
+    echo "  - Download Debian: 3-5 min"
+    echo "  - Install minimal packages: 2-3 min"
+    echo "  - Create ISO: 1-2 min"
+else
+    echo "Estimated build time: 35-55 minutes"
+    echo "  - Download Debian: 5-10 min"
+    echo "  - Extract & customize: 10-15 min"
+    echo "  - Install packages: 15-20 min"
+    echo "  - Create ISO: 5-10 min"
+fi
 echo ""
 
 if [ "$NON_INTERACTIVE" = "false" ]; then
@@ -215,10 +235,15 @@ echo ""
 
 # Start build
 cd build
+BUILD_FLAGS=""
+if [ "$MINIMAL_BUILD" = true ]; then
+    BUILD_FLAGS="--minimal"
+fi
+
 if [ "$BUILD_TYPE" = "installer" ]; then
-    ./build-iso.sh --installer-only
+    ./build-iso.sh --installer-only $BUILD_FLAGS
 else
-    ./build-iso.sh --live
+    ./build-iso.sh --live $BUILD_FLAGS
 fi
 
 echo ""
