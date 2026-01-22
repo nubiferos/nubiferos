@@ -48,6 +48,26 @@ mkdir -p "${CHROOT_DIR}/etc/calamares/branding/nubiferos"
 log "INFO" "Copying configuration files..."
 cp -r "${PROJECT_ROOT}/installer/calamares/"* "${CHROOT_DIR}/etc/calamares/" || true
 
+# Copy Calamares helper scripts to /usr/local/bin
+log "INFO" "Installing Calamares helper scripts..."
+mkdir -p "${CHROOT_DIR}/usr/local/bin"
+for script in "${PROJECT_ROOT}/scripts/calamares-"*.sh; do
+    if [ -f "$script" ]; then
+        cp "$script" "${CHROOT_DIR}/usr/local/bin/"
+        chmod +x "${CHROOT_DIR}/usr/local/bin/$(basename "$script")"
+        log "INFO" "  Installed: $(basename "$script")"
+    fi
+done
+
+# Also copy other helper scripts needed by Calamares
+for script in calamares-config-logger.sh grub-install-luks-wrapper.sh grub-install-safe-wrapper.sh grub-mkconfig-safe-wrapper.sh; do
+    if [ -f "${PROJECT_ROOT}/scripts/$script" ]; then
+        cp "${PROJECT_ROOT}/scripts/$script" "${CHROOT_DIR}/usr/local/bin/"
+        chmod +x "${CHROOT_DIR}/usr/local/bin/$script"
+        log "INFO" "  Installed: $script"
+    fi
+done
+
 # Fix sudoers permissions issue
 log "INFO" "Fixing sudoers permissions..."
 chroot_exec "chmod 755 /etc/sudoers.d || true"
