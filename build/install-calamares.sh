@@ -48,16 +48,23 @@ mkdir -p "${CHROOT_DIR}/etc/calamares/branding/nubiferos"
 log "INFO" "Copying configuration files..."
 cp -r "${PROJECT_ROOT}/installer/calamares/"* "${CHROOT_DIR}/etc/calamares/" || true
 
-# Copy custom Calamares Python modules to /usr/lib/calamares/modules/
-# Python modules must be in this location, not /etc/calamares/modules/
-log "INFO" "Installing custom Calamares modules..."
+# Copy custom Calamares Python modules to the correct path
+# On Debian multi-arch, Calamares modules are in /usr/lib/x86_64-linux-gnu/calamares/modules/
+# We detect the actual path by finding where Calamares installed its modules
+CALAMARES_MODULE_PATH="${CHROOT_DIR}/usr/lib/x86_64-linux-gnu/calamares/modules"
+if [ ! -d "$CALAMARES_MODULE_PATH" ]; then
+    # Fallback for non-multiarch systems
+    CALAMARES_MODULE_PATH="${CHROOT_DIR}/usr/lib/calamares/modules"
+fi
+log "INFO" "Installing custom Calamares modules to: ${CALAMARES_MODULE_PATH#$CHROOT_DIR}"
+
 for module_dir in "${PROJECT_ROOT}/installer/calamares/modules/"*/; do
     module_name=$(basename "$module_dir")
     # Check if it's a Python module (has main.py)
     if [ -f "${module_dir}/main.py" ]; then
         log "INFO" "  Installing Python module: ${module_name}"
-        mkdir -p "${CHROOT_DIR}/usr/lib/calamares/modules/${module_name}"
-        cp -r "${module_dir}"* "${CHROOT_DIR}/usr/lib/calamares/modules/${module_name}/"
+        mkdir -p "${CALAMARES_MODULE_PATH}/${module_name}"
+        cp -r "${module_dir}"* "${CALAMARES_MODULE_PATH}/${module_name}/"
     fi
 done
 
