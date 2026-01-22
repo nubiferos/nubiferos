@@ -197,9 +197,12 @@ create_installer_user() {
     log "INFO" "Creating installer user..."
     chroot_exec "useradd -m -s /bin/bash -c 'Installer User' installer"
     chroot_exec "echo 'installer:installer' | chpasswd"
-    
-    # Add to necessary groups
-    chroot_exec "usermod -aG sudo,audio,video,plugdev,netdev installer"
+
+    # Create autologin group for GDM auto-login
+    chroot_exec "getent group autologin || groupadd -r autologin"
+
+    # Add to necessary groups (including autologin for GDM auto-login)
+    chroot_exec "usermod -aG sudo,audio,video,plugdev,netdev,autologin installer"
     
     # Configure sudo without password for installer user
     echo "installer ALL=(ALL) NOPASSWD: ALL" > "${CHROOT_DIR}/etc/sudoers.d/installer"

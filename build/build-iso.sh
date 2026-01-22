@@ -233,9 +233,13 @@ build_iso() {
     "${SCRIPT_DIR}/fix-calamares-debian-issues.sh"
     
     # Step 6.6: Configure auto-login and Calamares auto-launch
-    log "INFO" "Step 6.6/7: Configuring installer auto-start..."
+    log "INFO" "Step 6.6/8: Configuring installer auto-start..."
     "${SCRIPT_DIR}/configure-installer-autostart.sh"
-    
+
+    # Step 6.7: Configure NubiferOS branding
+    log "INFO" "Step 6.7/8: Configuring system branding..."
+    "${SCRIPT_DIR}/configure-branding.sh"
+
     # Step 7: Install NubiferOS components
     log "INFO" "Step 7/7: Installing NubiferOS components..."
     install_nubifer_components
