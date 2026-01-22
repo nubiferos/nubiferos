@@ -206,12 +206,22 @@ build_iso() {
     
     # Step 4: Install desktop environment
     if [ "$MINIMAL_TEST" = true ]; then
-        log "INFO" "Step 4/7: Skipping GNOME desktop (--minimal mode for testing)"
+        log "INFO" "Step 4/7: Minimal desktop (--minimal mode for testing)"
         # Install minimal X and window manager for Calamares
         chroot_exec "DEBIAN_FRONTEND=noninteractive apt-get install -y \
             xorg \
             openbox \
+            sudo \
             calamares"
+
+        # Create installer user (normally done in install-desktop-installer.sh)
+        log "INFO" "Creating installer user for minimal build..."
+        chroot_exec "useradd -m -s /bin/bash -c 'Installer User' installer || true"
+        chroot_exec "echo 'installer:installer' | chpasswd"
+        chroot_exec "usermod -aG sudo installer"
+        # Allow installer to run sudo without password (needed for Calamares)
+        echo "installer ALL=(ALL) NOPASSWD: ALL" > "${CHROOT_DIR}/etc/sudoers.d/installer"
+        chmod 440 "${CHROOT_DIR}/etc/sudoers.d/installer"
     elif [ "$BUILD_TYPE" = "installer" ]; then
         log "INFO" "Step 4/7: Installing GNOME desktop (installer-only)..."
         "${SCRIPT_DIR}/install-desktop-installer.sh"
