@@ -68,7 +68,17 @@ chroot_exec "systemctl enable calamares-autostart.service"
 # Configure GDM for auto-login (if using GDM)
 log "INFO" "Configuring GDM auto-login..."
 mkdir -p "${CHROOT_DIR}/etc/gdm3"
-cat > "${CHROOT_DIR}/etc/gdm3/custom.conf" << EOF
+
+# Create autologin group if it doesn't exist
+log "INFO" "Creating autologin group..."
+chroot_exec "getent group autologin || groupadd -r autologin"
+
+# Add boot user to autologin group
+log "INFO" "Adding ${BOOT_USER} to autologin group..."
+chroot_exec "usermod -aG autologin ${BOOT_USER}"
+
+# Debian GDM3 uses daemon.conf, NOT custom.conf
+cat > "${CHROOT_DIR}/etc/gdm3/daemon.conf" << EOF
 [daemon]
 # Enable Wayland
 WaylandEnable=true
@@ -85,6 +95,38 @@ AutomaticLogin=${BOOT_USER}
 
 [debug]
 EOF
+
+# Also write to custom.conf as fallback (some systems check both)
+cat > "${CHROOT_DIR}/etc/gdm3/custom.conf" << EOF
+[daemon]
+WaylandEnable=true
+AutomaticLoginEnable=true
+AutomaticLogin=${BOOT_USER}
+
+[security]
+
+[xdmcp]
+
+[chooser]
+
+[debug]
+EOF
+
+# Ensure PAM is configured for gdm-autologin
+log "INFO" "Configuring PAM for gdm-autologin..."
+if [ ! -f "${CHROOT_DIR}/etc/pam.d/gdm-autologin" ]; then
+    cat > "${CHROOT_DIR}/etc/pam.d/gdm-autologin" << 'EOF'
+#%PAM-1.0
+auth    requisite       pam_nologin.so
+auth    required        pam_succeed_if.so user ingroup autologin
+auth    optional        pam_gnome_keyring.so
+auth    optional        pam_kwallet5.so
+auth    required        pam_permit.so
+account include         gdm
+password include        gdm
+session include         gdm
+EOF
+fi
 
 # Create .xinitrc for boot user to launch Calamares
 log "INFO" "Creating .xinitrc for ${BOOT_USER}..."
