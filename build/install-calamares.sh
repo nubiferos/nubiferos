@@ -80,7 +80,7 @@ for script in "${PROJECT_ROOT}/scripts/calamares-"*.sh; do
 done
 
 # Also copy other helper scripts needed by Calamares
-for script in calamares-config-logger.sh grub-install-luks-wrapper.sh grub-install-safe-wrapper.sh grub-mkconfig-safe-wrapper.sh calamares-setup-encryption-nag.sh calamares-post-install-cleanup.sh calamares-setup-recovery-key.sh calamares-copy-recovery-key.sh calamares-show-recovery-key.sh; do
+for script in calamares-config-logger.sh grub-install-luks-wrapper.sh grub-install-safe-wrapper.sh grub-mkconfig-safe-wrapper.sh calamares-setup-encryption-nag.sh calamares-post-install-cleanup.sh calamares-setup-recovery-key.sh calamares-copy-recovery-key.sh calamares-show-recovery-key.sh calamares-check-encryption.sh; do
     if [ -f "${PROJECT_ROOT}/scripts/$script" ]; then
         cp "${PROJECT_ROOT}/scripts/$script" "${CHROOT_DIR}/usr/local/bin/"
         chmod +x "${CHROOT_DIR}/usr/local/bin/$script"
