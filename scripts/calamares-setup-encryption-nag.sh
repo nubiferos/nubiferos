@@ -1,15 +1,41 @@
 #!/bin/bash
-# Setup encryption nag if user bypassed encryption requirement
+# Setup encryption nag if user installed without encryption
 # This runs in chroot at the end of installation
 
-SHAME_FLAG="/tmp/nubiferos-install-no-encryption.log"
+echo "=========================================="
+echo "Checking if disk encryption is enabled..."
+echo "=========================================="
 
-# Always install the nag script (it checks for shame file before nagging)
-cp /usr/share/nubiferos/nubiferos-encryption-nag.sh /usr/local/bin/
-chmod +x /usr/local/bin/nubiferos-encryption-nag.sh
+# Always install the nag script (it checks conditions before nagging)
+if [ -f /usr/share/nubiferos/nubiferos-encryption-nag.sh ]; then
+    cp /usr/share/nubiferos/nubiferos-encryption-nag.sh /usr/local/bin/
+    chmod +x /usr/local/bin/nubiferos-encryption-nag.sh
+fi
 
-# Check if user bypassed encryption
-if [ -f "$SHAME_FLAG" ]; then
+# Detect if root filesystem is encrypted by checking /etc/crypttab
+# If crypttab exists and has entries, encryption is enabled
+ENCRYPTION_ENABLED=false
+
+if [ -f /etc/crypttab ]; then
+    # Check if crypttab has actual entries (not just comments)
+    if grep -v '^#' /etc/crypttab | grep -q '[a-z]'; then
+        ENCRYPTION_ENABLED=true
+        echo "Found entries in /etc/crypttab - encryption is enabled"
+    fi
+fi
+
+# Also check if any LUKS devices are referenced in fstab
+if [ -f /etc/fstab ]; then
+    if grep -q '/dev/mapper/' /etc/fstab; then
+        ENCRYPTION_ENABLED=true
+        echo "Found LUKS mapper devices in /etc/fstab - encryption is enabled"
+    fi
+fi
+
+echo "Encryption enabled: $ENCRYPTION_ENABLED"
+
+# If encryption is NOT enabled, set up the eternal nag
+if [ "$ENCRYPTION_ENABLED" = "false" ]; then
     echo "=========================================="
     echo "User bypassed encryption requirement"
     echo "Setting up eternal nag notifications..."
