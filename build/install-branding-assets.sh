@@ -218,3 +218,113 @@ log "INFO" "✓ Branding assets installed"
 log "INFO" "  - Wallpapers: /usr/share/backgrounds/nubiferos/"
 log "INFO" "  - Icons: /usr/share/pixmaps/nubiferos/"
 log "INFO" "  - Default wallpaper configured"
+
+# Configure GDM (login screen) branding
+log "INFO" "Configuring GDM login screen branding..."
+
+# Create GDM dconf profile
+mkdir -p "${CHROOT_DIR}/etc/dconf/profile"
+cat > "${CHROOT_DIR}/etc/dconf/profile/gdm" << 'EOF'
+user-db:user
+system-db:gdm
+file-db:/usr/share/gdm/greeter-dconf-defaults
+EOF
+
+# Create GDM dconf database directory
+mkdir -p "${CHROOT_DIR}/etc/dconf/db/gdm.d"
+
+# Configure GDM settings - logo and background
+cat > "${CHROOT_DIR}/etc/dconf/db/gdm.d/01-nubiferos-branding" << 'EOF'
+[org/gnome/login-screen]
+logo='/usr/share/pixmaps/nubiferos/logo-128.png'
+banner-message-enable=false
+
+[org/gnome/desktop/background]
+picture-uri='file:///usr/share/backgrounds/nubiferos/cyan_black_original_4K.png'
+picture-options='zoom'
+primary-color='#000000'
+
+[org/gnome/desktop/screensaver]
+picture-uri='file:///usr/share/backgrounds/nubiferos/cyan_black_original_4K.png'
+EOF
+
+# Update dconf databases
+chroot_exec "dconf update 2>/dev/null || true"
+
+# Replace Debian logo in GDM with NubiferOS logo
+# The logo shown at bottom of login screen comes from desktop-base package
+if [ -f "${PROJECT_ROOT}/brand/icons/logo-64.png" ]; then
+    # Replace the Debian logo files that GDM uses
+    mkdir -p "${CHROOT_DIR}/usr/share/desktop-base/active-theme/login"
+    cp "${PROJECT_ROOT}/brand/icons/logo-64.png" "${CHROOT_DIR}/usr/share/desktop-base/active-theme/login/logo.png" 2>/dev/null || true
+    
+    # Also try to replace in common locations
+    for logo_path in \
+        "/usr/share/plymouth/themes/spinner/watermark.png" \
+        "/usr/share/pixmaps/debian-logo.png" \
+        "/usr/share/icons/desktop-base/64x64/emblems/emblem-debian.png"; do
+        if [ -f "${CHROOT_DIR}${logo_path}" ]; then
+            cp "${PROJECT_ROOT}/brand/icons/logo-64.png" "${CHROOT_DIR}${logo_path}"
+            log "INFO" "  ✓ Replaced ${logo_path}"
+        fi
+    done
+fi
+
+# Create a vendor.conf to override the OS name shown in GDM
+# This affects the "Debian 12" text at the bottom
+mkdir -p "${CHROOT_DIR}/etc/gdm3"
+if [ -f "${CHROOT_DIR}/etc/gdm3/greeter.dconf-defaults" ]; then
+    # Append our settings if file exists
+    cat >> "${CHROOT_DIR}/etc/gdm3/greeter.dconf-defaults" << 'EOF'
+
+# NubiferOS branding
+[org/gnome/login-screen]
+logo='/usr/share/pixmaps/nubiferos/logo-128.png'
+EOF
+fi
+
+log "INFO" "  ✓ GDM login screen branding configured"
+
+# Remove or replace desktop-base Debian branding
+log "INFO" "Replacing desktop-base Debian branding..."
+
+# The "Debian 12" text comes from desktop-base package
+# We need to replace the vendor logo and potentially modify the theme
+
+# Replace Debian logos in desktop-base
+if [ -d "${CHROOT_DIR}/usr/share/desktop-base" ]; then
+    # Find and replace all Debian logos
+    for debian_logo in $(find "${CHROOT_DIR}/usr/share/desktop-base" -name "*.png" -o -name "*.svg" 2>/dev/null | head -20); do
+        # Only replace logo/emblem files, not wallpapers
+        if echo "$debian_logo" | grep -qiE "(logo|emblem|vendor)"; then
+            if [ -f "${PROJECT_ROOT}/brand/icons/logo-64.png" ]; then
+                cp "${PROJECT_ROOT}/brand/icons/logo-64.png" "$debian_logo" 2>/dev/null || true
+            fi
+        fi
+    done
+fi
+
+# Create/update the vendor configuration for GDM
+# This tells GDM to show our branding instead of Debian's
+mkdir -p "${CHROOT_DIR}/usr/share/gdm/greeter/images"
+if [ -f "${PROJECT_ROOT}/brand/icons/logo-128.png" ]; then
+    cp "${PROJECT_ROOT}/brand/icons/logo-128.png" "${CHROOT_DIR}/usr/share/gdm/greeter/images/logo.png"
+fi
+
+# Disable the Debian logo in GDM by creating an override
+# GDM reads from /etc/gdm3/greeter.dconf-defaults
+mkdir -p "${CHROOT_DIR}/etc/gdm3"
+cat > "${CHROOT_DIR}/etc/gdm3/greeter.dconf-defaults" << 'EOF'
+# NubiferOS GDM Configuration
+
+[org/gnome/login-screen]
+logo='/usr/share/pixmaps/nubiferos/logo-128.png'
+disable-user-list=false
+banner-message-enable=false
+
+[org/gnome/desktop/interface]
+cursor-theme='Adwaita'
+icon-theme='Adwaita'
+EOF
+
+log "INFO" "  ✓ Desktop-base branding replaced"
