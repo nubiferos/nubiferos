@@ -220,14 +220,27 @@ class CredentialSetupPage(Gtk.Box):
 
         self.append(self.status_box)
 
+        # Button box for setup and refresh
+        button_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
+        button_box.set_halign(Gtk.Align.CENTER)
+        button_box.set_margin_top(24)
+
         # Setup button
         self.setup_button = Gtk.Button(label="Set Up Credential Manager")
         self.setup_button.add_css_class("pill")
         self.setup_button.add_css_class("suggested-action")
-        self.setup_button.set_halign(Gtk.Align.CENTER)
-        self.setup_button.set_margin_top(24)
         self.setup_button.connect("clicked", self._on_setup_clicked)
-        self.append(self.setup_button)
+        button_box.append(self.setup_button)
+
+        # Refresh button
+        self.refresh_button = Gtk.Button()
+        self.refresh_button.set_icon_name("view-refresh-symbolic")
+        self.refresh_button.set_tooltip_text("Refresh status")
+        self.refresh_button.add_css_class("circular")
+        self.refresh_button.connect("clicked", self._on_refresh_clicked)
+        button_box.append(self.refresh_button)
+
+        self.append(button_box)
 
         # Check status on creation
         GLib.timeout_add(500, self._check_status)
@@ -249,6 +262,12 @@ class CredentialSetupPage(Gtk.Box):
         self.status_box.append(row)
         return status_label
 
+    def _on_refresh_clicked(self, button):
+        """Handle refresh button click"""
+        self.gpg_status.set_label("checking...")
+        self.pass_status.set_label("checking...")
+        GLib.timeout_add(100, self._check_status)
+
     def _check_status(self):
         """Check GPG and pass status"""
         # Check GPG
@@ -258,26 +277,29 @@ class CredentialSetupPage(Gtk.Box):
                 capture_output=True, text=True
             )
             if "pub" in result.stdout:
-                self.gpg_status.set_label("Configured")
+                self.gpg_status.set_label("Configured ✓")
                 self.gpg_status.remove_css_class("error")
                 self.gpg_status.add_css_class("success")
             else:
                 self.gpg_status.set_label("Not set up")
+                self.gpg_status.remove_css_class("success")
                 self.gpg_status.add_css_class("error")
         except Exception:
             self.gpg_status.set_label("Not available")
+            self.gpg_status.remove_css_class("success")
             self.gpg_status.add_css_class("error")
 
         # Check pass
         pass_dir = os.path.expanduser("~/.password-store")
         if os.path.exists(os.path.join(pass_dir, ".gpg-id")):
-            self.pass_status.set_label("Initialized")
+            self.pass_status.set_label("Initialized ✓")
             self.pass_status.remove_css_class("error")
             self.pass_status.add_css_class("success")
             self.setup_button.set_label("Re-run Setup Wizard")
             self.setup_button.remove_css_class("suggested-action")
         else:
             self.pass_status.set_label("Not initialized")
+            self.pass_status.remove_css_class("success")
             self.pass_status.add_css_class("error")
 
         return False  # Don't repeat
