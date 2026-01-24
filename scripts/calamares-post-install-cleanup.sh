@@ -36,6 +36,11 @@ rm -f /etc/skel/.config/autostart/calamares.desktop 2>/dev/null || true
 rm -f /etc/live/boot.conf 2>/dev/null || true
 rm -rf /etc/live 2>/dev/null || true
 
+# Remove Calamares configuration (not needed on installed system)
+# This prevents the first-boot wizard from thinking it's still in live mode
+rm -rf /etc/calamares 2>/dev/null || true
+echo "Removed /etc/calamares"
+
 # Remove installer desktop shortcut from skel
 rm -f /etc/skel/Desktop/Install*.desktop 2>/dev/null || true
 
