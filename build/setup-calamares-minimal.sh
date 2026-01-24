@@ -130,14 +130,8 @@ preCheckEncryption: true
 luksGeneration: luks1
 
 # Custom partition layout with separate encrypted /boot
+# ESP is created automatically by Calamares - don't include here
 partitionLayout:
-    - name: "EFI"
-      type: "EF00"
-      filesystem: "fat32"
-      mountPoint: "/boot/efi"
-      size: 512MiB
-      minSize: 256MiB
-      maxSize: 1GiB
     - name: "boot"
       filesystem: "ext4"
       mountPoint: "/boot"
