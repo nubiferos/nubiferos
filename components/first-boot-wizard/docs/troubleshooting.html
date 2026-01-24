@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Troubleshooting - NubiferOS</title>
+    <style>
+        :root {
+            --bg: #1e1e2e;
+            --surface: #313244;
+            --text: #cdd6f4;
+            --subtext: #a6adc8;
+            --blue: #89b4fa;
+            --green: #a6e3a1;
+            --peach: #fab387;
+            --red: #f38ba8;
+            --yellow: #f9e2af;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Cantarell', 'Segoe UI', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.6;
+            padding: 2rem;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        h1 { color: var(--blue); margin-bottom: 1rem; }
+        h2 { color: var(--peach); margin: 2rem 0 1rem; }
+        h3 { color: var(--green); margin: 1.5rem 0 0.5rem; }
+        p { margin-bottom: 1rem; color: var(--subtext); }
+        a { color: var(--blue); }
+        code {
+            background: var(--surface);
+            padding: 0.2rem 0.5rem;
+            border-radius: 4px;
+            font-family: monospace;
+        }
+        pre {
+            background: var(--surface);
+            padding: 1rem;
+            border-radius: 8px;
+            overflow-x: auto;
+            margin: 1rem 0;
+        }
+        pre code { padding: 0; background: none; }
+        .issue {
+            background: var(--surface);
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin: 1.5rem 0;
+        }
+        .issue-title {
+            color: var(--red);
+            font-weight: bold;
+            margin-bottom: 0.5rem;
+        }
+        .solution {
+            background: rgba(166, 227, 161, 0.1);
+            border-left: 4px solid var(--green);
+            padding: 1rem;
+            margin-top: 1rem;
+            border-radius: 0 8px 8px 0;
+        }
+        .solution strong { color: var(--green); }
+        nav { margin-bottom: 2rem; }
+    </style>
+</head>
+<body>
+    <nav>
+        <a href="index.html">← Back to Docs</a>
+    </nav>
+
+    <h1>🔧 Troubleshooting</h1>
+    <p>Common issues and solutions for NubiferOS.</p>
+
+    <h2>Setup Issues</h2>
+
+    <div class="issue">
+        <div class="issue-title">❌ "pass (password-store) not initialized"</div>
+        <p>The credential manager requires pass to be set up first.</p>
+        <div class="solution">
+            <strong>Solution:</strong> Run the setup wizard:
+            <pre><code>nubifer-setup-wizard</code></pre>
+        </div>
+    </div>
+
+    <div class="issue">
+        <div class="issue-title">❌ "No GPG key found"</div>
+        <p>You need a GPG key to encrypt credentials.</p>
+        <div class="solution">
+            <strong>Solution:</strong> Generate a GPG key:
+            <pre><code>gpg --full-generate-key</code></pre>
+            Then initialize pass:
+            <pre><code>pass init YOUR_GPG_KEY_ID</code></pre>
+            Or just run <code>nubifer-setup-wizard</code> which does both.
+        </div>
+    </div>
+
+    <div class="issue">
+        <div class="issue-title">❌ GPG asks for passphrase repeatedly</div>
+        <p>The GPG agent isn't caching your passphrase.</p>
+        <div class="solution">
+            <strong>Solution:</strong> Configure GPG agent cache time:
+            <pre><code>echo "default-cache-ttl 3600" >> ~/.gnupg/gpg-agent.conf
+echo "max-cache-ttl 86400" >> ~/.gnupg/gpg-agent.conf
+gpgconf --kill gpg-agent</code></pre>
+        </div>
+    </div>
+
+    <h2>Workspace Issues</h2>
+
+    <div class="issue">
+        <div class="issue-title">❌ "Workspace not found"</div>
+        <p>The workspace ID or name doesn't exist.</p>
+        <div class="solution">
+            <strong>Solution:</strong> List available workspaces:
+            <pre><code>nubifer-workspace list</code></pre>
+            Use the exact workspace ID or name shown.
+        </div>
+    </div>
+
+    <div class="issue">
+        <div class="issue-title">❌ "Cannot delete active workspace"</div>
+        <p>You're trying to delete the workspace you're currently using.</p>
+        <div class="solution">
+            <strong>Solution:</strong> Switch to a different workspace first:
+            <pre><code>nubifer-workspace switch OTHER_WORKSPACE
+nubifer-workspace delete WORKSPACE_TO_DELETE</code></pre>
+        </div>
+    </div>
+
+    <div class="issue">
+        <div class="issue-title">❌ Environment variables not set after switch</div>
+        <p>The workspace switch command shows instructions but doesn't set variables.</p>
+        <div class="solution">
+            <strong>Solution:</strong> Use eval to apply the environment:
+            <pre><code>eval $(nubifer-workspace env WORKSPACE_ID)</code></pre>
+            Or open a new terminal after switching.
+        </div>
+    </div>
+
+    <h2>Credential Issues</h2>
+
+    <div class="issue">
+        <div class="issue-title">❌ "Error: 'pass' command not found"</div>
+        <p>The pass package isn't installed.</p>
+        <div class="solution">
+            <strong>Solution:</strong> Install pass:
+            <pre><code>sudo apt-get install pass</code></pre>
+        </div>
+    </div>
+
+    <div class="issue">
+        <div class="issue-title">❌ AWS CLI says "Unable to locate credentials"</div>
+        <p>Credentials aren't being injected into the environment.</p>
+        <div class="solution">
+            <strong>Solution:</strong> Make sure you've:
+            <ol style="margin-left: 1.5rem; margin-top: 0.5rem;">
+                <li>Created a workspace with <code>nubifer-workspace create</code></li>
+                <li>Added credentials with <code>nubifer-creds add --type aws</code></li>
+                <li>Switched to the workspace with <code>nubifer-workspace switch</code></li>
+                <li>Applied the environment with <code>eval $(nubifer-workspace env ID)</code></li>
+            </ol>
+        </div>
+    </div>
+
+    <h2>Security Issues</h2>
+
+    <div class="issue">
+        <div class="issue-title">❌ "Operation blocked: Workspace is in READ-ONLY mode"</div>
+        <p>The workspace has read-only mode enabled.</p>
+        <div class="solution">
+            <strong>Solution:</strong> Disable read-only mode (if intentional):
+            <pre><code>nubifer-workspace readonly WORKSPACE_ID --disable</code></pre>
+            Or switch to a different workspace for write operations.
+        </div>
+    </div>
+
+    <div class="issue">
+        <div class="issue-title">❌ AppArmor blocking an application</div>
+        <p>AppArmor is restricting an application's behavior.</p>
+        <div class="solution">
+            <strong>Solution:</strong> Check AppArmor status:
+            <pre><code>sudo aa-status</code></pre>
+            View denied operations:
+            <pre><code>sudo dmesg | grep apparmor</code></pre>
+        </div>
+    </div>
+
+    <h2>Getting Help</h2>
+    <ul style="margin-left: 2rem; color: var(--subtext);">
+        <li><strong>Documentation:</strong> <code>/usr/share/doc/nubifer/</code></li>
+        <li><strong>GitHub Issues:</strong> <a href="https://github.com/jessetop/nubiferOS/issues">github.com/jessetop/nubiferOS/issues</a></li>
+        <li><strong>Check logs:</strong> <code>journalctl -xe</code></li>
+    </ul>
+
+    <h2>Reset Everything</h2>
+    <p>If you need to start fresh with credentials:</p>
+    <pre><code># Backup first!
+cp -r ~/.password-store ~/.password-store.backup
+cp -r ~/.gnupg ~/.gnupg.backup
+
+# Remove password store
+rm -rf ~/.password-store
+
+# Re-run setup
+nubifer-setup-wizard</code></pre>
+</body>
+</html>

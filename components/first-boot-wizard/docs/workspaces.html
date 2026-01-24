@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Workspaces - NubiferOS</title>
+    <style>
+        :root {
+            --bg: #1e1e2e;
+            --surface: #313244;
+            --text: #cdd6f4;
+            --subtext: #a6adc8;
+            --blue: #89b4fa;
+            --green: #a6e3a1;
+            --peach: #fab387;
+            --red: #f38ba8;
+            --yellow: #f9e2af;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Cantarell', 'Segoe UI', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.6;
+            padding: 2rem;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        h1 { color: var(--blue); margin-bottom: 1rem; }
+        h2 { color: var(--peach); margin: 2rem 0 1rem; }
+        h3 { color: var(--green); margin: 1.5rem 0 0.5rem; }
+        p { margin-bottom: 1rem; color: var(--subtext); }
+        a { color: var(--blue); }
+        code {
+            background: var(--surface);
+            padding: 0.2rem 0.5rem;
+            border-radius: 4px;
+            font-family: 'JetBrains Mono', 'Fira Code', monospace;
+            font-size: 0.9rem;
+        }
+        pre {
+            background: var(--surface);
+            padding: 1rem;
+            border-radius: 8px;
+            overflow-x: auto;
+            margin: 1rem 0;
+        }
+        pre code { padding: 0; background: none; }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 1rem 0;
+        }
+        th, td {
+            padding: 0.75rem;
+            text-align: left;
+            border-bottom: 1px solid var(--surface);
+        }
+        th { color: var(--peach); }
+        .note {
+            background: rgba(249, 226, 175, 0.1);
+            border-left: 4px solid var(--yellow);
+            padding: 1rem;
+            margin: 1rem 0;
+            border-radius: 0 8px 8px 0;
+        }
+        .note strong { color: var(--yellow); }
+        .warning {
+            background: rgba(243, 139, 168, 0.1);
+            border-left: 4px solid var(--red);
+            padding: 1rem;
+            margin: 1rem 0;
+            border-radius: 0 8px 8px 0;
+        }
+        .warning strong { color: var(--red); }
+        nav { margin-bottom: 2rem; }
+    </style>
+</head>
+<body>
+    <nav>
+        <a href="index.html">← Back to Docs</a>
+    </nav>
+
+    <h1>📁 Workspaces</h1>
+    <p>Workspaces provide isolated environments for different cloud accounts and projects. Each workspace has its own credentials, region settings, and context.</p>
+
+    <h2>Why Workspaces?</h2>
+    <ul style="margin-left: 2rem; color: var(--subtext); margin-bottom: 1rem;">
+        <li><strong>Prevent accidents</strong> - Never accidentally run commands against the wrong account</li>
+        <li><strong>Credential isolation</strong> - Each workspace has its own encrypted credentials</li>
+        <li><strong>Visual context</strong> - Terminal prompt shows which workspace is active</li>
+        <li><strong>Read-only mode</strong> - Protect production accounts from accidental changes</li>
+    </ul>
+
+    <h2>Creating Workspaces</h2>
+
+    <h3>Basic Creation</h3>
+    <pre><code>nubifer-workspace create \
+    --name production \
+    --provider aws \
+    --account-id 123456789012</code></pre>
+
+    <h3>With All Options</h3>
+    <pre><code>nubifer-workspace create \
+    --name production \
+    --provider aws \
+    --account-id 123456789012 \
+    --account-name "Production AWS" \
+    --region us-west-2 \
+    --read-only</code></pre>
+
+    <h3>Supported Providers</h3>
+    <table>
+        <tr><th>Provider</th><th>Value</th><th>Icon</th></tr>
+        <tr><td>Amazon Web Services</td><td><code>aws</code></td><td>☁️</td></tr>
+        <tr><td>Microsoft Azure</td><td><code>azure</code></td><td>⛅</td></tr>
+        <tr><td>Google Cloud Platform</td><td><code>gcp</code></td><td>🔵🔴🟡🟢</td></tr>
+        <tr><td>Oracle Cloud</td><td><code>oracle</code></td><td>🔴</td></tr>
+        <tr><td>Multi-Cloud</td><td><code>multi</code></td><td>🌐</td></tr>
+    </table>
+
+    <h2>Managing Workspaces</h2>
+
+    <h3>List All Workspaces</h3>
+    <pre><code>nubifer-workspace list</code></pre>
+
+    <h3>Switch Workspace</h3>
+    <pre><code>nubifer-workspace switch production
+
+# Or use the shortcut
+nw-switch production</code></pre>
+
+    <h3>Show Current Workspace</h3>
+    <pre><code>nubifer-workspace current
+
+# Or use the shortcut
+nw-context</code></pre>
+
+    <h3>Delete a Workspace</h3>
+    <pre><code>nubifer-workspace delete WORKSPACE_ID</code></pre>
+
+    <div class="warning">
+        <strong>⚠️ Warning:</strong> You cannot delete the currently active workspace. Switch to another workspace first.
+    </div>
+
+    <h2>Read-Only Mode</h2>
+    <p>Protect production accounts by enabling read-only mode:</p>
+
+    <h3>Enable Read-Only</h3>
+    <pre><code>nubifer-workspace readonly WORKSPACE_ID --enable</code></pre>
+
+    <h3>Disable Read-Only</h3>
+    <pre><code>nubifer-workspace readonly WORKSPACE_ID --disable</code></pre>
+
+    <div class="note">
+        <strong>💡 Tip:</strong> When read-only mode is enabled, write operations (like <code>aws ec2 terminate-instances</code>) will be blocked with a warning.
+    </div>
+
+    <h2>Environment Variables</h2>
+    <p>When you switch workspaces, these environment variables are set:</p>
+
+    <table>
+        <tr><th>Variable</th><th>Description</th></tr>
+        <tr><td><code>NUBIFER_WORKSPACE_ID</code></td><td>Unique workspace identifier</td></tr>
+        <tr><td><code>NUBIFER_WORKSPACE_NAME</code></td><td>Workspace name</td></tr>
+        <tr><td><code>NUBIFER_WORKSPACE_PROVIDER</code></td><td>Cloud provider (aws, azure, etc.)</td></tr>
+        <tr><td><code>NUBIFER_WORKSPACE_READ_ONLY</code></td><td>true/false</td></tr>
+        <tr><td><code>AWS_DEFAULT_REGION</code></td><td>AWS region (if AWS provider)</td></tr>
+        <tr><td><code>AWS_ACCOUNT_ID</code></td><td>AWS account ID (if AWS provider)</td></tr>
+    </table>
+
+    <h2>Shell Shortcuts</h2>
+    <table>
+        <tr><th>Shortcut</th><th>Full Command</th></tr>
+        <tr><td><code>nw</code></td><td><code>nubifer-workspace</code></td></tr>
+        <tr><td><code>nw-switch NAME</code></td><td><code>nubifer-workspace switch NAME</code></td></tr>
+        <tr><td><code>nw-context</code></td><td><code>nubifer-workspace current</code></td></tr>
+    </table>
+</body>
+</html>

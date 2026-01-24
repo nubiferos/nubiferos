@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Getting Started - NubiferOS</title>
+    <style>
+        :root {
+            --bg: #1e1e2e;
+            --surface: #313244;
+            --text: #cdd6f4;
+            --subtext: #a6adc8;
+            --blue: #89b4fa;
+            --green: #a6e3a1;
+            --peach: #fab387;
+            --red: #f38ba8;
+            --yellow: #f9e2af;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Cantarell', 'Segoe UI', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.6;
+            padding: 2rem;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        h1 { color: var(--blue); margin-bottom: 1rem; }
+        h2 { color: var(--peach); margin: 2rem 0 1rem; }
+        h3 { color: var(--green); margin: 1.5rem 0 0.5rem; }
+        p { margin-bottom: 1rem; color: var(--subtext); }
+        a { color: var(--blue); }
+        code {
+            background: var(--surface);
+            padding: 0.2rem 0.5rem;
+            border-radius: 4px;
+            font-family: 'JetBrains Mono', 'Fira Code', monospace;
+            font-size: 0.9rem;
+        }
+        pre {
+            background: var(--surface);
+            padding: 1rem;
+            border-radius: 8px;
+            overflow-x: auto;
+            margin: 1rem 0;
+        }
+        pre code { padding: 0; background: none; }
+        .step {
+            background: var(--surface);
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin: 1.5rem 0;
+            border-left: 4px solid var(--blue);
+        }
+        .step-number {
+            display: inline-block;
+            background: var(--blue);
+            color: var(--bg);
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            text-align: center;
+            line-height: 28px;
+            font-weight: bold;
+            margin-right: 0.5rem;
+        }
+        .note {
+            background: rgba(249, 226, 175, 0.1);
+            border-left: 4px solid var(--yellow);
+            padding: 1rem;
+            margin: 1rem 0;
+            border-radius: 0 8px 8px 0;
+        }
+        .note strong { color: var(--yellow); }
+        nav { margin-bottom: 2rem; }
+        nav a { margin-right: 1rem; }
+    </style>
+</head>
+<body>
+    <nav>
+        <a href="index.html">← Back to Docs</a>
+    </nav>
+
+    <h1>🚀 Getting Started with NubiferOS</h1>
+    <p>Welcome! This guide will walk you through the initial setup of your NubiferOS workstation.</p>
+
+    <h2>Quick Setup (3 Steps)</h2>
+
+    <div class="step">
+        <h3><span class="step-number">1</span> Run the Setup Wizard</h3>
+        <p>Open a terminal and run:</p>
+        <pre><code>nubifer-setup-wizard</code></pre>
+        <p>This will:</p>
+        <ul style="margin-left: 2rem; color: var(--subtext);">
+            <li>Generate a GPG key for encrypting your credentials</li>
+            <li>Initialize the password store (pass)</li>
+            <li>Optionally set up git for credential backup</li>
+        </ul>
+    </div>
+
+    <div class="step">
+        <h3><span class="step-number">2</span> Create Your First Workspace</h3>
+        <p>A workspace isolates credentials for a specific cloud account:</p>
+        <pre><code>nubifer-workspace create \
+    --name my-project \
+    --provider aws \
+    --account-id 123456789012 \
+    --account-name "My AWS Account"</code></pre>
+        <p>Replace <code>123456789012</code> with your actual AWS account ID.</p>
+    </div>
+
+    <div class="step">
+        <h3><span class="step-number">3</span> Add Credentials</h3>
+        <p>Add your cloud credentials to the workspace:</p>
+        <pre><code>nubifer-creds add --type aws --name my-project</code></pre>
+        <p>You'll be prompted for your AWS Access Key ID and Secret Access Key.</p>
+    </div>
+
+    <h2>Using Your Workspace</h2>
+
+    <h3>Switch to a Workspace</h3>
+    <pre><code>nubifer-workspace switch my-project</code></pre>
+    <p>Or use the shortcut:</p>
+    <pre><code>nw-switch my-project</code></pre>
+
+    <h3>Check Current Workspace</h3>
+    <pre><code>nubifer-workspace current</code></pre>
+    <p>Or use the shortcut:</p>
+    <pre><code>nw-context</code></pre>
+
+    <h3>List All Workspaces</h3>
+    <pre><code>nubifer-workspace list</code></pre>
+
+    <div class="note">
+        <strong>💡 Tip:</strong> Your terminal prompt will show the active workspace and cloud provider icon, so you always know which account you're working with.
+    </div>
+
+    <h2>Next Steps</h2>
+    <ul style="margin-left: 2rem; color: var(--subtext);">
+        <li><a href="workspaces.html">Learn more about workspaces</a></li>
+        <li><a href="credentials.html">Managing credentials</a></li>
+        <li><a href="security.html">Understanding NubiferOS security</a></li>
+    </ul>
+
+    <h2>Re-run Setup Wizard</h2>
+    <p>You can re-run the graphical setup wizard anytime:</p>
+    <ul style="margin-left: 2rem; color: var(--subtext);">
+        <li>Click "NubiferOS Setup" on your desktop</li>
+        <li>Or run: <code>nubifer-welcome --force</code></li>
+    </ul>
+</body>
+</html>

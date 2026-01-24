@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NubiferOS Documentation</title>
+    <style>
+        :root {
+            --bg: #1e1e2e;
+            --surface: #313244;
+            --text: #cdd6f4;
+            --subtext: #a6adc8;
+            --blue: #89b4fa;
+            --green: #a6e3a1;
+            --peach: #fab387;
+            --red: #f38ba8;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Cantarell', 'Segoe UI', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.6;
+            padding: 2rem;
+            max-width: 900px;
+            margin: 0 auto;
+        }
+        h1 { color: var(--blue); margin-bottom: 0.5rem; }
+        h2 { color: var(--peach); margin: 2rem 0 1rem; border-bottom: 1px solid var(--surface); padding-bottom: 0.5rem; }
+        p { margin-bottom: 1rem; color: var(--subtext); }
+        .hero { text-align: center; padding: 2rem 0 3rem; }
+        .hero p { font-size: 1.2rem; }
+        .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1.5rem; margin-top: 2rem; }
+        .card {
+            background: var(--surface);
+            border-radius: 12px;
+            padding: 1.5rem;
+            text-decoration: none;
+            color: var(--text);
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .card:hover { transform: translateY(-4px); box-shadow: 0 8px 24px rgba(0,0,0,0.3); }
+        .card h3 { color: var(--blue); margin-bottom: 0.5rem; }
+        .card p { color: var(--subtext); font-size: 0.9rem; margin: 0; }
+        .icon { font-size: 2rem; margin-bottom: 0.5rem; }
+        footer { text-align: center; margin-top: 3rem; color: var(--subtext); font-size: 0.9rem; }
+    </style>
+</head>
+<body>
+    <div class="hero">
+        <h1>☁️ NubiferOS Documentation</h1>
+        <p>The secure workstation for cloud engineers</p>
+    </div>
+
+    <div class="cards">
+        <a href="getting-started.html" class="card">
+            <div class="icon">🚀</div>
+            <h3>Getting Started</h3>
+            <p>First steps after installation - GPG setup, credential manager, and your first workspace.</p>
+        </a>
+
+        <a href="workspaces.html" class="card">
+            <div class="icon">📁</div>
+            <h3>Workspaces</h3>
+            <p>Create and manage isolated cloud workspaces for different projects and accounts.</p>
+        </a>
+
+        <a href="credentials.html" class="card">
+            <div class="icon">🔐</div>
+            <h3>Credentials</h3>
+            <p>Securely store and manage AWS, Azure, GCP, and other cloud credentials.</p>
+        </a>
+
+        <a href="security.html" class="card">
+            <div class="icon">🛡️</div>
+            <h3>Security</h3>
+            <p>Understanding NubiferOS security features - encryption, isolation, and hardening.</p>
+        </a>
+
+        <a href="cli-reference.html" class="card">
+            <div class="icon">💻</div>
+            <h3>CLI Reference</h3>
+            <p>Complete command reference for nubifer-workspace, nubifer-creds, and other tools.</p>
+        </a>
+
+        <a href="troubleshooting.html" class="card">
+            <div class="icon">🔧</div>
+            <h3>Troubleshooting</h3>
+            <p>Common issues and solutions for NubiferOS.</p>
+        </a>
+    </div>
+
+    <footer>
+        <p>NubiferOS v1.0 (Nimbus) • <a href="https://github.com/jessetop/nubiferOS" style="color: var(--blue);">GitHub</a></p>
+    </footer>
+</body>
+</html>
