@@ -131,10 +131,10 @@ enableLuksAutomatedPartitioning: true
 # Pre-check the encryption checkbox (strongly encourage encryption)
 preCheckEncryption: true
 
-# Use LUKS2 with PBKDF2 (required for GRUB compatibility)
-# GRUB's LUKS2 support only works with PBKDF2, not argon2id (the default)
-luksGeneration: luks2
-luksPbkdf: pbkdf2
+# Use LUKS1 for full GRUB compatibility
+# GRUB has limited LUKS2 support (only PBKDF2, not Argon2 which is default)
+# LUKS1 is fully supported and still secure
+luksGeneration: luks1
 EOF
 
 # Users module  
@@ -272,7 +272,7 @@ dontChroot: false
 # Additional GRUB configuration
 grubCfgOptions:
   - "GRUB_ENABLE_CRYPTODISK=y"
-  - "GRUB_CMDLINE_LINUX_DEFAULT=\"\""
+  - "GRUB_CMDLINE_LINUX_DEFAULT=\"plymouth.enable=0\""
 EOF
 
 # Finished module
