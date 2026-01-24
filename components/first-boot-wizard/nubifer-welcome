@@ -1,0 +1,589 @@
+#!/usr/bin/env python3
+"""
+NubiferOS First-Boot Welcome Wizard
+A graphical setup wizard that runs on first login after installation.
+"""
+
+import gi
+import os
+import subprocess
+import sys
+
+gi.require_version('Gtk', '4.0')
+gi.require_version('Adw', '1')
+from gi.repository import Gtk, Adw, Gio, GLib
+
+# Flag file to indicate setup is complete
+SETUP_COMPLETE_FLAG = os.path.expanduser("~/.config/nubiferos/setup-complete")
+
+
+class WelcomePage(Gtk.Box):
+    """Welcome page - first page of the wizard"""
+
+    def __init__(self):
+        super().__init__(orientation=Gtk.Orientation.VERTICAL, spacing=24)
+        self.set_margin_top(48)
+        self.set_margin_bottom(48)
+        self.set_margin_start(48)
+        self.set_margin_end(48)
+        self.set_valign(Gtk.Align.CENTER)
+
+        # Logo/Icon
+        icon = Gtk.Image.new_from_icon_name("computer")
+        icon.set_pixel_size(128)
+        icon.add_css_class("icon-dropshadow")
+        self.append(icon)
+
+        # Title
+        title = Gtk.Label(label="Welcome to NubiferOS")
+        title.add_css_class("title-1")
+        self.append(title)
+
+        # Subtitle
+        subtitle = Gtk.Label(
+            label="The secure workstation for cloud engineers"
+        )
+        subtitle.add_css_class("title-3")
+        subtitle.add_css_class("dim-label")
+        self.append(subtitle)
+
+        # Description
+        desc_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
+        desc_box.set_margin_top(24)
+
+        features = [
+            ("security-high-symbolic", "Full disk encryption protects your data"),
+            ("cloud-symbolic", "Pre-configured for AWS, Azure, and Google Cloud"),
+            ("utilities-terminal-symbolic", "Isolated workspaces for each project"),
+            ("dialog-password-symbolic", "Secure credential management"),
+        ]
+
+        for icon_name, text in features:
+            row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
+            row.set_halign(Gtk.Align.START)
+
+            icon = Gtk.Image.new_from_icon_name(icon_name)
+            icon.set_pixel_size(24)
+            row.append(icon)
+
+            label = Gtk.Label(label=text)
+            label.set_halign(Gtk.Align.START)
+            row.append(label)
+
+            desc_box.append(row)
+
+        self.append(desc_box)
+
+
+class CloudSetupPage(Gtk.Box):
+    """Cloud provider setup page"""
+
+    def __init__(self):
+        super().__init__(orientation=Gtk.Orientation.VERTICAL, spacing=24)
+        self.set_margin_top(32)
+        self.set_margin_bottom(32)
+        self.set_margin_start(48)
+        self.set_margin_end(48)
+
+        # Title
+        title = Gtk.Label(label="Cloud Account Setup")
+        title.add_css_class("title-2")
+        self.append(title)
+
+        # Description
+        desc = Gtk.Label(
+            label="Select which cloud providers you'll be working with.\n"
+                  "You can configure credentials later using nubifer-creds."
+        )
+        desc.set_wrap(True)
+        desc.set_justify(Gtk.Justification.CENTER)
+        desc.add_css_class("dim-label")
+        self.append(desc)
+
+        # Cloud provider checkboxes
+        self.providers_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
+        self.providers_box.set_margin_top(24)
+        self.providers_box.set_halign(Gtk.Align.CENTER)
+
+        self.aws_check = self._create_provider_row(
+            "Amazon Web Services (AWS)",
+            "aws, kubectl, terraform",
+            True  # Default enabled
+        )
+        self.gcp_check = self._create_provider_row(
+            "Google Cloud Platform (GCP)",
+            "gcloud, kubectl, terraform",
+            False
+        )
+        self.azure_check = self._create_provider_row(
+            "Microsoft Azure",
+            "az, kubectl, terraform",
+            False
+        )
+        self.k8s_check = self._create_provider_row(
+            "Kubernetes Only",
+            "kubectl, helm, k9s",
+            False
+        )
+
+        self.append(self.providers_box)
+
+        # Info box
+        info_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        info_box.set_margin_top(24)
+        info_box.set_halign(Gtk.Align.CENTER)
+        info_box.add_css_class("dim-label")
+
+        info_icon = Gtk.Image.new_from_icon_name("dialog-information-symbolic")
+        info_box.append(info_icon)
+
+        info_label = Gtk.Label(
+            label="All CLI tools are pre-installed. This just sets up shell integration."
+        )
+        info_label.set_wrap(True)
+        info_box.append(info_label)
+
+        self.append(info_box)
+
+    def _create_provider_row(self, name, tools, default_active):
+        row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
+        row.set_size_request(400, -1)
+
+        check = Gtk.CheckButton()
+        check.set_active(default_active)
+        row.append(check)
+
+        text_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
+
+        name_label = Gtk.Label(label=name)
+        name_label.set_halign(Gtk.Align.START)
+        name_label.add_css_class("heading")
+        text_box.append(name_label)
+
+        tools_label = Gtk.Label(label=tools)
+        tools_label.set_halign(Gtk.Align.START)
+        tools_label.add_css_class("dim-label")
+        tools_label.add_css_class("caption")
+        text_box.append(tools_label)
+
+        row.append(text_box)
+
+        self.providers_box.append(row)
+        return check
+
+    def get_selected_providers(self):
+        """Returns list of selected cloud providers"""
+        providers = []
+        if self.aws_check.get_active():
+            providers.append("aws")
+        if self.gcp_check.get_active():
+            providers.append("gcp")
+        if self.azure_check.get_active():
+            providers.append("azure")
+        if self.k8s_check.get_active():
+            providers.append("k8s")
+        return providers
+
+
+class CredentialSetupPage(Gtk.Box):
+    """Credential manager setup page"""
+
+    def __init__(self):
+        super().__init__(orientation=Gtk.Orientation.VERTICAL, spacing=24)
+        self.set_margin_top(32)
+        self.set_margin_bottom(32)
+        self.set_margin_start(48)
+        self.set_margin_end(48)
+
+        # Title
+        title = Gtk.Label(label="Credential Security")
+        title.add_css_class("title-2")
+        self.append(title)
+
+        # Description
+        desc = Gtk.Label(
+            label="NubiferOS uses GPG-encrypted credential storage.\n"
+                  "Your credentials are never stored in plain text."
+        )
+        desc.set_wrap(True)
+        desc.set_justify(Gtk.Justification.CENTER)
+        desc.add_css_class("dim-label")
+        self.append(desc)
+
+        # Status check
+        self.status_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=16)
+        self.status_box.set_margin_top(24)
+        self.status_box.set_halign(Gtk.Align.CENTER)
+
+        self.gpg_status = self._create_status_row("GPG Key", "checking...")
+        self.pass_status = self._create_status_row("Password Store", "checking...")
+
+        self.append(self.status_box)
+
+        # Setup button
+        self.setup_button = Gtk.Button(label="Set Up Credential Manager")
+        self.setup_button.add_css_class("pill")
+        self.setup_button.add_css_class("suggested-action")
+        self.setup_button.set_halign(Gtk.Align.CENTER)
+        self.setup_button.set_margin_top(24)
+        self.setup_button.connect("clicked", self._on_setup_clicked)
+        self.append(self.setup_button)
+
+        # Check status on creation
+        GLib.timeout_add(500, self._check_status)
+
+    def _create_status_row(self, name, status):
+        row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
+        row.set_size_request(300, -1)
+
+        name_label = Gtk.Label(label=name)
+        name_label.set_halign(Gtk.Align.START)
+        name_label.set_hexpand(True)
+        row.append(name_label)
+
+        status_label = Gtk.Label(label=status)
+        status_label.set_halign(Gtk.Align.END)
+        status_label.add_css_class("dim-label")
+        row.append(status_label)
+
+        self.status_box.append(row)
+        return status_label
+
+    def _check_status(self):
+        """Check GPG and pass status"""
+        # Check GPG
+        try:
+            result = subprocess.run(
+                ["gpg", "--list-keys"],
+                capture_output=True, text=True
+            )
+            if "pub" in result.stdout:
+                self.gpg_status.set_label("Configured")
+                self.gpg_status.remove_css_class("error")
+                self.gpg_status.add_css_class("success")
+            else:
+                self.gpg_status.set_label("Not set up")
+                self.gpg_status.add_css_class("error")
+        except Exception:
+            self.gpg_status.set_label("Not available")
+            self.gpg_status.add_css_class("error")
+
+        # Check pass
+        pass_dir = os.path.expanduser("~/.password-store")
+        if os.path.exists(os.path.join(pass_dir, ".gpg-id")):
+            self.pass_status.set_label("Initialized")
+            self.pass_status.remove_css_class("error")
+            self.pass_status.add_css_class("success")
+            self.setup_button.set_label("Re-run Setup Wizard")
+            self.setup_button.remove_css_class("suggested-action")
+        else:
+            self.pass_status.set_label("Not initialized")
+            self.pass_status.add_css_class("error")
+
+        return False  # Don't repeat
+
+    def _on_setup_clicked(self, button):
+        """Launch terminal setup wizard"""
+        try:
+            subprocess.Popen([
+                "gnome-terminal",
+                "--",
+                "bash", "-c",
+                "nubifer-setup-wizard setup; echo; echo 'Press Enter to close...'; read"
+            ])
+        except Exception as e:
+            print(f"Failed to launch terminal: {e}")
+
+
+class WorkspacePage(Gtk.Box):
+    """Workspace setup page"""
+
+    def __init__(self):
+        super().__init__(orientation=Gtk.Orientation.VERTICAL, spacing=24)
+        self.set_margin_top(32)
+        self.set_margin_bottom(32)
+        self.set_margin_start(48)
+        self.set_margin_end(48)
+
+        # Title
+        title = Gtk.Label(label="Workspace Isolation")
+        title.add_css_class("title-2")
+        self.append(title)
+
+        # Description
+        desc = Gtk.Label(
+            label="NubiferOS isolates credentials per workspace.\n"
+                  "Each project gets its own secure environment."
+        )
+        desc.set_wrap(True)
+        desc.set_justify(Gtk.Justification.CENTER)
+        desc.add_css_class("dim-label")
+        self.append(desc)
+
+        # Workspace example
+        example_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
+        example_box.set_margin_top(24)
+        example_box.set_halign(Gtk.Align.CENTER)
+
+        example_label = Gtk.Label(label="Example workspace command:")
+        example_label.add_css_class("heading")
+        example_box.append(example_label)
+
+        # Code block style
+        code_frame = Gtk.Frame()
+        code_frame.add_css_class("card")
+        code_frame.set_margin_top(8)
+
+        code_label = Gtk.Label(label="nubifer-workspace create my-project --provider aws")
+        code_label.set_selectable(True)
+        code_label.set_margin_top(12)
+        code_label.set_margin_bottom(12)
+        code_label.set_margin_start(16)
+        code_label.set_margin_end(16)
+        code_label.add_css_class("monospace")
+        code_frame.set_child(code_label)
+        example_box.append(code_frame)
+
+        self.append(example_box)
+
+        # Features list
+        features_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+        features_box.set_margin_top(24)
+        features_box.set_halign(Gtk.Align.CENTER)
+
+        features = [
+            "Credentials isolated per workspace",
+            "Automatic AWS/GCP/Azure context switching",
+            "Firejail sandboxing for extra security",
+            "Shell integration (cd to workspace activates it)",
+        ]
+
+        for feature in features:
+            row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+            row.set_halign(Gtk.Align.START)
+
+            icon = Gtk.Image.new_from_icon_name("emblem-ok-symbolic")
+            icon.add_css_class("success")
+            row.append(icon)
+
+            label = Gtk.Label(label=feature)
+            row.append(label)
+
+            features_box.append(row)
+
+        self.append(features_box)
+
+
+class CompletePage(Gtk.Box):
+    """Setup complete page"""
+
+    def __init__(self):
+        super().__init__(orientation=Gtk.Orientation.VERTICAL, spacing=24)
+        self.set_margin_top(48)
+        self.set_margin_bottom(48)
+        self.set_margin_start(48)
+        self.set_margin_end(48)
+        self.set_valign(Gtk.Align.CENTER)
+
+        # Success icon
+        icon = Gtk.Image.new_from_icon_name("emblem-ok-symbolic")
+        icon.set_pixel_size(96)
+        icon.add_css_class("success")
+        self.append(icon)
+
+        # Title
+        title = Gtk.Label(label="You're All Set!")
+        title.add_css_class("title-1")
+        self.append(title)
+
+        # Description
+        desc = Gtk.Label(
+            label="NubiferOS is ready to use.\n"
+                  "Here are some next steps to get started:"
+        )
+        desc.set_wrap(True)
+        desc.set_justify(Gtk.Justification.CENTER)
+        desc.add_css_class("dim-label")
+        self.append(desc)
+
+        # Next steps
+        steps_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
+        steps_box.set_margin_top(24)
+        steps_box.set_halign(Gtk.Align.CENTER)
+
+        steps = [
+            ("1.", "Open Terminal and run:", "nubifer-setup-wizard"),
+            ("2.", "Create your first workspace:", "nubifer-workspace create my-project"),
+            ("3.", "Add cloud credentials:", "nubifer-creds add --type aws"),
+        ]
+
+        for num, desc, cmd in steps:
+            row = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
+            row.set_halign(Gtk.Align.START)
+
+            header = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+            num_label = Gtk.Label(label=num)
+            num_label.add_css_class("heading")
+            header.append(num_label)
+
+            desc_label = Gtk.Label(label=desc)
+            header.append(desc_label)
+            row.append(header)
+
+            cmd_label = Gtk.Label(label=f"  $ {cmd}")
+            cmd_label.set_halign(Gtk.Align.START)
+            cmd_label.add_css_class("monospace")
+            cmd_label.add_css_class("dim-label")
+            row.append(cmd_label)
+
+            steps_box.append(row)
+
+        self.append(steps_box)
+
+
+class WelcomeWizard(Adw.ApplicationWindow):
+    """Main wizard window"""
+
+    def __init__(self, app):
+        super().__init__(application=app, title="Welcome to NubiferOS")
+
+        self.set_default_size(700, 600)
+        self.set_resizable(False)
+
+        # Main box
+        main_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+
+        # Header bar
+        header = Adw.HeaderBar()
+        header.set_show_end_title_buttons(True)
+        main_box.append(header)
+
+        # Content area
+        content_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+        content_box.set_vexpand(True)
+
+        # Stack for pages
+        self.stack = Gtk.Stack()
+        self.stack.set_transition_type(Gtk.StackTransitionType.SLIDE_LEFT_RIGHT)
+        self.stack.set_vexpand(True)
+
+        # Create pages
+        self.welcome_page = WelcomePage()
+        self.cloud_page = CloudSetupPage()
+        self.cred_page = CredentialSetupPage()
+        self.workspace_page = WorkspacePage()
+        self.complete_page = CompletePage()
+
+        self.stack.add_named(self.welcome_page, "welcome")
+        self.stack.add_named(self.cloud_page, "cloud")
+        self.stack.add_named(self.cred_page, "credentials")
+        self.stack.add_named(self.workspace_page, "workspace")
+        self.stack.add_named(self.complete_page, "complete")
+
+        content_box.append(self.stack)
+        main_box.append(content_box)
+
+        # Navigation buttons
+        nav_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
+        nav_box.set_margin_top(12)
+        nav_box.set_margin_bottom(24)
+        nav_box.set_margin_start(24)
+        nav_box.set_margin_end(24)
+        nav_box.set_halign(Gtk.Align.END)
+
+        self.skip_button = Gtk.Button(label="Skip")
+        self.skip_button.connect("clicked", self._on_skip)
+        nav_box.append(self.skip_button)
+
+        self.back_button = Gtk.Button(label="Back")
+        self.back_button.connect("clicked", self._on_back)
+        self.back_button.set_sensitive(False)
+        nav_box.append(self.back_button)
+
+        self.next_button = Gtk.Button(label="Get Started")
+        self.next_button.add_css_class("suggested-action")
+        self.next_button.connect("clicked", self._on_next)
+        nav_box.append(self.next_button)
+
+        main_box.append(nav_box)
+
+        self.set_content(main_box)
+
+        # Track pages
+        self.pages = ["welcome", "cloud", "credentials", "workspace", "complete"]
+        self.current_page = 0
+
+    def _update_nav_buttons(self):
+        """Update navigation buttons based on current page"""
+        self.back_button.set_sensitive(self.current_page > 0)
+
+        if self.current_page == len(self.pages) - 1:
+            self.next_button.set_label("Done")
+            self.skip_button.set_visible(False)
+        elif self.current_page == 0:
+            self.next_button.set_label("Get Started")
+            self.skip_button.set_visible(True)
+        else:
+            self.next_button.set_label("Next")
+            self.skip_button.set_visible(True)
+
+    def _on_next(self, button):
+        """Handle next button click"""
+        if self.current_page < len(self.pages) - 1:
+            self.current_page += 1
+            self.stack.set_visible_child_name(self.pages[self.current_page])
+            self._update_nav_buttons()
+        else:
+            self._finish_setup()
+
+    def _on_back(self, button):
+        """Handle back button click"""
+        if self.current_page > 0:
+            self.current_page -= 1
+            self.stack.set_visible_child_name(self.pages[self.current_page])
+            self._update_nav_buttons()
+
+    def _on_skip(self, button):
+        """Handle skip button - go directly to finish"""
+        self._finish_setup()
+
+    def _finish_setup(self):
+        """Mark setup as complete and close"""
+        # Create config directory and flag file
+        config_dir = os.path.dirname(SETUP_COMPLETE_FLAG)
+        os.makedirs(config_dir, exist_ok=True)
+
+        with open(SETUP_COMPLETE_FLAG, 'w') as f:
+            f.write(f"Setup completed on: {GLib.DateTime.new_now_local().format('%Y-%m-%d %H:%M:%S')}\n")
+            f.write(f"Selected providers: {','.join(self.cloud_page.get_selected_providers())}\n")
+
+        self.close()
+
+
+class WelcomeApp(Adw.Application):
+    """Main application"""
+
+    def __init__(self):
+        super().__init__(
+            application_id='io.nubiferos.Welcome',
+            flags=Gio.ApplicationFlags.FLAGS_NONE
+        )
+
+    def do_activate(self):
+        """Create and show the main window"""
+        win = WelcomeWizard(self)
+        win.present()
+
+
+def main():
+    # Check if setup already complete
+    if os.path.exists(SETUP_COMPLETE_FLAG) and "--force" not in sys.argv:
+        print("Setup already complete. Run with --force to show wizard again.")
+        sys.exit(0)
+
+    app = WelcomeApp()
+    app.run(sys.argv)
+
+
+if __name__ == "__main__":
+    main()

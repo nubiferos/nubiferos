@@ -4,17 +4,33 @@
 
 ## Project State (Jan 2026)
 
-**Current Focus:** Getting Calamares installer to successfully install to disk with GRUB bootloader.
+**Current Focus:** Testing and stabilizing the installer. All core components implemented.
 
 **What Works:**
 - ISO builds (~25 min via GitHub Actions)
-- ISO boots to GNOME desktop
+- ISO boots directly to installer (no live CD)
 - Calamares launches and shows installation wizard
-- LUKS encryption setup
+- LUKS1 encryption with GRUB support (single password)
+- Installation completes successfully
+- Plymouth boot splash with NubiferOS branding
+- Recovery key generation and display during installation
+- Encryption warning dialog during installation
+- Post-install cleanup (removes installer user)
+- First-boot setup wizard (`nubifer-setup-wizard`) - GPG/pass initialization
+- Credential manager (`nubifer-creds`) - pass-based, GPG encrypted
+- Workspace manager (`nubifer-workspace`) - multi-cloud workspace isolation
+- Firejail integration for CLI sandboxing
+- Shell integration for workspace context
 
-**What's Broken/In Progress:**
-- Bootloader installation (GRUB) fails during Calamares install
-- Shellprocess modules were silently failing (FIXED - see below)
+**What's In Progress:**
+- Alpha testing of full installation flow
+- First-boot wizard GTK4 UI (`nubifer-welcome`)
+
+**What's Removed (Security):**
+- Live CD mode removed - ISO is installer-only to prevent encryption bypass
+
+**Future Consideration:**
+- LUKS1 /boot + LUKS2 root hybrid (better GPU resistance, but 2 passwords) - deferred to alpha testing
 
 ## Critical Bug Fixes Applied
 
@@ -90,15 +106,21 @@ settings.conf defines:
 | `build/build-iso.sh` | Main build script |
 | `.github/workflows/build-iso.yml` | CI/CD pipeline |
 
-## Known Issues
+## Security Design
 
-### GRUB Installation in Live Environment
-- **Root cause:** Live CD overlay filesystem prevents `grub-install` canonical path resolution
-- **Error:** `grub-install: error: failed to get canonical path of '/boot/efi'`
-- **Status:** Investigating - shellprocess scripts should help with /dev visibility
-- **Docs:** `docs/fixes/BOOTLOADER_OVERLAY_ISSUE_CRITICAL.md`
+### Installer-Only ISO (Live CD Removed)
+- **Why:** Live CD was a security vulnerability - allowed bypassing disk encryption
+- **What:** ISO now boots directly to installer user → Calamares auto-starts
+- **Technical:** Still uses `boot=live` (needed for squashfs boot), but no live desktop
+- **Files removed:** `install-desktop-live.sh`, `install-desktop.sh`
+- **Options removed:** `--live`, `--mode` flags from build scripts
 
-### Calamares 3.3.8 Quirks
+### LUKS1 Encryption
+- Using LUKS1 (not LUKS2) for full GRUB compatibility and single password prompt
+- LUKS2 with Argon2id is more GPU-resistant but GRUB only supports PBKDF2
+- Future: LUKS1 /boot + LUKS2 root hybrid for best of both worlds (deferred to alpha)
+
+## Calamares 3.3.8 Quirks
 - Installed from bookworm-backports
 - Shell is always invoked (no need for `/bin/bash -c`)
 - Valid script entry keys: `command`, `timeout`, `verbose`, `environment`
