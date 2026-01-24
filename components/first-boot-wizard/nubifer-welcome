@@ -575,7 +575,42 @@ class WelcomeApp(Adw.Application):
         win.present()
 
 
+def is_live_environment():
+    """Check if we're running in the live installer environment"""
+    # Check for live boot indicators
+    live_indicators = [
+        "/run/live/medium",           # Live boot squashfs mount
+        "/run/live/rootfs",           # Live boot rootfs
+        "/lib/live/mount",            # Debian live mount point
+        "/etc/calamares",             # Calamares installer present
+    ]
+    
+    for indicator in live_indicators:
+        if os.path.exists(indicator):
+            return True
+    
+    # Check if running as 'installer' user (live environment user)
+    if os.getenv("USER") == "installer":
+        return True
+    
+    # Check for live boot kernel parameter
+    try:
+        with open("/proc/cmdline", "r") as f:
+            cmdline = f.read()
+            if "boot=live" in cmdline:
+                return True
+    except:
+        pass
+    
+    return False
+
+
 def main():
+    # Don't run in live/installer environment
+    if is_live_environment():
+        print("Running in live installer environment - skipping first-boot wizard.")
+        sys.exit(0)
+    
     # Check if setup already complete
     if os.path.exists(SETUP_COMPLETE_FLAG) and "--force" not in sys.argv:
         print("Setup already complete. Run with --force to show wizard again.")
