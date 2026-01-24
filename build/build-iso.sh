@@ -240,6 +240,10 @@ build_iso() {
     log "INFO" "Step 6.7/8: Configuring system branding..."
     "${SCRIPT_DIR}/configure-branding.sh"
 
+    # Step 6.8: Configure Plymouth boot splash
+    log "INFO" "Step 6.8/8: Configuring Plymouth boot splash..."
+    "${SCRIPT_DIR}/configure-plymouth.sh"
+
     # Step 7: Install NubiferOS components
     log "INFO" "Step 7/7: Installing NubiferOS components..."
     install_nubifer_components
