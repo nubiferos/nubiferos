@@ -50,6 +50,26 @@ NubiferOS is built on three core security principles:
 - **Key Size**: 512-bit
 - **Status**: Mandatory (cannot be disabled)
 
+### Current Implementation: LUKS1
+
+**Status:** LUKS1 everywhere (single password)
+
+For the initial release, we're using LUKS1 for simplicity - one password at boot, done.
+
+### Future Consideration: LUKS1/LUKS2 Hybrid
+
+A hybrid approach (LUKS1 /boot + LUKS2 root) would provide maximum security but requires two password prompts (GRUB + initramfs). We'll revisit this during alpha testing once we have a working OS to protect.
+
+| Approach | Evil Maid Protected | GPU Resistant | Passwords |
+|----------|---------------------|---------------|-----------|
+| **LUKS1 everywhere (current)** | ✅ Yes | ❌ No | 1 |
+| Unencrypted /boot + LUKS2 root | ❌ No | ✅ Yes | 1 |
+| LUKS1 /boot + LUKS2 root (future) | ✅ Yes | ✅ Yes | 2 (or keyfile) |
+
+**References:**
+- [Debian Encrypted Boot Guide](https://cryptsetup-team.pages.debian.net/cryptsetup/encrypted-boot.html)
+- [Arch Wiki - Encrypting Entire System](https://wiki.archlinux.org/title/Dm-crypt/Encrypting_an_entire_system)
+
 ---
 
 ## 2. CPU Security Mitigations
