@@ -4,17 +4,11 @@
 Window.SetBackgroundTopColor(0.17, 0.24, 0.31);
 Window.SetBackgroundBottomColor(0.10, 0.14, 0.18);
 
-# Load logo image
+# Load logo image (logo already contains NubiferOS text)
 logo.image = Image("logo.png");
 logo.sprite = Sprite(logo.image);
 logo.sprite.SetX(Window.GetWidth() / 2 - logo.image.GetWidth() / 2);
-logo.sprite.SetY(Window.GetHeight() / 2 - logo.image.GetHeight() / 2 - 50);
-
-# Create text sprite for "NubiferOS"
-text.image = Image.Text("NubiferOS", 1, 1, 1, 1, "Sans 24");
-text.sprite = Sprite(text.image);
-text.sprite.SetX(Window.GetWidth() / 2 - text.image.GetWidth() / 2);
-text.sprite.SetY(Window.GetHeight() / 2 + 50);
+logo.sprite.SetY(Window.GetHeight() / 2 - logo.image.GetHeight() / 2);
 
 # Spinner animation
 spinner_frames = 36;
@@ -26,7 +20,7 @@ for (i = 0; i < spinner_frames; i++) {
 
 spinner.sprite = Sprite();
 spinner.sprite.SetX(Window.GetWidth() / 2 - 16);
-spinner.sprite.SetY(Window.GetHeight() / 2 + 100);
+spinner.sprite.SetY(Window.GetHeight() / 2 + logo.image.GetHeight() / 2 + 30);
 
 fun refresh_callback() {
     spinner.sprite.SetImage(spinner[Math.Int(spinner_current)]);
