@@ -59,7 +59,9 @@ install_security_packages() {
         rkhunter \
         chkrootkit \
         aide \
-        aide-common"
+        aide-common \
+        gnupg \
+        pass"
     
     log "INFO" "✓ Security packages installed"
 }
