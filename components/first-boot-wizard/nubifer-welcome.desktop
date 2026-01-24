@@ -10,3 +10,5 @@ X-GNOME-Autostart-enabled=true
 X-GNOME-Autostart-Phase=Application
 OnlyShowIn=GNOME;
 NoDisplay=true
+# Delay startup to let desktop fully load
+X-GNOME-Autostart-Delay=3
