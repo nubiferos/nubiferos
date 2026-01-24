@@ -124,25 +124,17 @@ availableFileSystemTypes:
     - "btrfs"
     - "xfs"
 
-# Enable encryption by default
+# LUKS Encryption Settings
+# Enable encryption option in automated partitioning
 enableLuksAutomatedPartitioning: true
+
+# Pre-check the encryption checkbox (strongly encourage encryption)
+preCheckEncryption: true
+
+# Use LUKS2 with PBKDF2 (required for GRUB compatibility)
+# GRUB's LUKS2 support only works with PBKDF2, not argon2id (the default)
 luksGeneration: luks2
-
-# Require encryption (user cannot disable)
-requiredStorageEncryption: true
-
-# LUKS encryption password requirements
-luksPassphraseRequirements:
-    minLength: 32
-    maxLength: 256
-    
-# Additional LUKS security settings
-luksKeySize: 512
-luksCipher: "aes-xts-plain64"
-luksHashAlgorithm: "sha512"
-
-# Hide encryption checkbox (force encryption)
-showEncryptWidget: false
+luksPbkdf: pbkdf2
 EOF
 
 # Users module  
@@ -280,16 +272,16 @@ dontChroot: false
 # Additional GRUB configuration
 grubCfgOptions:
   - "GRUB_ENABLE_CRYPTODISK=y"
-  - "GRUB_CMDLINE_LINUX_DEFAULT=\"quiet splash\""
+  - "GRUB_CMDLINE_LINUX_DEFAULT=\"\""
 EOF
 
 # Finished module
 cat > "${CALAMARES_DIR}/modules/finished.conf" << 'EOF'
 ---
-restartNowEnabled: true
-restartNowChecked: true
+# Use 'always' to force restart (removes "continue using live environment" option)
+restartNowMode: always
 restartNowCommand: "systemctl reboot"
-notifyOnFinished: false
+notifyOnFinished: true
 EOF
 
 # Displaymanager module
