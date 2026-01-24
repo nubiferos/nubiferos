@@ -187,6 +187,10 @@ build_iso() {
     log "INFO" "Step 6.8/8: Configuring Plymouth boot splash..."
     "${SCRIPT_DIR}/configure-plymouth.sh"
 
+    # Step 6.9: Install branding assets (wallpapers, icons)
+    log "INFO" "Step 6.9/8: Installing branding assets..."
+    "${SCRIPT_DIR}/install-branding-assets.sh"
+
     # Step 7: Install NubiferOS components
     log "INFO" "Step 7/8: Installing NubiferOS components..."
     install_nubifer_components
@@ -287,6 +291,14 @@ EOF
     mkdir -p "${CHROOT_DIR}/etc/nubifer"
     cp "${PROJECT_ROOT}/components/workspace-manager/shell-integration.sh" "${CHROOT_DIR}/etc/nubifer/"
     chmod 644 "${CHROOT_DIR}/etc/nubifer/shell-integration.sh"
+    
+    # Install NubiferOS configuration files
+    log "INFO" "Installing NubiferOS configuration files..."
+    mkdir -p "${CHROOT_DIR}/etc/nubiferos/providers"
+    cp "${PROJECT_ROOT}/configs/nubiferos/nubiferos.conf" "${CHROOT_DIR}/etc/nubiferos/"
+    cp "${PROJECT_ROOT}/configs/nubiferos/providers/"*.conf "${CHROOT_DIR}/etc/nubiferos/providers/"
+    chmod 644 "${CHROOT_DIR}/etc/nubiferos/"*.conf
+    chmod 644 "${CHROOT_DIR}/etc/nubiferos/providers/"*.conf
     
     # Add to /etc/bash.bashrc
     if ! grep -q "nubifer/shell-integration.sh" "${CHROOT_DIR}/etc/bash.bashrc"; then
