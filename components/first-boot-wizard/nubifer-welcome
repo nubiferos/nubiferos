@@ -347,9 +347,15 @@ class WorkspacePage(Gtk.Box):
         example_box.set_margin_top(24)
         example_box.set_halign(Gtk.Align.CENTER)
 
-        example_label = Gtk.Label(label="Example workspace command:")
+        example_label = Gtk.Label(label="To create additional workspaces:")
         example_label.add_css_class("heading")
         example_box.append(example_label)
+
+        # Auto-creation notice
+        auto_label = Gtk.Label(label="✓ Default workspaces will be auto-created for your selected cloud providers")
+        auto_label.add_css_class("dim-label")
+        auto_label.set_margin_bottom(8)
+        example_box.append(auto_label)
 
         # Code block style
         code_frame = Gtk.Frame()
@@ -569,15 +575,54 @@ class WelcomeWizard(Adw.ApplicationWindow):
         """Handle skip button - go directly to finish"""
         self._finish_setup()
 
+    def _create_workspaces_for_providers(self, providers):
+        """Create default workspaces for selected cloud providers"""
+        import subprocess
+        
+        created = []
+        for provider in providers:
+            if provider == "k8s":
+                # Kubernetes-only workspace
+                workspace_name = "kubernetes"
+                cmd = ["nubifer-workspace", "create", 
+                       "--name", workspace_name,
+                       "--provider", "k8s"]
+            else:
+                # Cloud provider workspace
+                workspace_name = f"{provider}-default"
+                cmd = ["nubifer-workspace", "create",
+                       "--name", workspace_name,
+                       "--provider", provider,
+                       "--account-id", "not-configured"]
+            
+            try:
+                result = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
+                if result.returncode == 0:
+                    created.append(workspace_name)
+                    print(f"Created workspace: {workspace_name}")
+                else:
+                    print(f"Failed to create workspace {workspace_name}: {result.stderr}")
+            except Exception as e:
+                print(f"Error creating workspace {workspace_name}: {e}")
+        
+        return created
+
     def _finish_setup(self):
         """Mark setup as complete and close"""
         # Create config directory and flag file
         config_dir = os.path.dirname(SETUP_COMPLETE_FLAG)
         os.makedirs(config_dir, exist_ok=True)
 
+        # Get selected providers
+        selected_providers = self.cloud_page.get_selected_providers()
+        
+        # Create workspaces for selected providers
+        created_workspaces = self._create_workspaces_for_providers(selected_providers)
+
         with open(SETUP_COMPLETE_FLAG, 'w') as f:
             f.write(f"Setup completed on: {GLib.DateTime.new_now_local().format('%Y-%m-%d %H:%M:%S')}\n")
-            f.write(f"Selected providers: {','.join(self.cloud_page.get_selected_providers())}\n")
+            f.write(f"Selected providers: {','.join(selected_providers)}\n")
+            f.write(f"Created workspaces: {','.join(created_workspaces)}\n")
 
         self.close()
 
