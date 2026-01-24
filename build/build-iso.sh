@@ -30,25 +30,8 @@ ENABLE_TESTS=false
 SKIP_DOWNLOAD=false
 MINIMAL_TEST=false
 
-# Mode resolution: CLI flag > Environment variable > Default
-BUILD_TYPE=""
-if [ -n "${ISO_MODE}" ]; then
-    case "${ISO_MODE}" in
-        installer|live)
-            BUILD_TYPE="${ISO_MODE}"
-            ;;
-        *)
-            echo "ERROR: Invalid ISO_MODE value: ${ISO_MODE}"
-            echo "Valid values: installer, live"
-            exit 1
-            ;;
-    esac
-fi
-
-# Default to installer-only (production) if not set
-if [ -z "${BUILD_TYPE}" ]; then
-    BUILD_TYPE="installer"
-fi
+# NubiferOS only builds installer-only ISOs (live CD removed for security)
+BUILD_TYPE="installer"
 
 while [[ $# -gt 0 ]]; do
     case $1 in
@@ -64,57 +47,26 @@ while [[ $# -gt 0 ]]; do
             MINIMAL_TEST=true
             shift
             ;;
-        --mode)
-            if [ -z "$2" ]; then
-                echo "ERROR: --mode requires a value (installer|live)"
-                exit 1
-            fi
-            case "$2" in
-                installer|live)
-                    BUILD_TYPE="$2"
-                    ;;
-                *)
-                    echo "ERROR: Invalid mode: $2"
-                    echo "Valid modes: installer, live"
-                    exit 1
-                    ;;
-            esac
-            shift 2
-            ;;
-        --installer-only)
-            BUILD_TYPE="installer"
-            shift
-            ;;
-        --live)
-            BUILD_TYPE="live"
-            shift
-            ;;
         --help)
             cat << EOF
 NubiferOS ISO Build Script
 
 Usage: $0 [options]
 
-Build Types:
-  --mode <type>      Set build mode (installer|live)
-  --installer-only   Build production installer-only ISO (default)
-  --live            Build development live ISO (testing only)
-
 Options:
   --enable-tests     Enable post-installation testing
   --skip-download    Skip Debian ISO download (use existing)
   --minimal          Build minimal ISO for faster testing (no GNOME)
-  --help            Show this help message
+  --help             Show this help message
 
-Environment Variables:
-  ISO_MODE          Set build mode (installer|live)
-                    CLI --mode flag takes precedence over environment
+Notes:
+  NubiferOS only builds installer-only ISOs for security reasons.
+  The live CD functionality has been removed to prevent bypass of
+  disk encryption via physical access.
 
 Examples:
-  sudo $0 --mode installer        # Production ISO
-  sudo $0 --live                  # Development ISO
-  sudo ISO_MODE=installer $0      # Production ISO via environment
-  sudo ISO_MODE=live $0           # Development ISO via environment
+  sudo $0                         # Build production ISO
+  sudo $0 --skip-download         # Build using existing base
 
 EOF
             exit 0
@@ -132,14 +84,8 @@ log "INFO" "NubiferOS ISO Build"
 log "INFO" "=========================================="
 log "INFO" "Version: ${DISTRO_VERSION}"
 log "INFO" "Codename: ${DISTRO_CODENAME}"
-if [ "$BUILD_TYPE" = "installer" ]; then
-    log "INFO" "Build Type: Production Installer-Only ISO"
-    log "INFO" "Security: Minimal attack surface, mandatory encryption"
-else
-    log "INFO" "Build Type: Development Live ISO"
-    log "WARN" "⚠️  WARNING: TESTING ONLY - NOT FOR PRODUCTION"
-    log "INFO" "Security: Reduced (live environment)"
-fi
+log "INFO" "Build Type: Installer-Only ISO (Production)"
+log "INFO" "Security: Minimal attack surface, mandatory encryption"
 log "INFO" "Test Mode: ${ENABLE_TESTS}"
 log "INFO" "=========================================="
 
@@ -212,12 +158,9 @@ build_iso() {
             xorg \
             openbox \
             calamares"
-    elif [ "$BUILD_TYPE" = "installer" ]; then
+    else
         log "INFO" "Step 4/7: Installing GNOME desktop (installer-only)..."
         "${SCRIPT_DIR}/install-desktop-installer.sh"
-    else
-        log "INFO" "Step 4/7: Installing GNOME desktop (live environment)..."
-        "${SCRIPT_DIR}/install-desktop-live.sh"
     fi
     
     # Step 5: Apply security hardening
@@ -245,8 +188,12 @@ build_iso() {
     "${SCRIPT_DIR}/configure-plymouth.sh"
 
     # Step 7: Install NubiferOS components
-    log "INFO" "Step 7/7: Installing NubiferOS components..."
+    log "INFO" "Step 7/8: Installing NubiferOS components..."
     install_nubifer_components
+
+    # Step 7.5: Install first-boot wizard
+    log "INFO" "Step 7.5/8: Installing first-boot wizard..."
+    "${SCRIPT_DIR}/install-first-boot-wizard.sh"
     
     # Step 8: Create bootable ISO
     log "INFO" "Creating bootable ISO..."
@@ -487,8 +434,7 @@ EOF
     log "INFO" "✓ Kernel and initrd copied successfully"
     
     # Create GRUB configuration for BIOS
-    if [ "$BUILD_TYPE" = "installer" ]; then
-        cat > "${ISO_DIR}/boot/grub/grub.cfg" << EOF
+    cat > "${ISO_DIR}/boot/grub/grub.cfg" << EOF
 # Root device is set by embedded.cfg via search
 set timeout=3
 set default=0
@@ -497,37 +443,16 @@ insmod all_video
 insmod gfxterm
 terminal_output gfxterm
 
-menuentry "${DISTRO_FULLNAME} ${DISTRO_VERSION} - Installer" {
+menuentry "${DISTRO_FULLNAME} ${DISTRO_VERSION} - Install" {
     linux /boot/vmlinuz boot=live components quiet splash username=installer
     initrd /boot/initrd.img
 }
 
-menuentry "${DISTRO_FULLNAME} ${DISTRO_VERSION} - Installer (Safe Mode)" {
+menuentry "${DISTRO_FULLNAME} ${DISTRO_VERSION} - Install (Safe Mode)" {
     linux /boot/vmlinuz boot=live components nomodeset username=installer
     initrd /boot/initrd.img
 }
 EOF
-    else
-        cat > "${ISO_DIR}/boot/grub/grub.cfg" << EOF
-# Root device is set by embedded.cfg via search
-set timeout=3
-set default=0
-
-insmod all_video
-insmod gfxterm
-terminal_output gfxterm
-
-menuentry "${DISTRO_FULLNAME} ${DISTRO_VERSION} - Live" {
-    linux /boot/vmlinuz boot=live components quiet splash username=live
-    initrd /boot/initrd.img
-}
-
-menuentry "${DISTRO_FULLNAME} ${DISTRO_VERSION} - Live (Safe Mode)" {
-    linux /boot/vmlinuz boot=live components nomodeset username=live
-    initrd /boot/initrd.img
-}
-EOF
-    fi
     
     # Create GRUB configuration for UEFI (same content, different location)
     mkdir -p "${ISO_DIR}/EFI/boot"

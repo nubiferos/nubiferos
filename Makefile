@@ -1,67 +1,41 @@
 # NubiferOS Build System
-# Supports two ISO targets: installer-only (production) and live (development)
 
-.PHONY: help iso-installer iso-live iso-installer-ci iso-live-ci clean
+.PHONY: help iso iso-ci clean
 
 # Default target
 help:
 	@echo "NubiferOS Build Targets:"
 	@echo ""
-	@echo "  iso-installer     Build production installer-only ISO (recommended)"
-	@echo "  iso-live          Build development live ISO (testing only)"
-	@echo "  iso-installer-ci  Build production ISO (non-interactive)"
-	@echo "  iso-live-ci       Build development ISO (non-interactive)"
-	@echo "  clean             Clean build artifacts"
+	@echo "  iso       Build NubiferOS ISO (interactive)"
+	@echo "  iso-ci    Build NubiferOS ISO (non-interactive, for CI)"
+	@echo "  clean     Clean build artifacts"
 	@echo ""
-	@echo "Production ISO (Alpha/Release):"
-	@echo "  make iso-installer"
+	@echo "Build ISO:"
+	@echo "  make iso"
 	@echo ""
-	@echo "Development/Testing ISO:"
-	@echo "  make iso-live"
+	@echo "CI/Automated Build:"
+	@echo "  make iso-ci"
 	@echo ""
-	@echo "CI/Non-Interactive:"
-	@echo "  make iso-installer-ci"
-	@echo "  make iso-live-ci"
-	@echo ""
-	@echo "Environment Variables:"
-	@echo "  ISO_MODE=installer|live  Set build mode"
+	@echo "Notes:"
+	@echo "  NubiferOS only builds installer-only ISOs for security."
+	@echo "  The live CD functionality has been removed."
 
-# Production installer-only ISO
-iso-installer:
+# Build NubiferOS ISO
+iso:
 	@echo "=========================================="
-	@echo "Building Production Installer-Only ISO"
+	@echo "Building NubiferOS Installer ISO"
 	@echo "=========================================="
-	@echo "Target: Production/Alpha release"
-	@echo "Features: Installer-only, mandatory encryption"
-	@echo "Security: Minimal attack surface"
+	@echo "Type: Installer-only (production)"
+	@echo "Security: LUKS encryption, minimal attack surface"
 	@echo ""
-	sudo ./build-nubiferos.sh --installer-only
+	sudo ./build-nubiferos.sh
 
-# Development live ISO
-iso-live:
+# CI-friendly target (non-interactive)
+iso-ci:
 	@echo "=========================================="
-	@echo "Building Development Live ISO"
+	@echo "Building NubiferOS ISO (CI Mode)"
 	@echo "=========================================="
-	@echo "⚠️  WARNING: TESTING ONLY - NOT FOR PRODUCTION"
-	@echo "Target: Development, testing, debugging"
-	@echo "Features: Live desktop, auto-login"
-	@echo "Security: Reduced (live environment)"
-	@echo ""
-	@read -p "Continue with live ISO build? [y/N] " confirm && [ "$$confirm" = "y" ]
-	sudo ./build-nubiferos.sh --live
-
-# CI-friendly targets (non-interactive)
-iso-installer-ci:
-	@echo "=========================================="
-	@echo "Building Production Installer-Only ISO (CI)"
-	@echo "=========================================="
-	sudo ./build-nubiferos.sh --mode installer --non-interactive
-
-iso-live-ci:
-	@echo "=========================================="
-	@echo "Building Development Live ISO (CI)"
-	@echo "=========================================="
-	sudo ./build-nubiferos.sh --mode live --non-interactive
+	sudo ./build-nubiferos.sh --non-interactive
 
 # Clean build artifacts
 clean:

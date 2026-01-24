@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name=NubiferOS Welcome
+Comment=First-boot setup wizard for NubiferOS
+Exec=/usr/local/bin/nubifer-welcome
+Icon=computer
+Terminal=false
+Categories=System;Settings;
+X-GNOME-Autostart-enabled=true
+X-GNOME-Autostart-Phase=Application
+OnlyShowIn=GNOME;
+NoDisplay=true

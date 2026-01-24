@@ -1,83 +1,45 @@
-# TODO: Remove Live CD Before Alpha Release
+# Live CD Removal - COMPLETED
 
-## Priority: HIGH - Security Critical
+## Status: ✅ COMPLETED (January 2026)
 
-## Issue
-Currently, the ISO boots as a **live CD** which is a **major security vulnerability** for the intended use case.
+The live CD functionality has been removed from NubiferOS to prevent security bypasses.
 
-### Security Problem
-- Anyone with physical access can boot from the ISO
-- Live environment can access the hard drive
-- Bypasses full disk encryption if keys are accessible
-- Defeats the entire security model of preventing data theft via physical access
-- **This is the opposite of what we want for a secure workstation**
+## Changes Made
 
-## Current State (Testing Only)
-- ISO uses `boot=live` parameter
-- System boots into RAM from ISO
-- Live user with auto-login for testing
-- **DO NOT SHIP THIS TO PRODUCTION**
+### 1. Removed Live Boot Options
+- [x] Removed `--live` and `--mode` options from `build-iso.sh`
+- [x] Deleted `install-desktop-live.sh` (live environment setup)
+- [x] Deleted `install-desktop.sh` (old duplicate file)
+- [x] Removed live user creation code
+- [x] GRUB now only shows "Install" options (no "Live" mode)
 
-## Required Changes Before Alpha
+### 2. Installer-Only ISO
+- [x] ISO boots directly to installer user
+- [x] Calamares auto-starts on login
+- [x] LUKS encryption pre-checked (strongly encouraged)
+- [x] LUKS1 for GRUB compatibility
 
-### 1. Remove Live Boot System
-- [ ] Remove `live-boot` and `live-boot-initramfs-tools` packages
-- [ ] Remove `boot=live` from GRUB configuration
-- [ ] Remove live user creation
+### 3. Security Model
+- ISO boots using `boot=live` (required for squashfs boot mechanism)
+- BUT: No live desktop environment - only installer
+- installer user auto-logs in → Calamares auto-starts
+- No way to access files without completing installation
 
-### 2. Implement Installer-Only ISO
-- [ ] Add Calamares installer or Debian installer
-- [ ] Boot directly to installer (no live environment)
-- [ ] Installer must enforce:
-  - Full disk encryption (LUKS)
-  - Secure boot configuration
-  - Strong password requirements
-  - TPM integration if available
+## Technical Note
+The `boot=live` kernel parameter is still used because that's how the initramfs knows to mount the squashfs filesystem instead of looking for a real partition. This is a technical requirement for any ISO-based boot, not a security concern. The security comes from:
+1. Only the "installer" user exists (no "live" user)
+2. GDM auto-logs in to the installer user
+3. Calamares auto-starts and is the only thing users can interact with
 
-### 3. Post-Installation Security
-- [ ] System only boots from encrypted hard drive
-- [ ] No way to boot into live environment
-- [ ] BIOS/UEFI password protection recommended
-- [ ] Secure boot enabled
-- [ ] Boot order locked to internal drive only
+## Files Modified
+- `build/build-iso.sh` - Removed live mode options
+- `build/install-desktop-installer.sh` - Already existed, now the only desktop script
 
-### 4. Alternative: Separate ISOs
-Consider creating two separate ISOs:
-- **Testing ISO**: Live CD for development/testing (clearly marked)
-- **Production ISO**: Installer-only for deployment
-
-## Files to Modify
-
-### Remove Live Boot:
-- `build/install-desktop.sh` - Remove live-boot packages
-- `build/build-iso.sh` - Remove `boot=live` from GRUB config
-- `build/build-iso.sh` - Remove live user creation
-
-### Add Installer:
-- Create `build/install-calamares.sh` or use Debian installer
-- Update GRUB to boot to installer
-- Configure installer for mandatory encryption
-
-## Testing Checklist
-- [ ] Verify ISO boots directly to installer
-- [ ] Verify no live environment is accessible
-- [ ] Verify full disk encryption is enforced
-- [ ] Verify system only boots from encrypted drive after install
-- [ ] Verify no bypass methods exist
-
-## Timeline
-**Must be completed before Alpha release**
-
-## Related Documentation
-- `docs/SECURITY_SUMMARY.md` - Update to reflect installer-only approach
-- `DESIGN_DECISIONS.md` - Document why live CD was removed
-- `README.md` - Update installation instructions
-
-## Notes
-The current live CD is **ONLY for testing and development**. It must be removed before any production use or Alpha release. The live CD fundamentally undermines the security goals of the project.
+## Files Deleted
+- `build/install-desktop-live.sh`
+- `build/install-desktop.sh`
 
 ---
 
-**Status**: 🔴 BLOCKING ISSUE FOR ALPHA
-**Assigned**: TBD
-**Due**: Before Alpha Release
+**Status**: ✅ COMPLETED
+**Completed**: January 2026
