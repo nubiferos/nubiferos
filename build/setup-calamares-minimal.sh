@@ -93,10 +93,13 @@ requirements:
         - root
 EOF
 
-# Partition module
+# Partition module - LUKS1 /boot + LUKS2 root for max security
 cat > "${CALAMARES_DIR}/modules/partition.conf" << 'EOF'
 ---
-efiSystemPartition:     "/boot/efi"
+# NubiferOS Partition Configuration
+# LUKS1 /boot (GRUB compatible) + LUKS2 root (GPU-resistant)
+
+efiSystemPartition: "/boot/efi"
 
 userSwapChoices:
     - none
@@ -104,19 +107,14 @@ userSwapChoices:
     - suspend
     - file
 
-drawNestedPartitions:   false
+drawNestedPartitions: false
 alwaysShowPartitionLabels: true
-allowManualPartitioning:   true
+allowManualPartitioning: true
 
 initialPartitioningChoice: erase
 initialSwapChoice: small
 
-defaultFileSystemType:  "ext4"
-
-# Force GPT partition table (required for UEFI and modern BIOS)
-# Calamares will automatically create boot partition based on firmware:
-# - UEFI: 512MB FAT32 ESP at /boot/efi
-# - BIOS+GPT: 8MB bios_grub partition
+defaultFileSystemType: "ext4"
 defaultPartitionTableType: "gpt"
 
 availableFileSystemTypes:
@@ -125,16 +123,36 @@ availableFileSystemTypes:
     - "xfs"
 
 # LUKS Encryption Settings
-# Enable encryption option in automated partitioning
+# Start with LUKS1 for GRUB compatibility
+# Root will be upgraded to LUKS2 + Argon2id by upgrade-root-luks2 module
 enableLuksAutomatedPartitioning: true
-
-# Pre-check the encryption checkbox (strongly encourage encryption)
 preCheckEncryption: true
-
-# Use LUKS1 for full GRUB compatibility
-# GRUB has limited LUKS2 support (only PBKDF2, not Argon2 which is default)
-# LUKS1 is fully supported and still secure
 luksGeneration: luks1
+
+# Custom partition layout with separate encrypted /boot
+partitionLayout:
+    - name: "EFI"
+      type: "EF00"
+      filesystem: "fat32"
+      mountPoint: "/boot/efi"
+      size: 512MiB
+      minSize: 256MiB
+      maxSize: 1GiB
+    - name: "boot"
+      filesystem: "ext4"
+      mountPoint: "/boot"
+      size: 1GiB
+      minSize: 512MiB
+      maxSize: 2GiB
+      features:
+        - luks
+    - name: "root"
+      filesystem: "ext4"
+      mountPoint: "/"
+      size: 100%
+      minSize: 10GiB
+      features:
+        - luks
 EOF
 
 # Users module  
