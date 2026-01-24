@@ -38,10 +38,56 @@ Type=Application
 Name=NubiferOS Setup
 Comment=Run the NubiferOS first-boot setup wizard
 Exec=/usr/local/bin/nubifer-welcome --force
-Icon=computer
+Icon=preferences-system
 Terminal=false
 Categories=System;Settings;
 Keywords=setup;welcome;wizard;configure;
 EOF
 
-log "INFO" "First-boot wizard installed"
+# Install HTML documentation
+log "INFO" "Installing documentation..."
+mkdir -p "${CHROOT_DIR}/usr/share/nubifer/docs"
+cp "${PROJECT_ROOT}/components/first-boot-wizard/docs/"*.html "${CHROOT_DIR}/usr/share/nubifer/docs/"
+
+# Create desktop documentation link desktop file
+cat > "${CHROOT_DIR}/usr/share/applications/nubifer-docs.desktop" << 'EOF'
+[Desktop Entry]
+Type=Application
+Name=NubiferOS Docs
+Comment=NubiferOS Documentation and Guides
+Exec=xdg-open /usr/share/nubifer/docs/index.html
+Icon=help-browser
+Terminal=false
+Categories=Documentation;
+Keywords=help;documentation;guide;nubifer;
+EOF
+
+# Create skeleton desktop entries for new users
+log "INFO" "Setting up desktop shortcuts for new users..."
+mkdir -p "${CHROOT_DIR}/etc/skel/Desktop"
+
+# NubiferOS Setup shortcut
+cat > "${CHROOT_DIR}/etc/skel/Desktop/nubifer-setup.desktop" << 'EOF'
+[Desktop Entry]
+Type=Application
+Name=NubiferOS Setup
+Comment=Run the NubiferOS setup wizard
+Exec=/usr/local/bin/nubifer-welcome --force
+Icon=preferences-system
+Terminal=false
+EOF
+chmod +x "${CHROOT_DIR}/etc/skel/Desktop/nubifer-setup.desktop"
+
+# NubiferOS Docs shortcut
+cat > "${CHROOT_DIR}/etc/skel/Desktop/nubifer-docs.desktop" << 'EOF'
+[Desktop Entry]
+Type=Application
+Name=NubiferOS Docs
+Comment=Documentation and Guides
+Exec=xdg-open /usr/share/nubifer/docs/index.html
+Icon=help-browser
+Terminal=false
+EOF
+chmod +x "${CHROOT_DIR}/etc/skel/Desktop/nubifer-docs.desktop"
+
+log "INFO" "First-boot wizard and documentation installed"

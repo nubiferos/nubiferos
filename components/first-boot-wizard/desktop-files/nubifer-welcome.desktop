@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=NubiferOS Setup
+Comment=Run the NubiferOS setup wizard
+Exec=/usr/local/bin/nubifer-welcome --force
+Icon=preferences-system
+Terminal=false
+Categories=System;Settings;
+Keywords=setup;welcome;wizard;configure;nubifer;

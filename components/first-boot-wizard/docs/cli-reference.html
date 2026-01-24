@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CLI Reference - NubiferOS</title>
+    <style>
+        :root {
+            --bg: #1e1e2e;
+            --surface: #313244;
+            --text: #cdd6f4;
+            --subtext: #a6adc8;
+            --blue: #89b4fa;
+            --green: #a6e3a1;
+            --peach: #fab387;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Cantarell', 'Segoe UI', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.6;
+            padding: 2rem;
+            max-width: 900px;
+            margin: 0 auto;
+        }
+        h1 { color: var(--blue); margin-bottom: 1rem; }
+        h2 { color: var(--peach); margin: 2rem 0 1rem; border-bottom: 1px solid var(--surface); padding-bottom: 0.5rem; }
+        h3 { color: var(--green); margin: 1.5rem 0 0.5rem; }
+        p { margin-bottom: 1rem; color: var(--subtext); }
+        a { color: var(--blue); }
+        code {
+            background: var(--surface);
+            padding: 0.2rem 0.5rem;
+            border-radius: 4px;
+            font-family: 'JetBrains Mono', 'Fira Code', monospace;
+            font-size: 0.9rem;
+        }
+        pre {
+            background: var(--surface);
+            padding: 1rem;
+            border-radius: 8px;
+            overflow-x: auto;
+            margin: 1rem 0;
+        }
+        pre code { padding: 0; background: none; }
+        .cmd {
+            background: var(--surface);
+            border-radius: 8px;
+            padding: 1rem;
+            margin: 1rem 0;
+        }
+        .cmd-name { color: var(--green); font-weight: bold; }
+        .cmd-desc { color: var(--subtext); margin: 0.5rem 0; }
+        nav { margin-bottom: 2rem; }
+    </style>
+</head>
+<body>
+    <nav>
+        <a href="index.html">← Back to Docs</a>
+    </nav>
+
+    <h1>💻 CLI Reference</h1>
+    <p>Complete command reference for NubiferOS tools.</p>
+
+    <h2>nubifer-workspace</h2>
+    <p>Manage cloud workspaces with isolated credentials.</p>
+
+    <div class="cmd">
+        <div class="cmd-name">nubifer-workspace create</div>
+        <div class="cmd-desc">Create a new workspace</div>
+        <pre><code>nubifer-workspace create \
+    --name NAME \
+    --provider {aws,azure,gcp,oracle,multi} \
+    --account-id ACCOUNT_ID \
+    [--account-name DISPLAY_NAME] \
+    [--region REGION] \
+    [--credential-id CRED_ID] \
+    [--read-only]</code></pre>
+    </div>
+
+    <div class="cmd">
+        <div class="cmd-name">nubifer-workspace list</div>
+        <div class="cmd-desc">List all workspaces</div>
+        <pre><code>nubifer-workspace list [--provider PROVIDER]</code></pre>
+    </div>
+
+    <div class="cmd">
+        <div class="cmd-name">nubifer-workspace switch</div>
+        <div class="cmd-desc">Switch to a workspace</div>
+        <pre><code>nubifer-workspace switch WORKSPACE_ID_OR_NAME</code></pre>
+    </div>
+
+    <div class="cmd">
+        <div class="cmd-name">nubifer-workspace current</div>
+        <div class="cmd-desc">Show current workspace</div>
+        <pre><code>nubifer-workspace current</code></pre>
+    </div>
+
+    <div class="cmd">
+        <div class="cmd-name">nubifer-workspace delete</div>
+        <div class="cmd-desc">Delete a workspace</div>
+        <pre><code>nubifer-workspace delete WORKSPACE_ID</code></pre>
+    </div>
+
+    <div class="cmd">
+        <div class="cmd-name">nubifer-workspace readonly</div>
+        <div class="cmd-desc">Set read-only mode</div>
+        <pre><code>nubifer-workspace readonly WORKSPACE_ID --enable
+nubifer-workspace readonly WORKSPACE_ID --disable</code></pre>
+    </div>
+
+    <div class="cmd">
+        <div class="cmd-name">nubifer-workspace update</div>
+        <div class="cmd-desc">Update workspace settings</div>
+        <pre><code>nubifer-workspace update WORKSPACE_ID \
+    [--name NAME] \
+    [--account-name NAME] \
+    [--region REGION] \
+    [--credential-id ID]</code></pre>
+    </div>
+
+    <div class="cmd">
+        <div class="cmd-name">nubifer-workspace env</div>
+        <div class="cmd-desc">Export environment variables</div>
+        <pre><code>eval $(nubifer-workspace env WORKSPACE_ID)</code></pre>
+    </div>
+
+    <h2>nubifer-creds</h2>
+    <p>Manage encrypted cloud credentials.</p>
+
+    <div class="cmd">
+        <div class="cmd-name">nubifer-creds add</div>
+        <div class="cmd-desc">Add a new credential</div>
+        <pre><code># AWS
+nubifer-creds add --type aws --name NAME \
+    [--access-key-id KEY] \
+    [--secret-access-key SECRET] \
+    [--region REGION]
+
+# Azure
+nubifer-creds add --type azure --name NAME \
+    [--tenant-id ID] \
+    [--client-id ID] \
+    [--client-secret SECRET]
+
+# GCP
+nubifer-creds add --type gcp --name NAME \
+    --project-id PROJECT \
+    --key-file /path/to/key.json
+
+# API Token
+nubifer-creds add --type api --name NAME \
+    [--token TOKEN] \
+    [--scopes SCOPES]</code></pre>
+    </div>
+
+    <div class="cmd">
+        <div class="cmd-name">nubifer-creds list</div>
+        <div class="cmd-desc">List credentials</div>
+        <pre><code>nubifer-creds list [--type TYPE]</code></pre>
+    </div>
+
+    <div class="cmd">
+        <div class="cmd-name">nubifer-creds remove</div>
+        <div class="cmd-desc">Remove a credential</div>
+        <pre><code>nubifer-creds remove --id CREDENTIAL_PATH</code></pre>
+    </div>
+
+    <h2>nubifer-setup-wizard</h2>
+    <p>Initial setup and configuration.</p>
+
+    <div class="cmd">
+        <div class="cmd-name">nubifer-setup-wizard setup</div>
+        <div class="cmd-desc">Run initial setup (default)</div>
+        <pre><code>nubifer-setup-wizard
+nubifer-setup-wizard setup</code></pre>
+    </div>
+
+    <div class="cmd">
+        <div class="cmd-name">nubifer-setup-wizard backup</div>
+        <div class="cmd-desc">Backup GPG private key</div>
+        <pre><code>nubifer-setup-wizard backup</code></pre>
+    </div>
+
+    <div class="cmd">
+        <div class="cmd-name">nubifer-setup-wizard status</div>
+        <div class="cmd-desc">Show setup status</div>
+        <pre><code>nubifer-setup-wizard status</code></pre>
+    </div>
+
+    <h2>Shell Shortcuts</h2>
+    <p>Quick aliases available in your terminal:</p>
+    <pre><code>nw              # nubifer-workspace
+nw-switch NAME  # nubifer-workspace switch NAME
+nw-context      # nubifer-workspace current</code></pre>
+
+    <h2>Other Tools</h2>
+
+    <div class="cmd">
+        <div class="cmd-name">nubifer-welcome</div>
+        <div class="cmd-desc">Graphical setup wizard</div>
+        <pre><code>nubifer-welcome          # Only runs if not completed
+nubifer-welcome --force  # Force run again</code></pre>
+    </div>
+
+    <div class="cmd">
+        <div class="cmd-name">verify-security</div>
+        <div class="cmd-desc">Verify security configuration</div>
+        <pre><code>sudo verify-security</code></pre>
+    </div>
+
+    <div class="cmd">
+        <div class="cmd-name">nubifer-update-checker</div>
+        <div class="cmd-desc">Check for system updates</div>
+        <pre><code>nubifer-update-checker</code></pre>
+    </div>
+</body>
+</html>
