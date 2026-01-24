@@ -90,4 +90,81 @@ Terminal=false
 EOF
 chmod +x "${CHROOT_DIR}/etc/skel/Desktop/nubifer-docs.desktop"
 
+# Terminal shortcut (essential for CLI tools)
+cat > "${CHROOT_DIR}/etc/skel/Desktop/terminal.desktop" << 'EOF'
+[Desktop Entry]
+Type=Application
+Name=Terminal
+Comment=Open a terminal for cloud CLI tools
+Exec=gnome-terminal
+Icon=utilities-terminal
+Terminal=false
+EOF
+chmod +x "${CHROOT_DIR}/etc/skel/Desktop/terminal.desktop"
+
+# Firefox shortcut (for cloud consoles)
+cat > "${CHROOT_DIR}/etc/skel/Desktop/firefox.desktop" << 'EOF'
+[Desktop Entry]
+Type=Application
+Name=Firefox
+Comment=Web Browser for Cloud Consoles
+Exec=firefox %u
+Icon=firefox-esr
+Terminal=false
+MimeType=text/html;text/xml;application/xhtml+xml;
+EOF
+chmod +x "${CHROOT_DIR}/etc/skel/Desktop/firefox.desktop"
+
+# Files (Nautilus) shortcut
+cat > "${CHROOT_DIR}/etc/skel/Desktop/files.desktop" << 'EOF'
+[Desktop Entry]
+Type=Application
+Name=Files
+Comment=Access and organize files
+Exec=nautilus --new-window %U
+Icon=org.gnome.Nautilus
+Terminal=false
+EOF
+chmod +x "${CHROOT_DIR}/etc/skel/Desktop/files.desktop"
+
+# VS Code shortcut (if installed)
+cat > "${CHROOT_DIR}/etc/skel/Desktop/vscode.desktop" << 'EOF'
+[Desktop Entry]
+Type=Application
+Name=VS Code
+Comment=Code Editor
+Exec=/usr/bin/code --no-sandbox %F
+Icon=visual-studio-code
+Terminal=false
+StartupWMClass=Code
+EOF
+chmod +x "${CHROOT_DIR}/etc/skel/Desktop/vscode.desktop"
+
+# Create a script to clean up shortcuts for apps that aren't installed
+cat > "${CHROOT_DIR}/etc/profile.d/cleanup-desktop-shortcuts.sh" << 'CLEANUP_EOF'
+#!/bin/bash
+# Remove desktop shortcuts for apps that aren't installed
+# Runs once on first login
+
+DESKTOP_DIR="$HOME/Desktop"
+CLEANUP_FLAG="$HOME/.config/desktop-shortcuts-cleaned"
+
+if [ -f "$CLEANUP_FLAG" ]; then
+    return 0
+fi
+
+if [ -d "$DESKTOP_DIR" ]; then
+    # Remove VS Code shortcut if not installed
+    if [ ! -f /usr/bin/code ] && [ -f "$DESKTOP_DIR/vscode.desktop" ]; then
+        rm -f "$DESKTOP_DIR/vscode.desktop"
+    fi
+fi
+
+# Mark as done
+mkdir -p "$(dirname "$CLEANUP_FLAG")"
+touch "$CLEANUP_FLAG"
+CLEANUP_EOF
+chmod +x "${CHROOT_DIR}/etc/profile.d/cleanup-desktop-shortcuts.sh"
+
 log "INFO" "First-boot wizard and documentation installed"
+log "INFO" "Desktop shortcuts added: Setup, Docs, Terminal, Firefox, Files, VS Code"
