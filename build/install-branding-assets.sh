@@ -255,14 +255,13 @@ chroot_exec "dconf update 2>/dev/null || true"
 # The logo shown at bottom of login screen comes from desktop-base package
 if [ -f "${PROJECT_ROOT}/brand/icons/logo-64.png" ]; then
     # Replace the Debian logo files that GDM uses
-    # Note: active-theme may be a symlink, handle errors gracefully
-    (
-        set +e  # Don't exit on errors in this subshell
-        if [ -e "${CHROOT_DIR}/usr/share/desktop-base/active-theme" ]; then
-            mkdir -p "${CHROOT_DIR}/usr/share/desktop-base/active-theme/login" 2>/dev/null
-            cp "${PROJECT_ROOT}/brand/icons/logo-64.png" "${CHROOT_DIR}/usr/share/desktop-base/active-theme/login/logo.png" 2>/dev/null
-        fi
-    )
+    # active-theme is often a symlink - only create if it's a real directory
+    ACTIVE_THEME="${CHROOT_DIR}/usr/share/desktop-base/active-theme"
+    if [ -d "$ACTIVE_THEME" ] && [ ! -L "$ACTIVE_THEME" ]; then
+        mkdir -p "${ACTIVE_THEME}/login"
+        cp "${PROJECT_ROOT}/brand/icons/logo-64.png" "${ACTIVE_THEME}/login/logo.png"
+        log "INFO" "  ✓ Replaced active-theme logo"
+    fi
     
     # Also try to replace in common locations
     for logo_path in \
@@ -270,7 +269,7 @@ if [ -f "${PROJECT_ROOT}/brand/icons/logo-64.png" ]; then
         "/usr/share/pixmaps/debian-logo.png" \
         "/usr/share/icons/desktop-base/64x64/emblems/emblem-debian.png"; do
         if [ -f "${CHROOT_DIR}${logo_path}" ]; then
-            cp "${PROJECT_ROOT}/brand/icons/logo-64.png" "${CHROOT_DIR}${logo_path}" 2>/dev/null || true
+            cp "${PROJECT_ROOT}/brand/icons/logo-64.png" "${CHROOT_DIR}${logo_path}"
             log "INFO" "  ✓ Replaced ${logo_path}"
         fi
     done
