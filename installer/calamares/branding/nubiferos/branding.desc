@@ -23,6 +23,15 @@ strings:
     installationMessage:     "Installing NubiferOS - The Cloud Engineer's Workstation"
     installationDescription: "Setting up secure workspace isolation, credential management, and cloud tools..."
 
+# Override the welcome page text to remove "live CD" references
+# This replaces the default "This program will install..." text
+welcomeText:
+    en: |
+        <h1>Welcome to NubiferOS</h1>
+        <p>This installer will guide you through installing NubiferOS on your computer.</p>
+        <p>NubiferOS is a secure workstation for cloud engineers with built-in credential management and workspace isolation.</p>
+        <p><strong>Important:</strong> Full disk encryption is required for security.</p>
+
 # PHASE 2: Images
 images:
     productLogo:         "logo.png"
