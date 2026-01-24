@@ -1,0 +1,71 @@
+# NubiferOS Plymouth Theme Script
+
+# Set background color (dark blue-gray)
+Window.SetBackgroundTopColor(0.17, 0.24, 0.31);
+Window.SetBackgroundBottomColor(0.10, 0.14, 0.18);
+
+# Load logo image
+logo.image = Image("logo.png");
+logo.sprite = Sprite(logo.image);
+logo.sprite.SetX(Window.GetWidth() / 2 - logo.image.GetWidth() / 2);
+logo.sprite.SetY(Window.GetHeight() / 2 - logo.image.GetHeight() / 2 - 50);
+
+# Create text sprite for "NubiferOS"
+text.image = Image.Text("NubiferOS", 1, 1, 1, 1, "Sans 24");
+text.sprite = Sprite(text.image);
+text.sprite.SetX(Window.GetWidth() / 2 - text.image.GetWidth() / 2);
+text.sprite.SetY(Window.GetHeight() / 2 + 50);
+
+# Spinner animation
+spinner_frames = 36;
+spinner_current = 0;
+
+for (i = 0; i < spinner_frames; i++) {
+    spinner[i] = Image("spinner-" + i + ".png");
+}
+
+spinner.sprite = Sprite();
+spinner.sprite.SetX(Window.GetWidth() / 2 - 16);
+spinner.sprite.SetY(Window.GetHeight() / 2 + 100);
+
+fun refresh_callback() {
+    spinner.sprite.SetImage(spinner[Math.Int(spinner_current)]);
+    spinner_current = (spinner_current + 0.5) % spinner_frames;
+}
+
+Plymouth.SetRefreshFunction(refresh_callback);
+
+# Progress bar (optional - shows during fsck)
+progress_box.image = Image("progress-box.png");
+progress_box.sprite = Sprite(progress_box.image);
+progress_box.sprite.SetX(Window.GetWidth() / 2 - progress_box.image.GetWidth() / 2);
+progress_box.sprite.SetY(Window.GetHeight() * 0.75);
+progress_box.sprite.SetOpacity(0);
+
+progress_bar.original_image = Image("progress-bar.png");
+progress_bar.sprite = Sprite();
+progress_bar.sprite.SetX(Window.GetWidth() / 2 - progress_bar.original_image.GetWidth() / 2);
+progress_bar.sprite.SetY(Window.GetHeight() * 0.75);
+progress_bar.sprite.SetOpacity(0);
+
+fun progress_callback(duration, progress) {
+    if (progress > 0) {
+        progress_box.sprite.SetOpacity(1);
+        progress_bar.sprite.SetOpacity(1);
+        progress_bar.image = progress_bar.original_image.Scale(progress_bar.original_image.GetWidth() * progress, progress_bar.original_image.GetHeight());
+        progress_bar.sprite.SetImage(progress_bar.image);
+    }
+}
+
+Plymouth.SetBootProgressFunction(progress_callback);
+
+# Message display
+message.sprite = Sprite();
+message.sprite.SetPosition(10, Window.GetHeight() - 30, 10000);
+
+fun message_callback(text) {
+    message.image = Image.Text(text, 0.8, 0.8, 0.8, 1, "Sans 12");
+    message.sprite.SetImage(message.image);
+}
+
+Plymouth.SetMessageFunction(message_callback);
