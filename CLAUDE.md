@@ -117,9 +117,17 @@ settings.conf defines:
 sudo calamares -d  # Shows debug output
 ```
 
+## Git Rules
+
+- **NEVER use `git stash` without asking first** - Always ask the user what to do with uncommitted changes
+- **NEVER force push** without explicit permission
+- **NEVER amend commits** without explicit permission
+
 ## Branches
 
 - `trunk` - Main development branch
+- `feature/luks1-boot-luks2-root` - Experimental LUKS1 /boot + LUKS2 root (working but 4 password prompts)
+- `feature/luks2-systemd-boot` - Experimental LUKS2 with unencrypted /boot
 - `fix/calamares-shellprocess-and-minimal-build` - Experimental (has minimal build, not recommended)
 
 ## Links
