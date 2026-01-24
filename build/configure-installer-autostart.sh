@@ -204,3 +204,47 @@ chmod +x "${CHROOT_DIR}/home/${BOOT_USER}/Desktop/Install NubiferOS.desktop"
 chroot_exec "chown ${BOOT_USER}:${BOOT_USER} '/home/${BOOT_USER}/Desktop/Install NubiferOS.desktop'"
 
 log "INFO" "✓ Auto-login and Calamares auto-launch configured for ${BOOT_USER}"
+
+# Disable screen lock and timeout for installer user
+# This prevents the screen from locking during installation
+log "INFO" "Disabling screen lock and timeout for installer..."
+
+# Create dconf settings for the installer user to disable screen lock
+mkdir -p "${CHROOT_DIR}/etc/dconf/db/local.d"
+cat > "${CHROOT_DIR}/etc/dconf/db/local.d/00-installer-no-lock" << 'EOF'
+# Disable screen lock and timeout during installation
+[org/gnome/desktop/session]
+idle-delay=uint32 0
+
+[org/gnome/desktop/screensaver]
+lock-enabled=false
+idle-activation-enabled=false
+lock-delay=uint32 0
+
+[org/gnome/settings-daemon/plugins/power]
+sleep-inactive-ac-timeout=0
+sleep-inactive-ac-type='nothing'
+sleep-inactive-battery-timeout=0
+sleep-inactive-battery-type='nothing'
+idle-dim=false
+EOF
+
+# Update dconf database
+chroot_exec "dconf update 2>/dev/null || true"
+
+# Also set gsettings directly for the installer user as backup
+if [ -d "${CHROOT_DIR}/home/${BOOT_USER}" ]; then
+    cat > "${CHROOT_DIR}/home/${BOOT_USER}/.config/autostart/disable-screensaver.desktop" << 'EOF'
+[Desktop Entry]
+Type=Application
+Name=Disable Screensaver
+Exec=sh -c "gsettings set org.gnome.desktop.session idle-delay 0; gsettings set org.gnome.desktop.screensaver lock-enabled false; gsettings set org.gnome.desktop.screensaver idle-activation-enabled false"
+Hidden=false
+NoDisplay=true
+X-GNOME-Autostart-enabled=true
+X-GNOME-Autostart-Phase=Initialization
+EOF
+    chroot_exec "chown ${BOOT_USER}:${BOOT_USER} /home/${BOOT_USER}/.config/autostart/disable-screensaver.desktop"
+fi
+
+log "INFO" "✓ Screen lock and timeout disabled for installer"
