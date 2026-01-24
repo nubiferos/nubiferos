@@ -93,10 +93,17 @@ requirements:
         - root
 EOF
 
-# Partition module
+# Partition module - LUKS2 with unencrypted /boot for maximum security
 cat > "${CALAMARES_DIR}/modules/partition.conf" << 'EOF'
 ---
-efiSystemPartition:     "/boot/efi"
+# NubiferOS Partition Configuration
+# LUKS2 + Argon2id with unencrypted /boot for maximum security
+
+efi:
+    mountPoint: "/boot/efi"
+    recommendedSize: 512MiB
+    minimumSize: 256MiB
+    label: "EFI"
 
 userSwapChoices:
     - none
@@ -104,19 +111,14 @@ userSwapChoices:
     - suspend
     - file
 
-drawNestedPartitions:   false
+drawNestedPartitions: false
 alwaysShowPartitionLabels: true
-allowManualPartitioning:   true
+allowManualPartitioning: true
 
 initialPartitioningChoice: erase
 initialSwapChoice: small
 
-defaultFileSystemType:  "ext4"
-
-# Force GPT partition table (required for UEFI and modern BIOS)
-# Calamares will automatically create boot partition based on firmware:
-# - UEFI: 512MB FAT32 ESP at /boot/efi
-# - BIOS+GPT: 8MB bios_grub partition
+defaultFileSystemType: "ext4"
 defaultPartitionTableType: "gpt"
 
 availableFileSystemTypes:
@@ -124,17 +126,41 @@ availableFileSystemTypes:
     - "btrfs"
     - "xfs"
 
-# LUKS Encryption Settings
-# Enable encryption option in automated partitioning
+# LUKS2 Encryption Settings
+# Use LUKS2 with Argon2id (default) for maximum security against GPU attacks
+# /boot remains unencrypted so GRUB doesn't need to decrypt anything
+# The initramfs handles LUKS2 decryption after kernel loads
 enableLuksAutomatedPartitioning: true
-
-# Pre-check the encryption checkbox (strongly encourage encryption)
 preCheckEncryption: true
+luksGeneration: luks2
 
-# Use LUKS1 for full GRUB compatibility
-# GRUB has limited LUKS2 support (only PBKDF2, not Argon2 which is default)
-# LUKS1 is fully supported and still secure
-luksGeneration: luks1
+# Don't show warning about unencrypted /boot - this is intentional
+showNotEncryptedBootMessage: false
+
+# Custom partition layout for LUKS2 compatibility
+partitionLayout:
+    - name: "EFI"
+      type: "EF00"
+      filesystem: "fat32"
+      mountPoint: "/boot/efi"
+      size: 512MiB
+      minSize: 256MiB
+      maxSize: 1GiB
+    - name: "boot"
+      filesystem: "ext4"
+      mountPoint: "/boot"
+      size: 1GiB
+      minSize: 512MiB
+      maxSize: 2GiB
+      features:
+        - noluks
+    - name: "root"
+      filesystem: "ext4"
+      mountPoint: "/"
+      size: 100%
+      minSize: 10GiB
+      features:
+        - luks
 EOF
 
 # Users module  
