@@ -1,0 +1,10 @@
+[Desktop Entry]
+Name=NubiferOS Software Center
+Comment=Install cloud development tools
+GenericName=Software Center
+Exec=/usr/bin/nubifer-software
+Icon=system-software-install
+Type=Application
+Categories=System;PackageManager;
+Keywords=software;install;package;cloud;kubernetes;docker;terraform;
+StartupNotify=true

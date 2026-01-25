@@ -352,6 +352,22 @@ EOF
     cp "${PROJECT_ROOT}/installer/disable-firejail-wrappers.sh" "${CHROOT_DIR}/usr/share/nubifer/installer/"
     chmod +x "${CHROOT_DIR}/usr/share/nubifer/installer"/*.sh
     
+    # Install NubiferOS Software Center
+    log "INFO" "Installing NubiferOS Software Center..."
+    cp "${PROJECT_ROOT}/components/software-center/nubifer-software" "${CHROOT_DIR}/usr/bin/"
+    chmod +x "${CHROOT_DIR}/usr/bin/nubifer-software"
+    cp "${PROJECT_ROOT}/components/software-center/nubifer-software.desktop" "${CHROOT_DIR}/usr/share/applications/"
+    
+    # Install tool installer scripts
+    mkdir -p "${CHROOT_DIR}/usr/share/nubiferos/installers"
+    for script in "${PROJECT_ROOT}/scripts/installers/"*.sh; do
+        if [ -f "$script" ]; then
+            cp "$script" "${CHROOT_DIR}/usr/share/nubiferos/installers/"
+            chmod +x "${CHROOT_DIR}/usr/share/nubiferos/installers/$(basename "$script")"
+        fi
+    done
+    log "INFO" "  ✓ Software Center installed"
+    
     # Copy test scripts if test mode enabled
     if [ "$ENABLE_TESTS" = true ]; then
         mkdir -p "${CHROOT_DIR}/usr/share/nubifer/tests"

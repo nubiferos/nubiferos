@@ -1,9 +1,9 @@
 ---
 # Package groups for netinstall module
-# Only packages available in Debian repos
+# Packages from Debian repos + post-install scripts for external tools
 
 - name: "Cloud Development Tools"
-  description: "Docker, Python cloud SDKs, and development tools"
+  description: "Docker, Python cloud SDKs, and AWS/Azure CLIs"
   selected: true
   critical: false
   packages:
@@ -12,7 +12,43 @@
     - python3-boto3
     - python3-azure
     - awscli
-    # Note: GCP SDK not available in Debian repos - install via pip if needed
+
+- name: "Kubernetes Tools"
+  description: "kubectl, Helm, and k9s for Kubernetes management"
+  selected: true
+  critical: false
+  subgroups:
+    - name: "kubectl"
+      description: "Kubernetes command-line tool"
+      selected: true
+      packages: []
+      post-install: /usr/share/nubiferos/installers/install-kubectl.sh
+    - name: "Helm"
+      description: "Kubernetes package manager"
+      selected: true
+      packages: []
+      post-install: /usr/share/nubiferos/installers/install-helm.sh
+    - name: "k9s"
+      description: "Terminal UI for Kubernetes"
+      selected: true
+      packages: []
+      post-install: /usr/share/nubiferos/installers/install-k9s.sh
+
+- name: "Infrastructure as Code"
+  description: "Terraform and Ansible for infrastructure management"
+  selected: true
+  critical: false
+  subgroups:
+    - name: "Terraform"
+      description: "Infrastructure provisioning by HashiCorp"
+      selected: true
+      packages: []
+      post-install: /usr/share/nubiferos/installers/install-terraform.sh
+    - name: "Ansible"
+      description: "Configuration management and automation"
+      selected: true
+      packages:
+        - ansible
 
 - name: "Development Tools"
   description: "Git, build tools, and development utilities"
@@ -28,17 +64,35 @@
     - npm
     - curl
     - wget
+    - jq
 
 - name: "IDEs and Editors"
-  description: "Text editors (VS Code, IntelliJ, PyCharm available post-install)"
+  description: "Code editors and IDEs"
   selected: false
   critical: false
-  packages:
-    - vim
-    - neovim
-    - emacs
-    - geany
-    - kate
+  subgroups:
+    - name: "Terminal Editors"
+      description: "Vim, Neovim, Emacs"
+      selected: true
+      packages:
+        - vim
+        - neovim
+        - emacs-nox
+    - name: "VS Code"
+      description: "Visual Studio Code (downloads ~100MB)"
+      selected: false
+      packages: []
+      post-install: /usr/share/nubiferos/installers/install-vscode.sh
+    - name: "IntelliJ IDEA"
+      description: "IntelliJ IDEA Community Edition (downloads ~800MB)"
+      selected: false
+      packages: []
+      post-install: /usr/share/nubiferos/installers/install-intellij.sh
+    - name: "PyCharm"
+      description: "PyCharm Community Edition (downloads ~500MB)"
+      selected: false
+      packages: []
+      post-install: /usr/share/nubiferos/installers/install-pycharm.sh
 
 - name: "Security & Hardening"
   description: "Firejail, AppArmor, and security monitoring tools (REQUIRED)"
