@@ -142,7 +142,7 @@ else
     log "WARN" "Boot user home directory not found, skipping .xinitrc creation"
 fi
 
-# Create desktop autostart entry as backup
+# Create desktop autostart entry as backup - launches Calamares maximized
 log "INFO" "Creating desktop autostart entry..."
 if [ -d "${CHROOT_DIR}/home/${BOOT_USER}" ]; then
     mkdir -p "${CHROOT_DIR}/home/${BOOT_USER}/.config/autostart"
@@ -155,11 +155,26 @@ Icon=calamares
 Terminal=false
 Hidden=false
 X-GNOME-Autostart-enabled=true
+StartupWMClass=calamares
 EOF
     chroot_exec "chown -R ${BOOT_USER}:${BOOT_USER} /home/${BOOT_USER}/.config"
 else
     log "WARN" "Boot user home directory not found, skipping desktop autostart creation"
 fi
+
+# Create a GNOME autostart to maximize Calamares window
+log "INFO" "Creating Calamares window maximizer..."
+cat > "${CHROOT_DIR}/home/${BOOT_USER}/.config/autostart/maximize-calamares.desktop" << 'EOF'
+[Desktop Entry]
+Type=Application
+Name=Maximize Calamares
+Exec=sh -c "sleep 3 && wmctrl -r 'Install NubiferOS' -b add,maximized_vert,maximized_horz || true"
+Hidden=false
+NoDisplay=true
+X-GNOME-Autostart-enabled=true
+X-GNOME-Autostart-Phase=Applications
+EOF
+chroot_exec "chown ${BOOT_USER}:${BOOT_USER} /home/${BOOT_USER}/.config/autostart/maximize-calamares.desktop"
 
 # Configure Calamares exit behavior
 log "INFO" "Configuring exit behavior..."
@@ -209,7 +224,7 @@ log "INFO" "✓ Auto-login and Calamares auto-launch configured for ${BOOT_USER}
 # This prevents the screen from locking during installation
 log "INFO" "Disabling screen lock and timeout for installer..."
 
-# Create dconf settings for the installer user to disable screen lock
+# Create dconf settings for the installer user to disable screen lock AND hide panel
 mkdir -p "${CHROOT_DIR}/etc/dconf/db/local.d"
 cat > "${CHROOT_DIR}/etc/dconf/db/local.d/00-installer-no-lock" << 'EOF'
 # Disable screen lock and timeout during installation
@@ -227,9 +242,77 @@ sleep-inactive-ac-type='nothing'
 sleep-inactive-battery-timeout=0
 sleep-inactive-battery-type='nothing'
 idle-dim=false
+
+# Hide the top panel during installation (GNOME Shell)
+[org/gnome/shell]
+disable-user-extensions=true
+enabled-extensions=@as []
+
+# Disable Activities hot corner
+[org/gnome/desktop/interface]
+enable-hot-corners=false
+
+# Disable overview on startup
+[org/gnome/shell]
+welcome-dialog-last-shown-version='999.0'
+EOF
+
+# Create GNOME Shell extension to hide the panel during installation
+log "INFO" "Creating panel-hiding extension for installer..."
+mkdir -p "${CHROOT_DIR}/usr/share/gnome-shell/extensions/installer-mode@nubiferos"
+cat > "${CHROOT_DIR}/usr/share/gnome-shell/extensions/installer-mode@nubiferos/metadata.json" << 'EOF'
+{
+    "uuid": "installer-mode@nubiferos",
+    "name": "NubiferOS Installer Mode",
+    "description": "Hides panel and disables desktop during installation",
+    "shell-version": ["43", "44", "45", "46"],
+    "version": 1
+}
+EOF
+
+cat > "${CHROOT_DIR}/usr/share/gnome-shell/extensions/installer-mode@nubiferos/extension.js" << 'EOF'
+import * as Main from 'resource:///org/gnome/shell/ui/main.js';
+
+export default class InstallerModeExtension {
+    enable() {
+        // Hide the top panel
+        Main.panel.hide();
+        
+        // Disable hot corners
+        Main.layoutManager._startingUp = true;
+    }
+    
+    disable() {
+        // Show the panel again
+        Main.panel.show();
+        Main.layoutManager._startingUp = false;
+    }
+}
+EOF
+
+# Enable the installer-mode extension for the boot user
+cat >> "${CHROOT_DIR}/etc/dconf/db/local.d/00-installer-no-lock" << 'EOF'
+
+# Enable installer mode extension to hide panel
+[org/gnome/shell]
+enabled-extensions=['installer-mode@nubiferos']
+disable-user-extensions=false
 EOF
 
 # Update dconf database
+chroot_exec "dconf update 2>/dev/null || true"
+
+# Lock the dconf settings so they can't be changed by the installer user
+mkdir -p "${CHROOT_DIR}/etc/dconf/db/local.d/locks"
+cat > "${CHROOT_DIR}/etc/dconf/db/local.d/locks/00-installer-locks" << 'EOF'
+# Lock installer settings
+/org/gnome/shell/enabled-extensions
+/org/gnome/desktop/interface/enable-hot-corners
+/org/gnome/desktop/session/idle-delay
+/org/gnome/desktop/screensaver/lock-enabled
+EOF
+
+# Update dconf again with locks
 chroot_exec "dconf update 2>/dev/null || true"
 
 # Also set gsettings directly for the installer user as backup

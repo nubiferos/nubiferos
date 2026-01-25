@@ -376,7 +376,34 @@ cat >> "${CHROOT_DIR}/etc/dconf/db/local.d/01-nubiferos-wallpaper" << 'EOF'
 enabled-extensions=['nubiferos-context@nubiferos.org']
 EOF
 
+# Lock down GNOME workspaces - only NubiferOS can manage them
+log "INFO" "Locking down GNOME workspace management..."
+cat > "${CHROOT_DIR}/etc/dconf/db/local.d/02-nubiferos-workspaces" << 'EOF'
+# NubiferOS Workspace Management
+# Workspaces are managed by NubiferOS, not GNOME directly
+
+[org/gnome/desktop/wm/preferences]
+# Start with 1 workspace, NubiferOS will add more as needed
+num-workspaces=1
+
+[org/gnome/mutter]
+# Disable dynamic workspaces - NubiferOS controls workspace count
+dynamic-workspaces=false
+
+[org/gnome/shell/app-switcher]
+# App switcher shows only current workspace apps
+current-workspace-only=true
+EOF
+
+# Lock these settings so users can't change them
+mkdir -p "${CHROOT_DIR}/etc/dconf/db/local.d/locks"
+cat > "${CHROOT_DIR}/etc/dconf/db/local.d/locks/01-nubiferos-workspace-locks" << 'EOF'
+# Lock workspace settings - managed by NubiferOS
+/org/gnome/mutter/dynamic-workspaces
+EOF
+
 # Update dconf
 chroot_exec "dconf update 2>/dev/null || true"
 
 log "INFO" "  ✓ Context indicator extension installed"
+log "INFO" "  ✓ GNOME workspace management locked down"

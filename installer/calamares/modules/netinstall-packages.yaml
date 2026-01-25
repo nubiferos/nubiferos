@@ -99,12 +99,47 @@
   selected: true
   critical: true
   immutable: true
-  packages:
-    - firejail
-    - apparmor
-    - apparmor-utils
-    - fail2ban
-    - ufw
-    - aide
-    - rkhunter
-    - lynis
+  subgroups:
+    - name: "Sandbox & Isolation"
+      description: "Application sandboxing for credential protection"
+      selected: true
+      critical: true
+      packages:
+        - firejail
+    - name: "Mandatory Access Control"
+      description: "AppArmor kernel security - restricts what apps can access"
+      selected: true
+      critical: true
+      packages:
+        - apparmor
+        - apparmor-utils
+    - name: "Intrusion Prevention"
+      description: "fail2ban - blocks brute force attacks on SSH/services"
+      selected: true
+      critical: true
+      packages:
+        - fail2ban
+    - name: "Firewall"
+      description: "ufw - deny-by-default firewall, blocks unauthorized access"
+      selected: true
+      critical: true
+      packages:
+        - ufw
+    - name: "File Integrity Monitoring"
+      description: "AIDE - detects unauthorized changes to system files"
+      selected: true
+      critical: true
+      packages:
+        - aide
+    - name: "Rootkit Detection"
+      description: "rkhunter - scans for rootkits and backdoors"
+      selected: true
+      critical: true
+      packages:
+        - rkhunter
+    - name: "Security Auditing"
+      description: "Lynis - comprehensive security audit and hardening tool"
+      selected: true
+      critical: true
+      packages:
+        - lynis

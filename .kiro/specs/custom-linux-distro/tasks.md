@@ -283,6 +283,15 @@ The following components are built but NOT functional because D-Bus services are
     - _Requirements: 1.3, 11.4, 12.3_
     - _Note: Live CD removed to prevent encryption bypass_
 
+  - [x] 9.4 Lock down installer environment
+    - Disable Cancel button in Calamares (disable-cancel: true)
+    - Hide GNOME panel during installation (installer-mode extension)
+    - Disable hot corners and Activities overview
+    - Maximize Calamares window on startup
+    - Lock dconf settings to prevent user changes
+    - _Requirements: 12.6_
+    - _Note: Implemented in configure-installer-autostart.sh_
+
 - [ ] 10. Implement AI Assistant Framework
   - [ ] 10.1 Create AI Assistant service architecture
     - Implement Python service with plugin architecture for LLM providers

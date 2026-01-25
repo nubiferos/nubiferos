@@ -291,11 +291,15 @@ EOF
     log "INFO" "Installing Context Manager D-Bus service..."
     
     # Install Python D-Bus dependencies
-    chroot_exec "DEBIAN_FRONTEND=noninteractive apt-get install -y python3-dbus python3-gi"
+    chroot_exec "DEBIAN_FRONTEND=noninteractive apt-get install -y python3-dbus python3-gi wmctrl"
     
     # Copy context manager source files
     mkdir -p "${CHROOT_DIR}/usr/local/lib/nubiferos/context-manager"
     cp "${PROJECT_ROOT}/components/context-manager/src/"*.py "${CHROOT_DIR}/usr/local/lib/nubiferos/context-manager/"
+    
+    # Copy GNOME desktop integration
+    cp "${PROJECT_ROOT}/components/workspace-manager/gnome-desktop-integration.py" "${CHROOT_DIR}/usr/local/lib/nubiferos/"
+    chmod +x "${CHROOT_DIR}/usr/local/lib/nubiferos/gnome-desktop-integration.py"
     
     # Create D-Bus service wrapper
     cat > "${CHROOT_DIR}/usr/local/bin/nubifer-context-service" << 'DBUS_EOF'
@@ -306,6 +310,14 @@ export PYTHONPATH="$INSTALL_DIR:$PYTHONPATH"
 exec python3 "$INSTALL_DIR/dbus_interface.py" "$@"
 DBUS_EOF
     chmod +x "${CHROOT_DIR}/usr/local/bin/nubifer-context-service"
+    
+    # Create GNOME desktop integration wrapper
+    cat > "${CHROOT_DIR}/usr/local/bin/nubifer-desktop" << 'DESKTOP_EOF'
+#!/bin/bash
+# NubiferOS GNOME Desktop Integration wrapper
+exec python3 /usr/local/lib/nubiferos/gnome-desktop-integration.py "$@"
+DESKTOP_EOF
+    chmod +x "${CHROOT_DIR}/usr/local/bin/nubifer-desktop"
     
     # Install D-Bus service file for session bus (auto-activation)
     mkdir -p "${CHROOT_DIR}/usr/share/dbus-1/services"
@@ -319,7 +331,13 @@ DBUS_SVC_EOF
     mkdir -p "${CHROOT_DIR}/usr/lib/systemd/user"
     cp "${PROJECT_ROOT}/components/context-manager/systemd/nubifer-context-manager.service" "${CHROOT_DIR}/usr/lib/systemd/user/"
     
+    # Enable Context Manager service for all users by default
+    mkdir -p "${CHROOT_DIR}/etc/systemd/user/default.target.wants"
+    ln -sf /usr/lib/systemd/user/nubifer-context-manager.service "${CHROOT_DIR}/etc/systemd/user/default.target.wants/nubifer-context-manager.service"
+    
     log "INFO" "  ✓ Context Manager D-Bus service installed"
+    log "INFO" "  ✓ GNOME desktop integration installed"
+    log "INFO" "  ✓ Context Manager auto-start enabled"
     
     # Install AWS credential helper
     log "INFO" "Installing AWS credential helper..."
