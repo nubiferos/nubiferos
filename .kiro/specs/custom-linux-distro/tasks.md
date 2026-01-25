@@ -1,5 +1,22 @@
 # Implementation Plan
 
+## 🔴 PRIORITY: D-Bus Services Integration (Blocking workspace/credential features)
+
+The following components are built but NOT functional because D-Bus services aren't installed:
+- Context Manager D-Bus service (workspace switching, context indicator)
+- Credential Manager D-Bus service (credential injection to CLI wrappers)
+- CLI wrappers (depend on D-Bus for credentials)
+- GNOME Shell context indicator (depends on D-Bus for workspace info)
+
+**Next steps to complete:**
+1. Install Context Manager D-Bus service and systemd unit
+2. Install Credential Manager D-Bus service and systemd unit  
+3. Enable CLI wrapper symlinks
+4. Test credential_process helper as alternative to D-Bus for AWS CLI
+5. Configure GPG agent caching and session cleanup
+
+---
+
 - [x] 1. Set up build system and project structure
   - Create directory structure for NubiferOS project (build/, components/, configs/, installer/)
   - Create build configuration file with base distro settings, versions, and component paths
@@ -56,6 +73,7 @@
     - Define D-Bus service interface (AddCredential, GetCredential, ListAccounts, DeleteCredential)
     - Implement D-Bus service registration and method handlers
     - _Requirements: 3.4_
+    - _Note: Code exists but service not installed/running - needs systemd integration_
 
   - [x] 3.3 Add access key authentication support
     - Implement storage and retrieval of AWS access keys
@@ -68,11 +86,19 @@
     - Add interactive prompts for credential input
     - _Requirements: 3.1, 3.2_
 
-  - [x] 3.5 Create systemd service definition
+  - [ ] 3.5 Create systemd service definition
     - Write systemd service file for credential manager
     - Configure service to start on boot
+    - Install D-Bus service file for auto-activation
     - _Requirements: 3.1_
-    - _Note: Deferred to beta - run manually for now_
+    - _Status: NOT DONE - D-Bus service not installed, CLI works standalone_
+
+  - [ ] 3.6 Implement credential_process helper for AWS CLI
+    - Create nubifer-aws-credential-helper for AWS CLI credential_process
+    - Integrate with pass to retrieve credentials on-demand
+    - Configure GPG agent caching for performance
+    - _Requirements: 3.4_
+    - _Status: Helper created, needs testing and integration_
 
 - [x] 4. Implement Context Manager service
   - [x] 4.1 Create workspace management backend
@@ -86,6 +112,7 @@
     - Implement D-Bus service registration and method handlers
     - Add WorkspaceSwitched signal
     - _Requirements: 4.3_
+    - _Note: Code exists but service not installed/running - needs systemd integration_
 
   - [x] 4.3 Implement virtual desktop integration
     - Integrate with GNOME virtual desktop API to switch workspaces
@@ -111,11 +138,12 @@
     - Add set-readonly command
     - _Requirements: 4.1, 4.2, 4.3_
 
-  - [x] 4.7 Create systemd service definition
+  - [ ] 4.7 Create systemd service definition
     - Write systemd service file for context manager
     - Configure service dependencies (requires credential manager)
+    - Install D-Bus service file for auto-activation
     - _Requirements: 4.1_
-    - _Note: Deferred to beta - run manually for now_
+    - _Status: NOT DONE - D-Bus service not installed, CLI works standalone_
 
 - [x] 5. Implement Context Indicator UI
   - [x] 5.1 Create GNOME Shell extension
@@ -123,6 +151,7 @@
     - Subscribe to D-Bus signals from Context Manager for workspace changes
     - Display current provider, account, region, and read-only status
     - _Requirements: 5.1, 5.2, 5.3, 5.4, 5.6_
+    - _Note: Extension installed but shows "No Workspace" until D-Bus service runs_
 
   - [x] 5.2 Implement visual theming
     - Add color coding for different cloud providers (AWS orange, Azure blue, GCP red)
@@ -133,18 +162,20 @@
     - Implement dropdown menu showing all workspaces
     - Add click handlers to switch workspaces from the indicator
     - _Requirements: 4.3, 5.5_
+    - _Note: Menu implemented but requires D-Bus service to populate_
 
   - [x] 5.4 Implement terminal prompt integration
     - Create shell integration script that modifies PS1 with workspace context
     - Add to /etc/profile.d/ for automatic loading
     - _Requirements: 5.6_
 
-- [x] 6. Implement CLI wrapper scripts
+- [ ] 6. Implement CLI wrapper scripts
   - [x] 6.1 Create credential injection wrappers
     - Write wrapper scripts for aws, az, gcloud that inject credentials from Credential Manager
     - Place wrappers in /usr/local/bin/ to override default CLI tools
     - Implement secure credential injection without environment variable exposure
     - _Requirements: 3.4_
+    - _Note: Wrappers exist but NOT symlinked - credential injection via D-Bus not working_
 
   - [x] 6.2 Implement read-only mode enforcement
     - Add logic to wrappers to block write operations when workspace is in read-only mode
@@ -153,11 +184,17 @@
     - Command-based blocking for Terraform and Kubectl
     - _Requirements: 8.2, 8.3_
 
-  - [x] 6.3 Add workspace context to CLI commands
+  - [ ] 6.3 Add workspace context to CLI commands
     - Ensure all CLI commands use the current workspace's credentials and configuration
     - Check for active workspace before execution
     - Integrate with Context Manager via D-Bus
     - _Requirements: 4.3, 4.4_
+    - _Status: NOT WORKING - D-Bus services not running, wrappers not symlinked_
+
+  - [ ] 6.4 Enable CLI wrappers during installation
+    - Create symlinks from /usr/local/bin/aws -> wrapper during post-install
+    - Add option to enable/disable wrappers
+    - _Status: NOT DONE - symlinks not created_
 
 - [x] 7. Implement First-Boot Setup Experience
   - [x] 7.1 Create first-boot wizard application
