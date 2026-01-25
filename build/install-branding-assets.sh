@@ -333,3 +333,50 @@ icon-theme='Adwaita'
 EOF
 
 log "INFO" "  ✓ Desktop-base branding replaced"
+
+# Set default user icon (replaces Debian logo for new users)
+log "INFO" "Setting default user icon..."
+mkdir -p "${CHROOT_DIR}/usr/share/pixmaps/faces"
+if [ -f "${PROJECT_ROOT}/brand/icons/logo-256.png" ]; then
+    cp "${PROJECT_ROOT}/brand/icons/logo-256.png" "${CHROOT_DIR}/usr/share/pixmaps/faces/nubiferos.png"
+fi
+
+# Set as default face for new users via /etc/skel
+mkdir -p "${CHROOT_DIR}/etc/skel/.face.d"
+if [ -f "${PROJECT_ROOT}/brand/icons/logo-256.png" ]; then
+    cp "${PROJECT_ROOT}/brand/icons/logo-256.png" "${CHROOT_DIR}/etc/skel/.face"
+fi
+
+# Also set for AccountsService default
+mkdir -p "${CHROOT_DIR}/var/lib/AccountsService/icons"
+if [ -f "${PROJECT_ROOT}/brand/icons/logo-256.png" ]; then
+    cp "${PROJECT_ROOT}/brand/icons/logo-256.png" "${CHROOT_DIR}/var/lib/AccountsService/icons/nubiferos-default"
+fi
+
+log "INFO" "  ✓ Default user icon configured"
+
+# Install GNOME Shell context indicator extension
+log "INFO" "Installing workspace context indicator extension..."
+EXTENSION_UUID="nubiferos-context@nubiferos.org"
+EXTENSION_DIR="${CHROOT_DIR}/usr/share/gnome-shell/extensions/${EXTENSION_UUID}"
+
+mkdir -p "${EXTENSION_DIR}"
+cp "${PROJECT_ROOT}/components/context-indicator/gnome-extension/extension.js" "${EXTENSION_DIR}/"
+cp "${PROJECT_ROOT}/components/context-indicator/gnome-extension/metadata.json" "${EXTENSION_DIR}/"
+cp "${PROJECT_ROOT}/components/context-indicator/gnome-extension/stylesheet.css" "${EXTENSION_DIR}/"
+
+# Install terminal prompt integration
+cp "${PROJECT_ROOT}/components/context-indicator/nubiferos-prompt.sh" "${CHROOT_DIR}/etc/profile.d/"
+chmod +x "${CHROOT_DIR}/etc/profile.d/nubiferos-prompt.sh"
+
+# Enable extension by default for all users via dconf
+cat >> "${CHROOT_DIR}/etc/dconf/db/local.d/01-nubiferos-wallpaper" << 'EOF'
+
+[org/gnome/shell]
+enabled-extensions=['nubiferos-context@nubiferos.org']
+EOF
+
+# Update dconf
+chroot_exec "dconf update 2>/dev/null || true"
+
+log "INFO" "  ✓ Context indicator extension installed"
