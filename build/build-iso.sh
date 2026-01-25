@@ -287,6 +287,46 @@ EOF
     cp "${PROJECT_ROOT}/components/workspace-manager/nubifer-workspace" "${CHROOT_DIR}/usr/local/bin/"
     chmod +x "${CHROOT_DIR}/usr/local/bin/nubifer-workspace"
     
+    # Install Context Manager D-Bus service
+    log "INFO" "Installing Context Manager D-Bus service..."
+    
+    # Install Python D-Bus dependencies
+    chroot_exec "DEBIAN_FRONTEND=noninteractive apt-get install -y python3-dbus python3-gi"
+    
+    # Copy context manager source files
+    mkdir -p "${CHROOT_DIR}/usr/local/lib/nubiferos/context-manager"
+    cp "${PROJECT_ROOT}/components/context-manager/src/"*.py "${CHROOT_DIR}/usr/local/lib/nubiferos/context-manager/"
+    
+    # Create D-Bus service wrapper
+    cat > "${CHROOT_DIR}/usr/local/bin/nubifer-context-service" << 'DBUS_EOF'
+#!/bin/bash
+# NubiferOS Context Manager D-Bus service wrapper
+INSTALL_DIR="/usr/local/lib/nubiferos/context-manager"
+export PYTHONPATH="$INSTALL_DIR:$PYTHONPATH"
+exec python3 "$INSTALL_DIR/dbus_interface.py" "$@"
+DBUS_EOF
+    chmod +x "${CHROOT_DIR}/usr/local/bin/nubifer-context-service"
+    
+    # Install D-Bus service file for session bus (auto-activation)
+    mkdir -p "${CHROOT_DIR}/usr/share/dbus-1/services"
+    cat > "${CHROOT_DIR}/usr/share/dbus-1/services/org.nubiferos.ContextManager.service" << 'DBUS_SVC_EOF'
+[D-BUS Service]
+Name=org.nubiferos.ContextManager
+Exec=/usr/local/bin/nubifer-context-service
+DBUS_SVC_EOF
+    
+    # Install systemd user service
+    mkdir -p "${CHROOT_DIR}/usr/lib/systemd/user"
+    cp "${PROJECT_ROOT}/components/context-manager/systemd/nubifer-context-manager.service" "${CHROOT_DIR}/usr/lib/systemd/user/"
+    
+    log "INFO" "  ✓ Context Manager D-Bus service installed"
+    
+    # Install AWS credential helper
+    log "INFO" "Installing AWS credential helper..."
+    cp "${PROJECT_ROOT}/components/credential-manager/nubifer-aws-credential-helper" "${CHROOT_DIR}/usr/local/bin/"
+    chmod +x "${CHROOT_DIR}/usr/local/bin/nubifer-aws-credential-helper"
+    log "INFO" "  ✓ AWS credential helper installed"
+    
     # Copy shell integration
     mkdir -p "${CHROOT_DIR}/etc/nubifer"
     cp "${PROJECT_ROOT}/components/workspace-manager/shell-integration.sh" "${CHROOT_DIR}/etc/nubifer/"
