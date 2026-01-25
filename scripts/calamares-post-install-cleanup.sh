@@ -86,4 +86,20 @@ echo "=========================================="
 echo "Post-install cleanup complete"
 echo "=========================================="
 
+# Enable CLI wrappers by default (Firejail isolation)
+echo "Enabling CLI wrappers..."
+if [ -d /usr/local/lib/nubifer/cli-wrappers ]; then
+    ln -sf /usr/local/lib/nubifer/cli-wrappers/aws /usr/local/bin/aws
+    ln -sf /usr/local/lib/nubifer/cli-wrappers/az /usr/local/bin/az
+    ln -sf /usr/local/lib/nubifer/cli-wrappers/gcloud /usr/local/bin/gcloud
+    ln -sf /usr/local/lib/nubifer/cli-wrappers/oci /usr/local/bin/oci
+    echo "CLI wrappers enabled (aws, az, gcloud, oci)"
+else
+    echo "CLI wrappers directory not found, skipping"
+fi
+
+echo "=========================================="
+echo "NubiferOS installation complete!"
+echo "=========================================="
+
 exit 0
