@@ -83,7 +83,8 @@ install_gnome() {
         gnome-terminal \
         gnome-control-center \
         nautilus \
-        gdm3"
+        gdm3 \
+        wmctrl"
     
     # NOTE: Guest agents NOT installed in installer-only ISO
     # They are only needed for live/testing environments

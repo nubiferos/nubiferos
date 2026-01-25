@@ -137,6 +137,11 @@ class GnomeDesktopIntegration:
             while desktop_num in used_desktops:
                 desktop_num += 1
         
+        # Ensure GNOME has enough desktops
+        current_desktops = self.get_num_workspaces()
+        if desktop_num >= current_desktops:
+            self.set_num_workspaces(desktop_num + 1)
+        
         # Update workspace config
         workspace['virtual_desktop'] = desktop_num
         
