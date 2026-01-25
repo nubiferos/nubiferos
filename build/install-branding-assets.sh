@@ -373,7 +373,7 @@ chmod +x "${CHROOT_DIR}/etc/profile.d/nubiferos-prompt.sh"
 cat >> "${CHROOT_DIR}/etc/dconf/db/local.d/01-nubiferos-wallpaper" << 'EOF'
 
 [org/gnome/shell]
-enabled-extensions=['nubiferos-context@nubiferos.org']
+enabled-extensions=['nubiferos-context@nubiferos.org', 'ding@rastersoft.com']
 EOF
 
 # Lock down GNOME workspaces - only NubiferOS can manage them
