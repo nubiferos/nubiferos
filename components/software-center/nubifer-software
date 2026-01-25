@@ -1,0 +1,526 @@
+#!/usr/bin/env python3
+"""
+NubiferOS Software Center
+A curated software installer for cloud development tools
+"""
+
+import gi
+gi.require_version('Gtk', '3.0')
+from gi.repository import Gtk, GLib, Pango, Gdk
+import subprocess
+import threading
+import os
+import json
+from pathlib import Path
+
+# Software catalog - curated tools for cloud development
+SOFTWARE_CATALOG = {
+    "Cloud CLIs": {
+        "icon": "cloud",
+        "tools": [
+            {
+                "id": "awscli",
+                "name": "AWS CLI v2",
+                "description": "Official Amazon Web Services command line interface",
+                "check_cmd": "aws --version",
+                "install_cmd": "cd /tmp && curl 'https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip' -o awscliv2.zip && unzip -q awscliv2.zip && sudo ./aws/install --update && rm -rf aws awscliv2.zip",
+                "size": "~150MB"
+            },
+            {
+                "id": "gcloud",
+                "name": "Google Cloud SDK",
+                "description": "Official Google Cloud Platform CLI tools",
+                "check_cmd": "gcloud --version",
+                "install_cmd": "echo 'deb [signed-by=/usr/share/keyrings/cloud.google.gpg] https://packages.cloud.google.com/apt cloud-sdk main' | sudo tee /etc/apt/sources.list.d/google-cloud-sdk.list && curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo gpg --dearmor -o /usr/share/keyrings/cloud.google.gpg && sudo apt-get update && sudo apt-get install -y google-cloud-sdk",
+                "size": "~250MB"
+            },
+            {
+                "id": "azure-cli",
+                "name": "Azure CLI",
+                "description": "Official Microsoft Azure command line interface",
+                "check_cmd": "az --version",
+                "install_cmd": "curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash",
+                "size": "~250MB"
+            }
+        ]
+    },
+    "Kubernetes": {
+        "icon": "network-server",
+        "tools": [
+            {
+                "id": "kubectl",
+                "name": "kubectl",
+                "description": "Kubernetes command-line tool",
+                "check_cmd": "kubectl version --client",
+                "install_cmd": "sudo /usr/share/nubiferos/installers/install-kubectl.sh",
+                "size": "~50MB"
+            },
+            {
+                "id": "helm",
+                "name": "Helm",
+                "description": "Kubernetes package manager",
+                "check_cmd": "helm version",
+                "install_cmd": "sudo /usr/share/nubiferos/installers/install-helm.sh",
+                "size": "~50MB"
+            },
+            {
+                "id": "k9s",
+                "name": "k9s",
+                "description": "Terminal UI for Kubernetes clusters",
+                "check_cmd": "k9s version",
+                "install_cmd": "sudo /usr/share/nubiferos/installers/install-k9s.sh",
+                "size": "~30MB"
+            },
+            {
+                "id": "minikube",
+                "name": "Minikube",
+                "description": "Local Kubernetes for development",
+                "check_cmd": "minikube version",
+                "install_cmd": "cd /tmp && curl -LO https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64 && sudo install minikube-linux-amd64 /usr/local/bin/minikube && rm minikube-linux-amd64",
+                "size": "~100MB"
+            },
+            {
+                "id": "eksctl",
+                "name": "eksctl",
+                "description": "Amazon EKS cluster management",
+                "check_cmd": "eksctl version",
+                "install_cmd": "cd /tmp && curl -sLO 'https://github.com/eksctl-io/eksctl/releases/latest/download/eksctl_Linux_amd64.tar.gz' && tar -xzf eksctl_Linux_amd64.tar.gz && sudo mv eksctl /usr/local/bin/ && rm eksctl_Linux_amd64.tar.gz",
+                "size": "~50MB"
+            }
+        ]
+    },
+    "Infrastructure as Code": {
+        "icon": "applications-development",
+        "tools": [
+            {
+                "id": "terraform",
+                "name": "Terraform",
+                "description": "Infrastructure provisioning by HashiCorp",
+                "check_cmd": "terraform --version",
+                "install_cmd": "sudo /usr/share/nubiferos/installers/install-terraform.sh",
+                "size": "~80MB"
+            },
+            {
+                "id": "pulumi",
+                "name": "Pulumi",
+                "description": "Modern infrastructure as code in any language",
+                "check_cmd": "pulumi version",
+                "install_cmd": "curl -fsSL https://get.pulumi.com | sh && sudo mv ~/.pulumi/bin/pulumi /usr/local/bin/",
+                "size": "~100MB"
+            },
+            {
+                "id": "ansible",
+                "name": "Ansible",
+                "description": "Configuration management and automation",
+                "check_cmd": "ansible --version",
+                "install_cmd": "sudo apt-get install -y ansible",
+                "size": "~50MB"
+            }
+        ]
+    },
+    "Containers": {
+        "icon": "package-x-generic",
+        "tools": [
+            {
+                "id": "docker",
+                "name": "Docker",
+                "description": "Container platform",
+                "check_cmd": "docker --version",
+                "install_cmd": "sudo apt-get install -y docker.io docker-compose && sudo systemctl enable docker && sudo usermod -aG docker $USER",
+                "size": "~200MB"
+            },
+            {
+                "id": "podman",
+                "name": "Podman",
+                "description": "Daemonless container engine",
+                "check_cmd": "podman --version",
+                "install_cmd": "sudo apt-get install -y podman podman-compose",
+                "size": "~150MB"
+            }
+        ]
+    },
+    "IDEs & Editors": {
+        "icon": "accessories-text-editor",
+        "tools": [
+            {
+                "id": "vscode",
+                "name": "Visual Studio Code",
+                "description": "Popular code editor by Microsoft",
+                "check_cmd": "code --version",
+                "install_cmd": "sudo /usr/share/nubiferos/installers/install-vscode.sh",
+                "size": "~100MB"
+            },
+            {
+                "id": "intellij",
+                "name": "IntelliJ IDEA Community",
+                "description": "Java/Kotlin IDE by JetBrains",
+                "check_cmd": "test -f /opt/intellij-idea-community/bin/idea",
+                "install_cmd": "sudo /usr/share/nubiferos/installers/install-intellij.sh",
+                "size": "~800MB"
+            },
+            {
+                "id": "pycharm",
+                "name": "PyCharm Community",
+                "description": "Python IDE by JetBrains",
+                "check_cmd": "test -f /opt/pycharm-community/bin/pycharm",
+                "install_cmd": "sudo /usr/share/nubiferos/installers/install-pycharm.sh",
+                "size": "~500MB"
+            },
+            {
+                "id": "neovim",
+                "name": "Neovim",
+                "description": "Hyperextensible Vim-based text editor",
+                "check_cmd": "nvim --version",
+                "install_cmd": "sudo apt-get install -y neovim",
+                "size": "~30MB"
+            }
+        ]
+    },
+    "DevOps Tools": {
+        "icon": "utilities-terminal",
+        "tools": [
+            {
+                "id": "gh",
+                "name": "GitHub CLI",
+                "description": "GitHub's official command line tool",
+                "check_cmd": "gh --version",
+                "install_cmd": "curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo gpg --dearmor -o /usr/share/keyrings/githubcli-archive-keyring.gpg && echo 'deb [arch=amd64 signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main' | sudo tee /etc/apt/sources.list.d/github-cli.list && sudo apt-get update && sudo apt-get install -y gh",
+                "size": "~30MB"
+            },
+            {
+                "id": "argocd",
+                "name": "ArgoCD CLI",
+                "description": "GitOps continuous delivery for Kubernetes",
+                "check_cmd": "argocd version --client",
+                "install_cmd": "sudo curl -sSL -o /usr/local/bin/argocd https://github.com/argoproj/argo-cd/releases/latest/download/argocd-linux-amd64 && sudo chmod +x /usr/local/bin/argocd",
+                "size": "~100MB"
+            },
+            {
+                "id": "trivy",
+                "name": "Trivy",
+                "description": "Security scanner for containers and IaC",
+                "check_cmd": "trivy --version",
+                "install_cmd": "wget -qO - https://aquasecurity.github.io/trivy-repo/deb/public.key | sudo gpg --dearmor -o /usr/share/keyrings/trivy.gpg && echo 'deb [signed-by=/usr/share/keyrings/trivy.gpg] https://aquasecurity.github.io/trivy-repo/deb bookworm main' | sudo tee /etc/apt/sources.list.d/trivy.list && sudo apt-get update && sudo apt-get install -y trivy",
+                "size": "~50MB"
+            }
+        ]
+    },
+    "Database Clients": {
+        "icon": "drive-harddisk",
+        "tools": [
+            {
+                "id": "postgresql-client",
+                "name": "PostgreSQL Client",
+                "description": "PostgreSQL command-line tools",
+                "check_cmd": "psql --version",
+                "install_cmd": "sudo apt-get install -y postgresql-client",
+                "size": "~10MB"
+            },
+            {
+                "id": "mysql-client",
+                "name": "MySQL Client",
+                "description": "MySQL command-line tools",
+                "check_cmd": "mysql --version",
+                "install_cmd": "sudo apt-get install -y default-mysql-client",
+                "size": "~20MB"
+            },
+            {
+                "id": "redis-tools",
+                "name": "Redis CLI",
+                "description": "Redis command-line tools",
+                "check_cmd": "redis-cli --version",
+                "install_cmd": "sudo apt-get install -y redis-tools",
+                "size": "~5MB"
+            }
+        ]
+    }
+}
+
+
+class SoftwareCenter(Gtk.Window):
+    def __init__(self):
+        super().__init__(title="NubiferOS Software Center")
+        self.set_default_size(900, 650)
+        self.set_border_width(0)
+        
+        # Apply custom CSS
+        self._apply_css()
+        
+        # Main container
+        main_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+        self.add(main_box)
+        
+        # Header bar
+        header = self._create_header()
+        main_box.pack_start(header, False, False, 0)
+        
+        # Content area with sidebar and main panel
+        content_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
+        main_box.pack_start(content_box, True, True, 0)
+        
+        # Sidebar with categories
+        sidebar = self._create_sidebar()
+        content_box.pack_start(sidebar, False, False, 0)
+        
+        # Main content area
+        self.content_stack = Gtk.Stack()
+        self.content_stack.set_transition_type(Gtk.StackTransitionType.CROSSFADE)
+        content_box.pack_start(self.content_stack, True, True, 0)
+        
+        # Create pages for each category
+        for category in SOFTWARE_CATALOG:
+            page = self._create_category_page(category)
+            self.content_stack.add_named(page, category)
+        
+        # Show first category
+        first_category = list(SOFTWARE_CATALOG.keys())[0]
+        self.content_stack.set_visible_child_name(first_category)
+        
+        # Status bar
+        self.statusbar = Gtk.Statusbar()
+        self.statusbar.push(0, "Ready")
+        main_box.pack_end(self.statusbar, False, False, 0)
+        
+        self.show_all()
+    
+    def _apply_css(self):
+        css = b"""
+        .header-bar {
+            background: linear-gradient(to right, #1a1a2e, #16213e);
+            padding: 12px;
+        }
+        .header-title {
+            color: #00d4ff;
+            font-size: 18px;
+            font-weight: bold;
+        }
+        .sidebar {
+            background-color: #1a1a2e;
+            padding: 8px;
+        }
+        .sidebar-button {
+            background: transparent;
+            border: none;
+            color: #a0a0a0;
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin: 2px 4px;
+        }
+        .sidebar-button:hover {
+            background-color: rgba(0, 212, 255, 0.1);
+            color: #00d4ff;
+        }
+        .sidebar-button:checked {
+            background-color: rgba(0, 212, 255, 0.2);
+            color: #00d4ff;
+        }
+        .tool-card {
+            background-color: #252540;
+            border-radius: 8px;
+            padding: 16px;
+            margin: 8px;
+        }
+        .tool-name {
+            font-size: 14px;
+            font-weight: bold;
+            color: #ffffff;
+        }
+        .tool-description {
+            font-size: 12px;
+            color: #a0a0a0;
+        }
+        .install-button {
+            background-color: #00d4ff;
+            color: #1a1a2e;
+            border-radius: 4px;
+            padding: 6px 16px;
+            font-weight: bold;
+        }
+        .install-button:hover {
+            background-color: #00b8e6;
+        }
+        .installed-label {
+            color: #00ff88;
+            font-weight: bold;
+        }
+        """
+        provider = Gtk.CssProvider()
+        provider.load_from_data(css)
+        Gtk.StyleContext.add_provider_for_screen(
+            Gdk.Screen.get_default(),
+            provider,
+            Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
+        )
+    
+    def _create_header(self):
+        header = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
+        header.get_style_context().add_class("header-bar")
+        
+        # Logo/Title
+        title = Gtk.Label(label="☁ NubiferOS Software Center")
+        title.get_style_context().add_class("header-title")
+        header.pack_start(title, False, False, 16)
+        
+        # Search (placeholder for future)
+        search = Gtk.SearchEntry()
+        search.set_placeholder_text("Search tools...")
+        search.set_size_request(250, -1)
+        header.pack_end(search, False, False, 16)
+        
+        # Refresh button
+        refresh_btn = Gtk.Button(label="↻ Refresh")
+        refresh_btn.connect("clicked", self._on_refresh)
+        header.pack_end(refresh_btn, False, False, 8)
+        
+        return header
+    
+    def _create_sidebar(self):
+        sidebar = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+        sidebar.get_style_context().add_class("sidebar")
+        sidebar.set_size_request(200, -1)
+        
+        # Category buttons
+        self.category_buttons = {}
+        first = True
+        for category, data in SOFTWARE_CATALOG.items():
+            btn = Gtk.RadioButton.new_with_label_from_widget(
+                None if first else list(self.category_buttons.values())[0],
+                category
+            )
+            btn.set_mode(False)  # Make it look like a button
+            btn.get_style_context().add_class("sidebar-button")
+            btn.connect("toggled", self._on_category_changed, category)
+            sidebar.pack_start(btn, False, False, 2)
+            self.category_buttons[category] = btn
+            first = False
+        
+        return sidebar
+    
+    def _create_category_page(self, category):
+        scrolled = Gtk.ScrolledWindow()
+        scrolled.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+        
+        flowbox = Gtk.FlowBox()
+        flowbox.set_valign(Gtk.Align.START)
+        flowbox.set_max_children_per_line(3)
+        flowbox.set_selection_mode(Gtk.SelectionMode.NONE)
+        flowbox.set_homogeneous(True)
+        
+        for tool in SOFTWARE_CATALOG[category]["tools"]:
+            card = self._create_tool_card(tool)
+            flowbox.add(card)
+        
+        scrolled.add(flowbox)
+        return scrolled
+    
+    def _create_tool_card(self, tool):
+        card = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+        card.get_style_context().add_class("tool-card")
+        card.set_size_request(250, -1)
+        
+        # Tool name
+        name_label = Gtk.Label(label=tool["name"])
+        name_label.get_style_context().add_class("tool-name")
+        name_label.set_halign(Gtk.Align.START)
+        card.pack_start(name_label, False, False, 0)
+        
+        # Description
+        desc_label = Gtk.Label(label=tool["description"])
+        desc_label.get_style_context().add_class("tool-description")
+        desc_label.set_halign(Gtk.Align.START)
+        desc_label.set_line_wrap(True)
+        desc_label.set_max_width_chars(35)
+        card.pack_start(desc_label, False, False, 0)
+        
+        # Size info
+        size_label = Gtk.Label(label=f"Size: {tool['size']}")
+        size_label.get_style_context().add_class("tool-description")
+        size_label.set_halign(Gtk.Align.START)
+        card.pack_start(size_label, False, False, 0)
+        
+        # Action area
+        action_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        card.pack_start(action_box, False, False, 8)
+        
+        # Check if installed
+        is_installed = self._check_installed(tool["check_cmd"])
+        
+        if is_installed:
+            status = Gtk.Label(label="✓ Installed")
+            status.get_style_context().add_class("installed-label")
+            action_box.pack_start(status, False, False, 0)
+        else:
+            install_btn = Gtk.Button(label="Install")
+            install_btn.get_style_context().add_class("install-button")
+            install_btn.connect("clicked", self._on_install, tool)
+            action_box.pack_start(install_btn, False, False, 0)
+        
+        return card
+    
+    def _check_installed(self, check_cmd):
+        try:
+            result = subprocess.run(
+                check_cmd,
+                shell=True,
+                capture_output=True,
+                timeout=5
+            )
+            return result.returncode == 0
+        except:
+            return False
+    
+    def _on_category_changed(self, button, category):
+        if button.get_active():
+            self.content_stack.set_visible_child_name(category)
+    
+    def _on_install(self, button, tool):
+        button.set_sensitive(False)
+        button.set_label("Installing...")
+        self.statusbar.push(0, f"Installing {tool['name']}...")
+        
+        def install_thread():
+            try:
+                # Run in terminal for visibility
+                cmd = f"gnome-terminal -- bash -c '{tool['install_cmd']}; echo; echo Press Enter to close...; read'"
+                subprocess.run(cmd, shell=True)
+                
+                GLib.idle_add(self._install_complete, button, tool, True)
+            except Exception as e:
+                GLib.idle_add(self._install_complete, button, tool, False, str(e))
+        
+        thread = threading.Thread(target=install_thread)
+        thread.daemon = True
+        thread.start()
+    
+    def _install_complete(self, button, tool, success, error=None):
+        if success and self._check_installed(tool["check_cmd"]):
+            button.set_label("✓ Installed")
+            button.get_style_context().remove_class("install-button")
+            button.get_style_context().add_class("installed-label")
+            self.statusbar.push(0, f"{tool['name']} installed successfully!")
+        else:
+            button.set_sensitive(True)
+            button.set_label("Install")
+            self.statusbar.push(0, f"Installation may still be in progress. Click Refresh to check.")
+    
+    def _on_refresh(self, button):
+        # Rebuild all category pages to refresh install status
+        for category in SOFTWARE_CATALOG:
+            old_page = self.content_stack.get_child_by_name(category)
+            if old_page:
+                self.content_stack.remove(old_page)
+            new_page = self._create_category_page(category)
+            self.content_stack.add_named(new_page, category)
+        
+        self.content_stack.show_all()
+        self.statusbar.push(0, "Refreshed installation status")
+
+
+def main():
+    app = SoftwareCenter()
+    app.connect("destroy", Gtk.main_quit)
+    Gtk.main()
+
+
+if __name__ == "__main__":
+    main()

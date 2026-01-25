@@ -140,6 +140,18 @@ StartupWMClass=Code
 EOF
 chmod +x "${CHROOT_DIR}/etc/skel/Desktop/vscode.desktop"
 
+# Software Center shortcut
+cat > "${CHROOT_DIR}/etc/skel/Desktop/software-center.desktop" << 'EOF'
+[Desktop Entry]
+Type=Application
+Name=Software Center
+Comment=Install cloud development tools
+Exec=/usr/bin/nubifer-software
+Icon=system-software-install
+Terminal=false
+EOF
+chmod +x "${CHROOT_DIR}/etc/skel/Desktop/software-center.desktop"
+
 # Create a script to clean up shortcuts for apps that aren't installed
 cat > "${CHROOT_DIR}/etc/profile.d/cleanup-desktop-shortcuts.sh" << 'CLEANUP_EOF'
 #!/bin/bash
@@ -167,4 +179,4 @@ CLEANUP_EOF
 chmod +x "${CHROOT_DIR}/etc/profile.d/cleanup-desktop-shortcuts.sh"
 
 log "INFO" "First-boot wizard and documentation installed"
-log "INFO" "Desktop shortcuts added: Setup, Docs, Terminal, Firefox, Files, VS Code"
+log "INFO" "Desktop shortcuts added: Setup, Docs, Terminal, Firefox, Files, VS Code, Software Center"
