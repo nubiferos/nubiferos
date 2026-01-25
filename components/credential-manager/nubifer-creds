@@ -230,8 +230,9 @@ def main():
     
     # Add command
     add_parser = subparsers.add_parser("add", help="Add credential")
-    add_parser.add_argument("--type", required=True, choices=["aws", "azure", "gcp", "api", "db", "ssh"])
-    add_parser.add_argument("--name", required=True, help="Credential name")
+    add_parser.add_argument("-t", "--type", required=True, choices=["aws", "azure", "gcp", "api", "db", "ssh"],
+                           help="Credential type")
+    add_parser.add_argument("-n", "--name", required=True, help="Credential name")
     
     # AWS specific
     add_parser.add_argument("--access-key-id", help="AWS access key ID")
@@ -253,7 +254,8 @@ def main():
     
     # List command
     list_parser = subparsers.add_parser("list", help="List credentials")
-    list_parser.add_argument("--type", choices=["aws", "azure", "gcp", "api", "db", "ssh"], help="Filter by type")
+    list_parser.add_argument("-t", "--type", choices=["aws", "azure", "gcp", "api", "db", "ssh"], 
+                            help="Filter by type")
     
     # Remove command
     remove_parser = subparsers.add_parser("remove", help="Remove credential")
