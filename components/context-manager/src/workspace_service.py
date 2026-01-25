@@ -1,10 +1,9 @@
 #!/usr/bin/env python3
 """
 NubiferOS Context Manager - Workspace Service
-Core workspace management with SQLite backend
+Core workspace management - reads from JSON files created by nubifer-workspace CLI
 """
 
-import sqlite3
 import json
 import logging
 from pathlib import Path
@@ -24,7 +23,8 @@ class WorkspaceServiceError(Exception):
 class WorkspaceService:
     """
     Workspace management service.
-    Uses SQLite for workspace metadata and configuration.
+    Reads workspace JSON files from ~/.config/nubifer/workspaces/
+    This ensures compatibility with the nubifer-workspace CLI tool.
     """
     
     SUPPORTED_PROVIDERS = ['aws', 'azure', 'gcp', 'oracle', 'multi']
@@ -37,43 +37,21 @@ class WorkspaceService:
         'multi': {'name': 'Multi-Cloud', 'color': '#6B46C1', 'terminal_color': '99', 'icon': '🌐'}
     }
     
-    def __init__(self, db_path: Optional[Path] = None):
+    def __init__(self, config_dir: Optional[Path] = None):
         """Initialize workspace service"""
-        if db_path is None:
-            config_dir = Path.home() / ".config" / "nubiferos"
-            config_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
-            db_path = config_dir / "workspaces.db"
+        if config_dir is None:
+            # Use same directory as nubifer-workspace CLI
+            config_dir = Path.home() / ".config" / "nubifer"
         
-        self.db_path = db_path
-        self.current_workspace_file = db_path.parent / "current-workspace"
-        self._init_database()
-    
-    def _init_database(self):
-        """Initialize SQLite database for workspaces"""
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
+        self.config_dir = config_dir
+        self.workspace_dir = config_dir / "workspaces"
+        self.current_workspace_file = config_dir / "current-workspace"
         
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS workspaces (
-                workspace_id TEXT PRIMARY KEY,
-                name TEXT NOT NULL,
-                provider TEXT NOT NULL,
-                account_id TEXT NOT NULL,
-                account_name TEXT,
-                region TEXT,
-                credential_id TEXT,
-                read_only INTEGER DEFAULT 0,
-                created_at TEXT NOT NULL,
-                last_used TEXT,
-                theme_json TEXT,
-                environment_json TEXT
-            )
-        """)
+        # Ensure directories exist
+        self.config_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
+        self.workspace_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
         
-        conn.commit()
-        conn.close()
-        
-        logger.info(f"Initialized workspace database: {self.db_path}")
+        logger.info(f"Initialized workspace service: {self.workspace_dir}")
     
     def _generate_workspace_id(self, name: str) -> str:
         """Generate unique workspace ID"""
@@ -96,9 +74,9 @@ class WorkspaceService:
                           account_name: str, region: str) -> Dict[str, str]:
         """Build environment variables for workspace"""
         env = {
-            'NUBIFEROS_PROVIDER': provider,
-            'NUBIFEROS_ACCOUNT': account_name or account_id,
-            'NUBIFEROS_ACCOUNT_ID': account_id,
+            'NUBIFER_WORKSPACE_PROVIDER': provider,
+            'NUBIFER_WORKSPACE_ACCOUNT': account_name or account_id,
+            'NUBIFER_WORKSPACE_ACCOUNT_ID': account_id,
         }
         
         if provider == 'aws':
@@ -116,8 +94,6 @@ class WorkspaceService:
             env.update({
                 'GOOGLE_CLOUD_PROJECT': account_id,
                 'GOOGLE_CLOUD_REGION': region,
-                'GCP_PROJECT': account_id,
-                'GCP_REGION': region,
             })
         elif provider == 'oracle':
             env.update({
@@ -156,142 +132,102 @@ class WorkspaceService:
         theme = self.PROVIDER_COLORS[provider]
         environment = self._build_environment(provider, account_id, account_name, region)
         
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
-        
         now = datetime.utcnow().isoformat()
         
-        try:
-            cursor.execute("""
-                INSERT INTO workspaces 
-                (workspace_id, name, provider, account_id, account_name, region, 
-                 credential_id, read_only, created_at, theme_json, environment_json)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (
-                workspace_id, name, provider, account_id, account_name, region,
-                credential_id, 1 if read_only else 0, now,
-                json.dumps(theme), json.dumps(environment)
-            ))
-            
-            conn.commit()
-            logger.info(f"Created workspace: {workspace_id} ({name})")
-            return workspace_id
-            
-        except sqlite3.Error as e:
-            logger.error(f"Database error: {e}")
-            raise WorkspaceServiceError(f"Failed to create workspace: {e}")
-        finally:
-            conn.close()
+        workspace = {
+            'workspace_id': workspace_id,
+            'name': name,
+            'provider': provider,
+            'account_id': account_id,
+            'account_name': account_name,
+            'region': region,
+            'credential_id': credential_id,
+            'read_only': read_only,
+            'created_at': now,
+            'last_used': None,
+            'theme': theme,
+            'environment': environment
+        }
+        
+        # Save as JSON file
+        workspace_file = self.workspace_dir / f"{workspace_id}.json"
+        with open(workspace_file, 'w') as f:
+            json.dump(workspace, f, indent=2)
+        workspace_file.chmod(0o600)
+        
+        logger.info(f"Created workspace: {workspace_id} ({name})")
+        return workspace_id
     
     def get_workspace(self, workspace_id: str) -> Optional[Dict]:
         """Get workspace by ID"""
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
+        workspace_file = self.workspace_dir / f"{workspace_id}.json"
         
-        cursor.execute("""
-            SELECT workspace_id, name, provider, account_id, account_name, region,
-                   credential_id, read_only, created_at, last_used, theme_json, environment_json
-            FROM workspaces
-            WHERE workspace_id = ?
-        """, (workspace_id,))
-        
-        row = cursor.fetchone()
-        conn.close()
-        
-        if not row:
+        if not workspace_file.exists():
             return None
         
-        return {
-            'workspace_id': row[0],
-            'name': row[1],
-            'provider': row[2],
-            'account_id': row[3],
-            'account_name': row[4],
-            'region': row[5],
-            'credential_id': row[6],
-            'read_only': bool(row[7]),
-            'created_at': row[8],
-            'last_used': row[9],
-            'theme': json.loads(row[10]) if row[10] else {},
-            'environment': json.loads(row[11]) if row[11] else {}
-        }
+        try:
+            with open(workspace_file, 'r') as f:
+                return json.load(f)
+        except Exception as e:
+            logger.error(f"Failed to read workspace {workspace_id}: {e}")
+            return None
     
     def list_workspaces(self, provider: Optional[str] = None) -> List[Dict]:
         """List all workspaces"""
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
-        
-        if provider:
-            cursor.execute("""
-                SELECT workspace_id, name, provider, account_id, account_name, region,
-                       credential_id, read_only, created_at, last_used, theme_json, environment_json
-                FROM workspaces
-                WHERE provider = ?
-                ORDER BY last_used DESC, name ASC
-            """, (provider,))
-        else:
-            cursor.execute("""
-                SELECT workspace_id, name, provider, account_id, account_name, region,
-                       credential_id, read_only, created_at, last_used, theme_json, environment_json
-                FROM workspaces
-                ORDER BY last_used DESC, name ASC
-            """)
-        
         workspaces = []
-        for row in cursor.fetchall():
-            workspaces.append({
-                'workspace_id': row[0],
-                'name': row[1],
-                'provider': row[2],
-                'account_id': row[3],
-                'account_name': row[4],
-                'region': row[5],
-                'credential_id': row[6],
-                'read_only': bool(row[7]),
-                'created_at': row[8],
-                'last_used': row[9],
-                'theme': json.loads(row[10]) if row[10] else {},
-                'environment': json.loads(row[11]) if row[11] else {}
-            })
         
-        conn.close()
+        for workspace_file in self.workspace_dir.glob('*.json'):
+            try:
+                with open(workspace_file, 'r') as f:
+                    workspace = json.load(f)
+                    
+                    # Filter by provider if specified
+                    if provider and workspace.get('provider') != provider:
+                        continue
+                    
+                    workspaces.append(workspace)
+            except Exception as e:
+                logger.error(f"Failed to read workspace file {workspace_file}: {e}")
+                continue
+        
+        # Sort by last used (most recent first), then by name
+        workspaces.sort(key=lambda w: (w.get('last_used') or '', w.get('name', '')), reverse=True)
+        
         return workspaces
     
     def delete_workspace(self, workspace_id: str) -> bool:
         """Delete a workspace"""
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
+        workspace_file = self.workspace_dir / f"{workspace_id}.json"
         
-        cursor.execute("DELETE FROM workspaces WHERE workspace_id = ?", (workspace_id,))
-        deleted = cursor.rowcount > 0
+        if not workspace_file.exists():
+            return False
         
-        conn.commit()
-        conn.close()
-        
-        if deleted:
+        try:
+            workspace_file.unlink()
             logger.info(f"Deleted workspace: {workspace_id}")
-        
-        return deleted
+            return True
+        except Exception as e:
+            logger.error(f"Failed to delete workspace {workspace_id}: {e}")
+            return False
     
     def set_read_only(self, workspace_id: str, read_only: bool) -> bool:
         """Set read-only mode for workspace"""
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
+        workspace = self.get_workspace(workspace_id)
         
-        cursor.execute("""
-            UPDATE workspaces
-            SET read_only = ?
-            WHERE workspace_id = ?
-        """, (1 if read_only else 0, workspace_id))
+        if not workspace:
+            return False
         
-        updated = cursor.rowcount > 0
-        conn.commit()
-        conn.close()
+        workspace['read_only'] = read_only
         
-        if updated:
+        workspace_file = self.workspace_dir / f"{workspace_id}.json"
+        try:
+            with open(workspace_file, 'w') as f:
+                json.dump(workspace, f, indent=2)
             logger.info(f"Set read_only={read_only} for workspace: {workspace_id}")
-        
-        return updated
+            return True
+        except Exception as e:
+            logger.error(f"Failed to update workspace {workspace_id}: {e}")
+            return False
     
     def get_current_workspace(self) -> Optional[Dict]:
         """Get currently active workspace"""
@@ -315,18 +251,14 @@ class WorkspaceService:
             return False
         
         # Update last_used timestamp
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
+        workspace['last_used'] = datetime.utcnow().isoformat()
         
-        now = datetime.utcnow().isoformat()
-        cursor.execute("""
-            UPDATE workspaces
-            SET last_used = ?
-            WHERE workspace_id = ?
-        """, (now, workspace_id))
-        
-        conn.commit()
-        conn.close()
+        workspace_file = self.workspace_dir / f"{workspace_id}.json"
+        try:
+            with open(workspace_file, 'w') as f:
+                json.dump(workspace, f, indent=2)
+        except Exception as e:
+            logger.error(f"Failed to update workspace {workspace_id}: {e}")
         
         # Write current workspace file
         try:

@@ -84,7 +84,8 @@ install_gnome() {
         gnome-control-center \
         nautilus \
         gdm3 \
-        wmctrl"
+        wmctrl \
+        gnome-shell-extension-desktop-icons-ng"
     
     # NOTE: Guest agents NOT installed in installer-only ISO
     # They are only needed for live/testing environments
