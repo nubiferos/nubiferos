@@ -415,6 +415,75 @@ EOF
     log "INFO" "✓ Password policies configured"
 }
 
+# Configure LUKS boot failure handling
+configure_luks_boot_security() {
+    log "INFO" "=========================================="
+    log "INFO" "Configuring LUKS boot failure handling"
+    log "INFO" "=========================================="
+    
+    # Configure cryptsetup to limit passphrase attempts
+    mkdir -p "${CHROOT_DIR}/etc/cryptsetup-initramfs"
+    cat > "${CHROOT_DIR}/etc/cryptsetup-initramfs/conf-hook" << 'EOF'
+# NubiferOS LUKS Configuration
+# Limit passphrase attempts and reboot on failure
+
+# Number of passphrase attempts before giving up
+CRYPTSETUP_TRIES=3
+
+# Include cryptsetup in initramfs
+CRYPTSETUP=y
+EOF
+    
+    # Configure GRUB to reboot on boot failure (no emergency shell)
+    if [ -f "${CHROOT_DIR}/etc/default/grub" ]; then
+        # Add panic parameter to reboot after 10 seconds on failure
+        if grep -q "^GRUB_CMDLINE_LINUX=" "${CHROOT_DIR}/etc/default/grub"; then
+            # Append to existing GRUB_CMDLINE_LINUX
+            sed -i 's/^GRUB_CMDLINE_LINUX="\(.*\)"/GRUB_CMDLINE_LINUX="\1 panic=10 rd.shell=0"/' "${CHROOT_DIR}/etc/default/grub"
+        else
+            echo 'GRUB_CMDLINE_LINUX="panic=10 rd.shell=0"' >> "${CHROOT_DIR}/etc/default/grub"
+        fi
+    fi
+    
+    # Create initramfs hook to disable emergency shell
+    mkdir -p "${CHROOT_DIR}/etc/initramfs-tools/conf.d"
+    cat > "${CHROOT_DIR}/etc/initramfs-tools/conf.d/nubifer-security" << 'EOF'
+# NubiferOS Security: Disable emergency shell on boot failure
+# System will reboot instead of dropping to shell
+PANIC=10
+EOF
+    
+    # Create script to handle LUKS unlock failure
+    mkdir -p "${CHROOT_DIR}/etc/initramfs-tools/scripts/local-premount"
+    cat > "${CHROOT_DIR}/etc/initramfs-tools/scripts/local-premount/nubifer-luks-security" << 'EOF'
+#!/bin/sh
+# NubiferOS LUKS Security Hook
+# Ensures system reboots on LUKS failure instead of dropping to shell
+
+PREREQ=""
+prereqs() {
+    echo "$PREREQ"
+}
+
+case $1 in
+    prereqs)
+        prereqs
+        exit 0
+        ;;
+esac
+
+# Set kernel panic timeout if not already set
+if [ -z "$(cat /proc/cmdline | grep panic=)" ]; then
+    echo 10 > /proc/sys/kernel/panic
+fi
+EOF
+    chmod +x "${CHROOT_DIR}/etc/initramfs-tools/scripts/local-premount/nubifer-luks-security"
+    
+    log "INFO" "✓ LUKS boot security configured"
+    log "INFO" "  - 3 passphrase attempts before failure"
+    log "INFO" "  - System reboots on failure (no emergency shell)"
+}
+
 # Set secure file permissions
 set_secure_permissions() {
     log "INFO" "=========================================="
@@ -519,6 +588,7 @@ main() {
     configure_kernel_hardening
     configure_ssh_hardening
     configure_password_policy
+    configure_luks_boot_security
     set_secure_permissions
     
     # Create verification script
@@ -536,6 +606,7 @@ main() {
     log "INFO" "  ✓ Audit logging (auditd)"
     log "INFO" "  ✓ Kernel hardening"
     log "INFO" "  ✓ Strong password policies"
+    log "INFO" "  ✓ LUKS boot security (reboot on failure, no shell)"
     log "INFO" ""
     log "INFO" "Next step: Run ./build/customize-system.sh"
 }
