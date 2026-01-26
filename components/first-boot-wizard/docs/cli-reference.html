@@ -127,44 +127,72 @@ nubifer-workspace readonly WORKSPACE_ID --disable</code></pre>
     </div>
 
     <h2>nubifer-creds</h2>
-    <p>Manage encrypted cloud credentials.</p>
+    <p>Manage encrypted cloud credentials. Credentials are bound to your active workspace.</p>
 
     <div class="cmd">
         <div class="cmd-name">nubifer-creds add</div>
-        <div class="cmd-desc">Add a new credential</div>
-        <pre><code># AWS
+        <div class="cmd-desc">Add a new credential (prompts for workspace confirmation)</div>
+        <pre><code># AWS (short form)
+nubifer-creds add -t aws -n NAME
+
+# AWS (long form with all options)
 nubifer-creds add --type aws --name NAME \
     [--access-key-id KEY] \
     [--secret-access-key SECRET] \
-    [--region REGION]
+    [--region REGION] \
+    [-w WORKSPACE_ID]  # Target specific workspace \
+    [-y]               # Skip confirmation
 
 # Azure
-nubifer-creds add --type azure --name NAME \
+nubifer-creds add -t azure -n NAME \
     [--tenant-id ID] \
     [--client-id ID] \
     [--client-secret SECRET]
 
 # GCP
-nubifer-creds add --type gcp --name NAME \
+nubifer-creds add -t gcp -n NAME \
     --project-id PROJECT \
     --key-file /path/to/key.json
 
 # API Token
-nubifer-creds add --type api --name NAME \
+nubifer-creds add -t api -n NAME \
     [--token TOKEN] \
     [--scopes SCOPES]</code></pre>
     </div>
 
     <div class="cmd">
+        <div class="cmd-name">nubifer-creds get</div>
+        <div class="cmd-desc">Retrieve credential values</div>
+        <pre><code># View credentials (secret is masked)
+nubifer-creds get -t aws -n NAME
+
+# Output as JSON
+nubifer-creds get -t aws -n NAME --json</code></pre>
+    </div>
+
+    <div class="cmd">
+        <div class="cmd-name">nubifer-creds env</div>
+        <div class="cmd-desc">Export credentials as environment variables</div>
+        <pre><code># Export to current shell
+eval $(nubifer-creds env -t aws -n NAME)
+
+# Azure
+eval $(nubifer-creds env -t azure -n NAME)
+
+# GCP
+eval $(nubifer-creds env -t gcp -n NAME)</code></pre>
+    </div>
+
+    <div class="cmd">
         <div class="cmd-name">nubifer-creds list</div>
-        <div class="cmd-desc">List credentials</div>
-        <pre><code>nubifer-creds list [--type TYPE]</code></pre>
+        <div class="cmd-desc">List credentials in current workspace</div>
+        <pre><code>nubifer-creds list [-t TYPE]</code></pre>
     </div>
 
     <div class="cmd">
         <div class="cmd-name">nubifer-creds remove</div>
         <div class="cmd-desc">Remove a credential</div>
-        <pre><code>nubifer-creds remove --id CREDENTIAL_PATH</code></pre>
+        <pre><code>nubifer-creds remove cloud/aws/my-account</code></pre>
     </div>
 
     <h2>nubifer-setup-wizard</h2>
