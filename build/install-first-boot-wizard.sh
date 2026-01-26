@@ -170,6 +170,13 @@ if [ -d "$DESKTOP_DIR" ]; then
     if [ ! -f /usr/bin/code ] && [ -f "$DESKTOP_DIR/vscode.desktop" ]; then
         rm -f "$DESKTOP_DIR/vscode.desktop"
     fi
+    
+    # Trust all desktop files (GNOME requires this)
+    for desktop_file in "$DESKTOP_DIR"/*.desktop; do
+        if [ -f "$desktop_file" ]; then
+            gio set "$desktop_file" metadata::trusted true 2>/dev/null || true
+        fi
+    done
 fi
 
 # Mark as done

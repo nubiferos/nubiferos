@@ -132,25 +132,25 @@ class ContextManagerDBus(dbus.service.Object):
             workspace = self.service.get_current_workspace()
             
             if not workspace:
-                return {}
+                return dbus.Dictionary({}, signature='sv')
             
-            # Convert to D-Bus compatible format
-            return {
-                'workspace_id': workspace['workspace_id'],
-                'name': workspace['name'],
-                'provider': workspace['provider'],
-                'account_id': workspace['account_id'],
-                'account_name': workspace.get('account_name', ''),
-                'region': workspace.get('region', ''),
-                'credential_id': workspace.get('credential_id', ''),
-                'read_only': workspace['read_only'],
-                'created_at': workspace['created_at'],
-                'last_used': workspace.get('last_used', ''),
-            }
+            # Convert to D-Bus compatible format with explicit types
+            return dbus.Dictionary({
+                'workspace_id': dbus.String(workspace['workspace_id']),
+                'name': dbus.String(workspace['name']),
+                'provider': dbus.String(workspace['provider']),
+                'account_id': dbus.String(workspace['account_id']),
+                'account_name': dbus.String(workspace.get('account_name') or ''),
+                'region': dbus.String(workspace.get('region') or ''),
+                'credential_id': dbus.String(workspace.get('credential_id') or ''),
+                'read_only': dbus.Boolean(workspace.get('read_only', False)),
+                'created_at': dbus.String(workspace.get('created_at') or ''),
+                'last_used': dbus.String(workspace.get('last_used') or ''),
+            }, signature='sv')
             
         except Exception as e:
             logger.error(f"Failed to get current workspace: {e}")
-            return {}
+            return dbus.Dictionary({}, signature='sv')
     
     @dbus.service.method(
         DBUS_INTERFACE,
@@ -171,28 +171,29 @@ class ContextManagerDBus(dbus.service.Object):
             provider_filter = provider if provider else None
             workspaces = self.service.list_workspaces(provider_filter)
             
-            # Convert to D-Bus compatible format
-            result = []
+            # Convert to D-Bus compatible format with explicit types
+            result = dbus.Array([], signature='a{sv}')
             for ws in workspaces:
-                result.append({
-                    'workspace_id': ws['workspace_id'],
-                    'name': ws['name'],
-                    'provider': ws['provider'],
-                    'account_id': ws['account_id'],
-                    'account_name': ws.get('account_name', ''),
-                    'region': ws.get('region', ''),
-                    'credential_id': ws.get('credential_id', ''),
-                    'read_only': ws['read_only'],
-                    'created_at': ws['created_at'],
-                    'last_used': ws.get('last_used', ''),
-                })
+                ws_dict = dbus.Dictionary({
+                    'workspace_id': dbus.String(ws['workspace_id']),
+                    'name': dbus.String(ws['name']),
+                    'provider': dbus.String(ws['provider']),
+                    'account_id': dbus.String(ws['account_id']),
+                    'account_name': dbus.String(ws.get('account_name') or ''),
+                    'region': dbus.String(ws.get('region') or ''),
+                    'credential_id': dbus.String(ws.get('credential_id') or ''),
+                    'read_only': dbus.Boolean(ws.get('read_only', False)),
+                    'created_at': dbus.String(ws.get('created_at') or ''),
+                    'last_used': dbus.String(ws.get('last_used') or ''),
+                }, signature='sv')
+                result.append(ws_dict)
             
             logger.info(f"Listed workspaces via D-Bus: {provider or 'all'}")
             return result
             
         except Exception as e:
             logger.error(f"Failed to list workspaces: {e}")
-            return []
+            return dbus.Array([], signature='a{sv}')
     
     @dbus.service.method(
         DBUS_INTERFACE,
