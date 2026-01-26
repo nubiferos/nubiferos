@@ -33,13 +33,13 @@ Plymouth.SetRefreshFunction(refresh_callback);
 progress_box.image = Image("progress-box.png");
 progress_box.sprite = Sprite(progress_box.image);
 progress_box.sprite.SetX(Window.GetWidth() / 2 - progress_box.image.GetWidth() / 2);
-progress_box.sprite.SetY(Window.GetHeight() * 0.75);
+progress_box.sprite.SetY(Window.GetHeight() * 0.85);
 progress_box.sprite.SetOpacity(0);
 
 progress_bar.original_image = Image("progress-bar.png");
 progress_bar.sprite = Sprite();
 progress_bar.sprite.SetX(Window.GetWidth() / 2 - progress_bar.original_image.GetWidth() / 2);
-progress_bar.sprite.SetY(Window.GetHeight() * 0.75);
+progress_bar.sprite.SetY(Window.GetHeight() * 0.85);
 progress_bar.sprite.SetOpacity(0);
 
 fun progress_callback(duration, progress) {
