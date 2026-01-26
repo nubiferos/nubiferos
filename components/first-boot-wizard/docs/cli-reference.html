@@ -171,19 +171,6 @@ nubifer-creds get -t aws -n NAME --json</code></pre>
     </div>
 
     <div class="cmd">
-        <div class="cmd-name">nubifer-creds env</div>
-        <div class="cmd-desc">Export credentials as environment variables</div>
-        <pre><code># Export to current shell
-eval $(nubifer-creds env -t aws -n NAME)
-
-# Azure
-eval $(nubifer-creds env -t azure -n NAME)
-
-# GCP
-eval $(nubifer-creds env -t gcp -n NAME)</code></pre>
-    </div>
-
-    <div class="cmd">
         <div class="cmd-name">nubifer-creds list</div>
         <div class="cmd-desc">List credentials in current workspace</div>
         <pre><code>nubifer-creds list [-t TYPE]</code></pre>
@@ -193,6 +180,10 @@ eval $(nubifer-creds env -t gcp -n NAME)</code></pre>
         <div class="cmd-name">nubifer-creds remove</div>
         <div class="cmd-desc">Remove a credential</div>
         <pre><code>nubifer-creds remove cloud/aws/my-account</code></pre>
+    </div>
+
+    <div class="security" style="background: rgba(166, 227, 161, 0.1); border-left: 4px solid #a6e3a1; padding: 1rem; margin: 1rem 0; border-radius: 0 8px 8px 0;">
+        <strong style="color: #a6e3a1;">🛡️ Security Note:</strong> Credentials are never exported to environment variables. The CLI wrappers (aws, az, gcloud) automatically retrieve credentials from the encrypted store using AWS credential_process and similar secure mechanisms.
     </div>
 
     <h2>nubifer-setup-wizard</h2>
