@@ -167,7 +167,7 @@ class CredentialManager:
         print(f"✓ AWS credentials added: {profile}")
         print(f"  Workspace: {self.backend.workspace_name} ({self.backend.workspace})")
         print(f"  Retrieve with: nubifer-creds get -t aws -n {profile}")
-        print(f"  Export to env: eval $(nubifer-creds env -t aws -n {profile})")
+        print(f"  The AWS CLI wrapper will automatically use these credentials.")
     
     def get_aws_credentials(self, profile: str) -> Optional[Dict]:
         """Get AWS credentials"""
@@ -265,43 +265,6 @@ class CredentialManager:
         """Remove credential"""
         self.backend.remove_credential(path)
         print(f"✓ Credential removed: {path}")
-    
-    def inject_aws_env(self, profile: str):
-        """Inject AWS credentials into environment"""
-        creds = self.get_aws_credentials(profile)
-        if creds:
-            print(f"export AWS_ACCESS_KEY_ID='{creds['access_key_id']}'")
-            print(f"export AWS_SECRET_ACCESS_KEY='{creds['secret_access_key']}'")
-            print(f"export AWS_DEFAULT_REGION='{creds['region']}'")
-        else:
-            print(f"# Error: Credentials not found for profile: {profile}", file=sys.stderr)
-            sys.exit(1)
-    
-    def inject_azure_env(self, name: str):
-        """Inject Azure credentials into environment"""
-        creds = self.get_azure_credentials(name)
-        if creds:
-            print(f"export AZURE_TENANT_ID='{creds['tenant_id']}'")
-            print(f"export AZURE_CLIENT_ID='{creds['client_id']}'")
-            print(f"export AZURE_CLIENT_SECRET='{creds['client_secret']}'")
-        else:
-            print(f"# Error: Credentials not found: {name}", file=sys.stderr)
-            sys.exit(1)
-    
-    def inject_gcp_env(self, name: str):
-        """Inject GCP credentials into environment"""
-        creds = self.get_gcp_credentials(name)
-        if creds:
-            # Write service account key to temp file
-            key_file = f"/tmp/gcp-{name}-{os.getpid()}.json"
-            with open(key_file, 'w') as f:
-                f.write(creds['service_account_key'])
-            os.chmod(key_file, 0o600)
-            print(f"export GOOGLE_APPLICATION_CREDENTIALS='{key_file}'")
-            print(f"export CLOUDSDK_CORE_PROJECT='{creds['project_id']}'")
-        else:
-            print(f"# Error: Credentials not found: {name}", file=sys.stderr)
-            sys.exit(1)
 
 
 def main():
@@ -349,12 +312,6 @@ def main():
     # Remove command
     remove_parser = subparsers.add_parser("remove", help="Remove credential")
     remove_parser.add_argument("path", help="Credential path (e.g., cloud/aws/profile-name)")
-    
-    # Env command - export credentials as environment variables
-    env_parser = subparsers.add_parser("env", help="Export credentials as environment variables")
-    env_parser.add_argument("-t", "--type", required=True, choices=["aws", "azure", "gcp"],
-                           help="Credential type")
-    env_parser.add_argument("-n", "--name", required=True, help="Credential name")
     
     args = parser.parse_args()
     
@@ -460,14 +417,6 @@ def main():
     
     elif args.command == "remove":
         manager.remove_credential(args.path)
-    
-    elif args.command == "env":
-        if args.type == "aws":
-            manager.inject_aws_env(args.name)
-        elif args.type == "azure":
-            manager.inject_azure_env(args.name)
-        elif args.type == "gcp":
-            manager.inject_gcp_env(args.name)
 
 
 if __name__ == "__main__":
