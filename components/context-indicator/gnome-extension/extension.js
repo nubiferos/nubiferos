@@ -312,7 +312,9 @@ class ContextIndicator extends PanelMenu.Button {
                 
                 const [success] = result;
                 if (success) {
-                    Main.notify('NubiferOS', 'Workspace switched successfully');
+                    // Also run CLI to update shell environment file
+                    this._updateShellEnvironment(workspaceId);
+                    Main.notify('NubiferOS', 'Workspace switched - new terminals will use this workspace');
                     // Display will update via WorkspaceSwitched signal
                 } else {
                     Main.notify('NubiferOS', 'Failed to switch workspace');
@@ -320,6 +322,33 @@ class ContextIndicator extends PanelMenu.Button {
             });
         } catch (e) {
             log(`NubiferOS: Error switching workspace: ${e}`);
+        }
+    }
+    
+    _updateShellEnvironment(workspaceId) {
+        // Run CLI command to export environment to shared file
+        // This file is sourced by shell integration on each prompt
+        try {
+            const homeDir = GLib.get_home_dir();
+            const envFile = `${homeDir}/.config/nubifer/current-env`;
+            
+            // Run nubifer-workspace env command and save to file
+            const argv = [
+                '/bin/bash', '-c',
+                `nubifer-workspace env "${workspaceId}" > "${envFile}" 2>/dev/null`
+            ];
+            
+            GLib.spawn_async(
+                null,
+                argv,
+                null,
+                GLib.SpawnFlags.SEARCH_PATH,
+                null
+            );
+            
+            log(`NubiferOS: Updated shell environment file for workspace ${workspaceId}`);
+        } catch (e) {
+            log(`NubiferOS: Error updating shell environment: ${e}`);
         }
     }
     

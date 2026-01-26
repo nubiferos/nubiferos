@@ -3,6 +3,35 @@
 # Provides visual workspace context in terminal prompts
 # Source this file in ~/.bashrc or /etc/bash.bashrc
 
+# Track last known workspace to detect changes
+_NUBIFER_LAST_WORKSPACE=""
+
+# Function to check if workspace changed (via GNOME UI or another terminal)
+_nubifer_check_workspace_change() {
+    local current_file="$HOME/.config/nubifer/current-workspace"
+    local env_file="$HOME/.config/nubifer/current-env"
+    
+    if [ -f "$current_file" ]; then
+        local new_workspace_id
+        new_workspace_id=$(cat "$current_file" 2>/dev/null)
+        
+        # If workspace changed since last check, reload environment
+        if [ -n "$new_workspace_id" ] && [ "$new_workspace_id" != "$_NUBIFER_LAST_WORKSPACE" ]; then
+            _NUBIFER_LAST_WORKSPACE="$new_workspace_id"
+            
+            # Source the environment file if it exists (written by GNOME extension)
+            if [ -f "$env_file" ]; then
+                eval "$(cat "$env_file")"
+            else
+                # Fall back to running the CLI
+                eval "$(nubifer-workspace env "$new_workspace_id" 2>/dev/null)"
+            fi
+            
+            nubifer_update_prompt
+        fi
+    fi
+}
+
 # Function to update prompt with workspace context
 nubifer_update_prompt() {
     # Check if workspace is active
@@ -157,11 +186,14 @@ alias nw-switch='nubifer_switch'
 alias nw-context='nubifer_context'
 alias nw-activate='nubifer_activate'
 
+# Initialize last workspace tracker
+_NUBIFER_LAST_WORKSPACE="$NUBIFER_WORKSPACE_ID"
+
 # Update prompt on shell start
 nubifer_update_prompt
 
-# Update prompt after each command (optional, can be disabled for performance)
-# PROMPT_COMMAND="nubifer_update_prompt${PROMPT_COMMAND:+; $PROMPT_COMMAND}"
+# Check for workspace changes on each prompt (enables GNOME UI switching)
+PROMPT_COMMAND="_nubifer_check_workspace_change${PROMPT_COMMAND:+; $PROMPT_COMMAND}"
 
 echo "NubiferOS Workspace Integration loaded"
 echo "Commands: nw (workspace manager), nw-switch (quick switch), nw-context (show current)"

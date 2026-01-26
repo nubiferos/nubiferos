@@ -66,6 +66,103 @@ A hybrid approach (LUKS1 /boot + LUKS2 root) would provide maximum security but 
 | Unencrypted /boot + LUKS2 root | ❌ No | ✅ Yes | 1 |
 | LUKS1 /boot + LUKS2 root (future) | ✅ Yes | ✅ Yes | 2 (or keyfile) |
 
+### Future: Single Password Boot Options
+
+Currently, encrypted /boot + encrypted root requires multiple password prompts. The following options are planned for future releases to improve UX while maintaining security:
+
+#### Option B: Keyfile in Initramfs (Planned)
+
+**How it works:**
+- Random keyfile generated during install
+- Keyfile added as second LUKS key slot for root partition
+- Keyfile embedded in initramfs (which lives on encrypted /boot)
+- GRUB decrypts /boot with password → initramfs uses keyfile to decrypt root
+
+**Security Pros:**
+- Keyfile is protected by /boot encryption (attacker needs password first)
+- Strong entropy - keyfile can be 4096 bits of random data
+- No hardware dependency - works on any machine
+- Passphrase still required - human factor remains
+- Can use very long/complex passphrase since only entered once
+- Portable - move disk to another machine, still works
+
+**Security Cons:**
+- Keyfile exists on disk (even if encrypted)
+- If attacker gets passphrase + physical access, they have everything
+- Cold boot attacks could potentially extract keyfile from RAM
+- No hardware binding - stolen disk works anywhere with password
+- Evil maid attack: attacker could modify GRUB to capture password
+
+**Best for:** Development, VMs, portable installs, general use
+
+#### Option C: LUKS Key Caching (decrypt_keyctl)
+
+**How it works:**
+- First LUKS unlock caches the key in kernel keyring
+- Subsequent partition unlocks use cached key automatically
+- Single password prompt unlocks all encrypted partitions
+
+**Security Pros:**
+- No keyfile stored on disk
+- Key only exists in memory during boot
+- Standard Debian/cryptsetup feature
+- Simple implementation
+
+**Security Cons:**
+- Key in kernel memory during boot (cold boot vulnerable)
+- No hardware binding
+- Same evil maid concerns as Option B
+
+**Best for:** Multi-partition setups, simpler than keyfile approach
+
+#### Option D: TPM + PIN (Planned)
+
+**How it works:**
+- TPM chip stores encryption key sealed to system state
+- Key only released if: correct PIN + correct boot chain (PCR values)
+- Measures BIOS, bootloader, kernel to detect tampering
+
+**Security Pros:**
+- Hardware-bound - disk useless on different machine
+- Tamper detection - modified bootloader = key not released
+- Evil maid resistant - can't modify boot chain without detection
+- PIN can be shorter (TPM has anti-hammering)
+- Key never exists in extractable form on disk
+- Cold boot resistant - key in TPM, not RAM
+
+**Security Cons:**
+- Hardware dependency - TPM failure = data loss (need recovery key)
+- TPM vulnerabilities exist (faulTPM, TPM-FAIL attacks)
+- Requires Secure Boot chain to be meaningful
+- More complex recovery scenarios
+- Not all VMs have TPM (though most modern ones do)
+- Less portable - can't easily move disk to new machine
+- Nation-state level: TPM can potentially be compelled/backdoored
+
+**Best for:** Production workstations, high-security environments, corporate deployments
+
+#### Comparison Matrix
+
+| Factor | Option B (Keyfile) | Option C (Key Cache) | Option D (TPM+PIN) |
+|--------|-------------------|---------------------|-------------------|
+| Password prompts | 1 | 1 | 1 |
+| Hardware required | None | None | TPM 2.0 |
+| Evil maid protection | ❌ No | ❌ No | ✅ Yes |
+| Disk portability | ✅ Yes | ✅ Yes | ❌ No |
+| VM compatible | ✅ Yes | ✅ Yes | ⚠️ Depends |
+| Recovery complexity | Low | Low | Medium |
+| Cold boot resistance | ❌ No | ❌ No | ✅ Yes |
+| Tamper detection | ❌ No | ❌ No | ✅ Yes |
+| Implementation complexity | Medium | Low | High |
+
+#### Planned Installer Options
+
+Future releases will offer these during installation:
+
+1. **"Standard Security" (Option B - Keyfile)** - Default, works everywhere
+2. **"Enhanced Security" (Option D - TPM+PIN)** - Only if TPM 2.0 detected
+3. **"Maximum Security" (Current)** - Multiple prompts, no keyfile/TPM trust
+
 **References:**
 - [Debian Encrypted Boot Guide](https://cryptsetup-team.pages.debian.net/cryptsetup/encrypted-boot.html)
 - [Arch Wiki - Encrypting Entire System](https://wiki.archlinux.org/title/Dm-crypt/Encrypting_an_entire_system)
