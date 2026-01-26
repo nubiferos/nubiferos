@@ -21,7 +21,14 @@ class PassBackend:
     def __init__(self, workspace: str = None):
         # Use active workspace from environment, or allow override
         self.workspace = workspace or os.getenv("NUBIFER_WORKSPACE_ID", "default")
-        self.workspace_name = os.getenv("NUBIFER_WORKSPACE_NAME", self.workspace[:8] if len(self.workspace) > 8 else self.workspace)
+        
+        # Try to get workspace name from environment or workspace file
+        if workspace:
+            # Workspace was overridden, try to load name from file
+            self.workspace_name = self._load_workspace_name(workspace)
+        else:
+            self.workspace_name = os.getenv("NUBIFER_WORKSPACE_NAME", self.workspace[:8] if len(self.workspace) > 8 else self.workspace)
+        
         self.pass_dir = os.path.expanduser("~/.password-store")
         self.prefix = f"nubifer/{self.workspace}"
         self.audit_log = os.path.expanduser("~/.config/nubifer/audit.log")
@@ -35,6 +42,18 @@ class PassBackend:
             print("   Run: pass init <gpg-key-id>")
             print("   Or: gpg --full-generate-key  # to create GPG key first")
             sys.exit(1)
+    
+    def _load_workspace_name(self, workspace_id: str) -> str:
+        """Load workspace name from JSON file"""
+        workspace_file = Path.home() / ".config" / "nubifer" / "workspaces" / f"{workspace_id}.json"
+        if workspace_file.exists():
+            try:
+                with open(workspace_file, 'r') as f:
+                    data = json.load(f)
+                    return data.get('name', workspace_id[:8])
+            except:
+                pass
+        return workspace_id[:8] if len(workspace_id) > 8 else workspace_id
     
     def _run_pass(self, args: List[str], input_data: str = None) -> Optional[str]:
         """Run pass command"""
@@ -294,6 +313,8 @@ def main():
     add_parser.add_argument("-t", "--type", required=True, choices=["aws", "azure", "gcp", "api", "db", "ssh"],
                            help="Credential type")
     add_parser.add_argument("-n", "--name", required=True, help="Credential name")
+    add_parser.add_argument("-w", "--workspace", help="Target workspace ID (defaults to active workspace)")
+    add_parser.add_argument("-y", "--yes", action="store_true", help="Skip confirmation prompt")
     
     # AWS specific
     add_parser.add_argument("--access-key-id", help="AWS access key ID")
@@ -344,6 +365,24 @@ def main():
     manager = CredentialManager()
     
     if args.command == "add":
+        # Use specified workspace or active workspace
+        workspace_override = getattr(args, 'workspace', None)
+        if workspace_override:
+            manager = CredentialManager(workspace=workspace_override)
+        
+        # Confirm workspace before adding credentials
+        skip_confirm = getattr(args, 'yes', False)
+        if not skip_confirm:
+            print(f"\n⚠️  You are adding credentials to workspace:")
+            print(f"   Name: {manager.backend.workspace_name}")
+            print(f"   ID:   {manager.backend.workspace}")
+            print()
+            confirm = input("Continue? [y/N]: ").strip().lower()
+            if confirm not in ('y', 'yes'):
+                print("Cancelled.")
+                sys.exit(0)
+            print()
+        
         if args.type == "aws":
             if not args.access_key_id:
                 args.access_key_id = input("AWS Access Key ID: ")
