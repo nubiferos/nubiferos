@@ -2,6 +2,32 @@
 # NubiferOS Terminal Prompt Integration
 # Adds visual workspace context to terminal prompts
 
+# Auto-source current workspace environment on each prompt
+# This allows GNOME UI workspace switches to update existing terminals
+_nubiferos_check_workspace() {
+    local env_file="$HOME/.config/nubifer/current-env"
+    local current_file="$HOME/.config/nubifer/current-workspace"
+    
+    # Check if current workspace changed (via GNOME UI or another terminal)
+    if [ -f "$current_file" ]; then
+        local new_workspace_id
+        new_workspace_id=$(cat "$current_file" 2>/dev/null)
+        
+        # If workspace changed, source the new environment
+        if [ -n "$new_workspace_id" ] && [ "$new_workspace_id" != "$NUBIFEROS_WORKSPACE_ID" ]; then
+            if [ -f "$env_file" ]; then
+                eval "$(cat "$env_file")"
+                nubiferos_update_prompt 2>/dev/null
+            fi
+        fi
+    fi
+}
+
+# Add to PROMPT_COMMAND to check on each prompt
+if [[ ! "$PROMPT_COMMAND" =~ "_nubiferos_check_workspace" ]]; then
+    PROMPT_COMMAND="_nubiferos_check_workspace${PROMPT_COMMAND:+;$PROMPT_COMMAND}"
+fi
+
 # Only modify prompt if workspace is active
 if [ -n "$NUBIFEROS_WORKSPACE_ID" ]; then
     # Get workspace info from environment
