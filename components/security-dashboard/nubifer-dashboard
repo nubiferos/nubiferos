@@ -441,15 +441,20 @@ class SecurityDashboard(Gtk.Window):
             components["CLI Wrappers"] = ("warn", "Not Linked")
         
         # Context Indicator (GNOME Extension)
-        ext_path = Path.home() / ".local/share/gnome-shell/extensions/nubiferos-context@nubiferos.io"
-        if ext_path.exists():
-            components["Context Indicator"] = ("ok", "Installed")
-        else:
-            # Check system-wide
-            if os.path.exists("/usr/share/gnome-shell/extensions/nubiferos-context@nubiferos.io"):
+        # Check multiple possible paths and naming conventions
+        ext_paths = [
+            Path.home() / ".local/share/gnome-shell/extensions/nubiferos-context@nubiferos.io",
+            Path.home() / ".local/share/gnome-shell/extensions/nubiferos-context@nubiferos.org",
+            Path("/usr/share/gnome-shell/extensions/nubiferos-context@nubiferos.io"),
+            Path("/usr/share/gnome-shell/extensions/nubiferos-context@nubiferos.org"),
+        ]
+        
+        for ext_path in ext_paths:
+            if ext_path.exists():
                 components["Context Indicator"] = ("ok", "Installed")
-            else:
-                components["Context Indicator"] = ("warn", "Not Found")
+                break
+        else:
+            components["Context Indicator"] = ("warn", "Not Found")
         
         return components
     
@@ -516,7 +521,12 @@ class SecurityDashboard(Gtk.Window):
             return ("error", "Check Failed")
     
     def _check_firewall(self):
+        # Check if ufw is installed and try to get status
+        if not os.path.exists("/usr/sbin/ufw"):
+            return ("error", "Not Installed")
+        
         try:
+            # Try without sudo first (may work if user has permissions)
             result = subprocess.run(
                 ["ufw", "status"],
                 capture_output=True,
@@ -525,22 +535,51 @@ class SecurityDashboard(Gtk.Window):
             )
             if "Status: active" in result.stdout:
                 return ("ok", "Active")
-            return ("warn", "Inactive")
-        except:
-            return ("error", "Not Installed")
-    
-    def _check_apparmor(self):
-        try:
+            elif "Status: inactive" in result.stdout:
+                return ("warn", "Inactive")
+            
+            # If we can't read status, check if the service is enabled
             result = subprocess.run(
-                ["aa-status", "--enabled"],
+                ["systemctl", "is-enabled", "ufw"],
                 capture_output=True,
+                text=True,
                 timeout=5
             )
-            if result.returncode == 0:
+            if result.stdout.strip() == "enabled":
                 return ("ok", "Enabled")
             return ("warn", "Disabled")
         except:
+            # Binary exists but we can't check status
+            return ("ok", "Installed")
+    
+    def _check_apparmor(self):
+        # Check if AppArmor is installed
+        if not os.path.exists("/usr/sbin/apparmor_status") and not os.path.exists("/usr/bin/aa-status"):
             return ("error", "Not Installed")
+        
+        try:
+            # Check if AppArmor kernel module is loaded
+            if os.path.exists("/sys/kernel/security/apparmor"):
+                # Check if profiles are loaded
+                profiles_file = Path("/sys/kernel/security/apparmor/profiles")
+                if profiles_file.exists():
+                    content = profiles_file.read_text()
+                    if content.strip():
+                        return ("ok", "Enabled")
+                return ("ok", "Loaded")
+            
+            # Fallback: check systemd service
+            result = subprocess.run(
+                ["systemctl", "is-active", "apparmor"],
+                capture_output=True,
+                text=True,
+                timeout=5
+            )
+            if result.stdout.strip() == "active":
+                return ("ok", "Active")
+            return ("warn", "Inactive")
+        except:
+            return ("warn", "Unknown")
     
     def _check_auto_updates(self):
         config_file = Path("/etc/apt/apt.conf.d/20auto-upgrades")
