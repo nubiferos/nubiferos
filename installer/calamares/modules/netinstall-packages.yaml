@@ -1,9 +1,9 @@
 ---
 # Package groups for netinstall module
-# Packages from Debian repos + post-install scripts for external tools
+# Debian repo packages + external tools (installed via shellprocess)
 
 - name: "Cloud Development Tools"
-  description: "Docker, Python cloud SDKs, and AWS/Azure CLIs"
+  description: "Docker, Python cloud SDKs, and AWS CLI"
   selected: true
   critical: false
   packages:
@@ -14,36 +14,38 @@
     - awscli
 
 - name: "Kubernetes Tools"
-  description: "kubectl, Helm, and k9s for Kubernetes management"
+  description: "kubectl, Helm, k9s, and eksctl (installed from official sources)"
   selected: true
   critical: false
+  expanded: true
   subgroups:
     - name: "kubectl"
       description: "Kubernetes command-line tool"
       selected: true
       packages: []
-      post-install: /usr/share/nubiferos/installers/install-kubectl.sh
     - name: "Helm"
       description: "Kubernetes package manager"
       selected: true
       packages: []
-      post-install: /usr/share/nubiferos/installers/install-helm.sh
     - name: "k9s"
       description: "Terminal UI for Kubernetes"
       selected: true
       packages: []
-      post-install: /usr/share/nubiferos/installers/install-k9s.sh
+    - name: "eksctl"
+      description: "Amazon EKS cluster management"
+      selected: true
+      packages: []
 
 - name: "Infrastructure as Code"
   description: "Terraform and Ansible for infrastructure management"
   selected: true
   critical: false
+  expanded: true
   subgroups:
     - name: "Terraform"
       description: "Infrastructure provisioning by HashiCorp"
       selected: true
       packages: []
-      post-install: /usr/share/nubiferos/installers/install-terraform.sh
     - name: "Ansible"
       description: "Configuration management and automation"
       selected: true
@@ -66,80 +68,26 @@
     - wget
     - jq
 
-- name: "IDEs and Editors"
-  description: "Code editors and IDEs"
-  selected: false
+- name: "Terminal Editors"
+  description: "Vim, Neovim, Emacs"
+  selected: true
   critical: false
-  subgroups:
-    - name: "Terminal Editors"
-      description: "Vim, Neovim, Emacs"
-      selected: true
-      packages:
-        - vim
-        - neovim
-        - emacs-nox
-    - name: "VS Code"
-      description: "Visual Studio Code (downloads ~100MB)"
-      selected: false
-      packages: []
-      post-install: /usr/share/nubiferos/installers/install-vscode.sh
-    - name: "IntelliJ IDEA"
-      description: "IntelliJ IDEA Community Edition (downloads ~800MB)"
-      selected: false
-      packages: []
-      post-install: /usr/share/nubiferos/installers/install-intellij.sh
-    - name: "PyCharm"
-      description: "PyCharm Community Edition (downloads ~500MB)"
-      selected: false
-      packages: []
-      post-install: /usr/share/nubiferos/installers/install-pycharm.sh
+  packages:
+    - vim
+    - neovim
+    - emacs-nox
 
 - name: "Security & Hardening"
-  description: "Firejail, AppArmor, and security monitoring tools (REQUIRED)"
+  description: "Firejail, AppArmor, and security tools (REQUIRED)"
   selected: true
   critical: true
   immutable: true
-  subgroups:
-    - name: "Sandbox & Isolation"
-      description: "Application sandboxing for credential protection"
-      selected: true
-      critical: true
-      packages:
-        - firejail
-    - name: "Mandatory Access Control"
-      description: "AppArmor kernel security - restricts what apps can access"
-      selected: true
-      critical: true
-      packages:
-        - apparmor
-        - apparmor-utils
-    - name: "Intrusion Prevention"
-      description: "fail2ban - blocks brute force attacks on SSH/services"
-      selected: true
-      critical: true
-      packages:
-        - fail2ban
-    - name: "Firewall"
-      description: "ufw - deny-by-default firewall, blocks unauthorized access"
-      selected: true
-      critical: true
-      packages:
-        - ufw
-    - name: "File Integrity Monitoring"
-      description: "AIDE - detects unauthorized changes to system files"
-      selected: true
-      critical: true
-      packages:
-        - aide
-    - name: "Rootkit Detection"
-      description: "rkhunter - scans for rootkits and backdoors"
-      selected: true
-      critical: true
-      packages:
-        - rkhunter
-    - name: "Security Auditing"
-      description: "Lynis - comprehensive security audit and hardening tool"
-      selected: true
-      critical: true
-      packages:
-        - lynis
+  packages:
+    - firejail
+    - apparmor
+    - apparmor-utils
+    - fail2ban
+    - ufw
+    - aide
+    - rkhunter
+    - lynis
