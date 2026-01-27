@@ -53,6 +53,34 @@
           "url": "https://console.aws.amazon.com/eks/"
         },
         {
+          "title": "AWS ECS",
+          "url": "https://console.aws.amazon.com/ecs/"
+        },
+        {
+          "title": "AWS Fargate",
+          "url": "https://console.aws.amazon.com/ecs/home#/clusters?selectedTab=fargate"
+        },
+        {
+          "title": "AWS VPC",
+          "url": "https://console.aws.amazon.com/vpc/"
+        },
+        {
+          "title": "AWS Route 53",
+          "url": "https://console.aws.amazon.com/route53/"
+        },
+        {
+          "title": "AWS Secrets Manager",
+          "url": "https://console.aws.amazon.com/secretsmanager/"
+        },
+        {
+          "title": "AWS KMS",
+          "url": "https://console.aws.amazon.com/kms/"
+        },
+        {
+          "title": "AWS CloudTrail",
+          "url": "https://console.aws.amazon.com/cloudtrail/"
+        },
+        {
           "title": "AWS CloudFormation",
           "url": "https://console.aws.amazon.com/cloudformation/"
         },
@@ -218,6 +246,67 @@
         {
           "title": "Bicep Documentation",
           "url": "https://learn.microsoft.com/azure/azure-resource-manager/bicep/"
+        },
+        {
+          "title": "OpenTofu Documentation",
+          "url": "https://opentofu.org/docs/"
+        },
+        {
+          "title": "Terragrunt Documentation",
+          "url": "https://terragrunt.gruntwork.io/docs/"
+        },
+        {
+          "title": "Crossplane Documentation",
+          "url": "https://docs.crossplane.io/"
+        }
+      ]
+    },
+    {
+      "title": "Serverless",
+      "children": [
+        {
+          "title": "AWS Lambda Console",
+          "url": "https://console.aws.amazon.com/lambda/"
+        },
+        {
+          "title": "AWS Lambda Documentation",
+          "url": "https://docs.aws.amazon.com/lambda/"
+        },
+        {
+          "title": "AWS API Gateway",
+          "url": "https://console.aws.amazon.com/apigateway/"
+        },
+        {
+          "title": "AWS Step Functions",
+          "url": "https://console.aws.amazon.com/states/"
+        },
+        {
+          "title": "AWS EventBridge",
+          "url": "https://console.aws.amazon.com/events/"
+        },
+        {
+          "title": "Azure Functions Portal",
+          "url": "https://portal.azure.com/#blade/HubsExtension/BrowseResource/resourceType/Microsoft.Web%2Fsites/kind/functionapp"
+        },
+        {
+          "title": "Azure Functions Documentation",
+          "url": "https://learn.microsoft.com/azure/azure-functions/"
+        },
+        {
+          "title": "GCP Cloud Functions",
+          "url": "https://console.cloud.google.com/functions"
+        },
+        {
+          "title": "GCP Cloud Run",
+          "url": "https://console.cloud.google.com/run"
+        },
+        {
+          "title": "Serverless Framework Docs",
+          "url": "https://www.serverless.com/framework/docs"
+        },
+        {
+          "title": "SAM CLI Documentation",
+          "url": "https://docs.aws.amazon.com/serverless-application-model/"
         }
       ]
     },
@@ -405,20 +494,52 @@
           "url": "https://console.aws.amazon.com/securityhub/"
         },
         {
+          "title": "AWS GuardDuty",
+          "url": "https://console.aws.amazon.com/guardduty/"
+        },
+        {
+          "title": "AWS Inspector",
+          "url": "https://console.aws.amazon.com/inspector/"
+        },
+        {
+          "title": "AWS Secrets Manager",
+          "url": "https://console.aws.amazon.com/secretsmanager/"
+        },
+        {
           "title": "Azure Security Center",
           "url": "https://portal.azure.com/#blade/Microsoft_Azure_Security/SecurityMenuBlade/0"
+        },
+        {
+          "title": "Azure Key Vault",
+          "url": "https://portal.azure.com/#blade/HubsExtension/BrowseResource/resourceType/Microsoft.KeyVault%2Fvaults"
         },
         {
           "title": "GCP Security Command Center",
           "url": "https://console.cloud.google.com/security"
         },
         {
+          "title": "GCP Secret Manager",
+          "url": "https://console.cloud.google.com/security/secret-manager"
+        },
+        {
           "title": "Trivy Documentation",
           "url": "https://aquasecurity.github.io/trivy/"
         },
         {
+          "title": "Checkov Documentation",
+          "url": "https://www.checkov.io/1.Welcome/Quick%20Start.html"
+        },
+        {
+          "title": "tfsec Documentation",
+          "url": "https://aquasecurity.github.io/tfsec/"
+        },
+        {
           "title": "OWASP",
           "url": "https://owasp.org/"
+        },
+        {
+          "title": "OWASP Top 10",
+          "url": "https://owasp.org/www-project-top-ten/"
         },
         {
           "title": "OWASP ZAP Documentation",
@@ -427,6 +548,10 @@
         {
           "title": "CVE Database",
           "url": "https://cve.mitre.org/"
+        },
+        {
+          "title": "NVD (National Vulnerability Database)",
+          "url": "https://nvd.nist.gov/"
         },
         {
           "title": "Snyk Documentation",
@@ -439,6 +564,14 @@
         {
           "title": "SOPS Documentation",
           "url": "https://github.com/mozilla/sops"
+        },
+        {
+          "title": "CIS Benchmarks",
+          "url": "https://www.cisecurity.org/cis-benchmarks"
+        },
+        {
+          "title": "NIST Cybersecurity Framework",
+          "url": "https://www.nist.gov/cyberframework"
         }
       ]
     },
