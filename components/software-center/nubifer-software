@@ -233,6 +233,35 @@ SOFTWARE_CATALOG = {
                 "size": "~5MB"
             }
         ]
+    },
+    "Security Tools": {
+        "icon": "security-high",
+        "tools": [
+            {
+                "id": "keepassxc",
+                "name": "KeePassXC",
+                "description": "Offline password manager with local encrypted database",
+                "check_cmd": "keepassxc --version",
+                "install_cmd": "sudo apt-get install -y keepassxc",
+                "size": "~30MB"
+            },
+            {
+                "id": "bitwarden",
+                "name": "Bitwarden",
+                "description": "Open source password manager with cloud sync",
+                "check_cmd": "test -f /usr/bin/bitwarden || test -f /opt/Bitwarden/bitwarden",
+                "install_cmd": "cd /tmp && wget -q 'https://vault.bitwarden.com/download/?app=desktop&platform=linux&variant=deb' -O bitwarden.deb && sudo dpkg -i bitwarden.deb && rm bitwarden.deb",
+                "size": "~150MB"
+            },
+            {
+                "id": "1password",
+                "name": "1Password",
+                "description": "Premium password manager for teams and individuals",
+                "check_cmd": "1password --version 2>/dev/null || test -f /opt/1Password/1password",
+                "install_cmd": "curl -sS https://downloads.1password.com/linux/keys/1password.asc | sudo gpg --dearmor -o /usr/share/keyrings/1password-archive-keyring.gpg && echo 'deb [arch=amd64 signed-by=/usr/share/keyrings/1password-archive-keyring.gpg] https://downloads.1password.com/linux/debian/amd64 stable main' | sudo tee /etc/apt/sources.list.d/1password.list && sudo apt-get update && sudo apt-get install -y 1password",
+                "size": "~200MB"
+            }
+        ]
     }
 }
 
