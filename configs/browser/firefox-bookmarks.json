@@ -133,12 +133,40 @@
           "url": "https://console.aws.amazon.com/glue/"
         },
         {
+          "title": "AWS Elastic Beanstalk",
+          "url": "https://console.aws.amazon.com/elasticbeanstalk/"
+        },
+        {
+          "title": "AWS Amplify",
+          "url": "https://console.aws.amazon.com/amplify/"
+        },
+        {
           "title": "AWS Systems Manager",
           "url": "https://console.aws.amazon.com/systems-manager/"
         },
         {
           "title": "AWS CLI Reference",
           "url": "https://awscli.amazonaws.com/v2/documentation/api/latest/index.html"
+        },
+        {
+          "title": "AWS SAM CLI",
+          "url": "https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/serverless-sam-cli-command-reference.html"
+        },
+        {
+          "title": "AWS Copilot CLI",
+          "url": "https://aws.github.io/copilot-cli/"
+        },
+        {
+          "title": "AWS CDK CLI",
+          "url": "https://docs.aws.amazon.com/cdk/v2/guide/cli.html"
+        },
+        {
+          "title": "AWS EB CLI (Elastic Beanstalk)",
+          "url": "https://docs.aws.amazon.com/elasticbeanstalk/latest/dg/eb-cli3.html"
+        },
+        {
+          "title": "AWS Amplify CLI",
+          "url": "https://docs.amplify.aws/cli/"
         },
         {
           "title": "AWS SDK Documentation",
