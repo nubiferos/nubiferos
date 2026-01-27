@@ -157,29 +157,28 @@ class CredentialManager:
     def __init__(self, workspace: str = None):
         self.backend = PassBackend(workspace)
     
-    def add_aws_credentials(self, profile: str, access_key_id: str, secret_access_key: str, region: str = "us-east-1"):
-        """Add AWS credentials"""
+    def add_aws_credentials(self, profile: str, access_key_id: str, secret_access_key: str):
+        """Add AWS credentials (region is set on workspace, not credential)"""
         # Store each component separately in pass
         self.backend.add_credential(f"cloud/aws/{profile}/access-key-id", access_key_id)
         self.backend.add_credential(f"cloud/aws/{profile}/secret-access-key", secret_access_key)
-        self.backend.add_credential(f"cloud/aws/{profile}/region", region)
         
         print(f"✓ AWS credentials added: {profile}")
         print(f"  Workspace: {self.backend.workspace_name} ({self.backend.workspace})")
         print(f"  Retrieve with: nubifer-creds get -t aws -n {profile}")
+        print(f"  Region is set on the workspace, not the credential.")
+        print(f"  Update region: nubifer-workspace update <workspace-id> --region <region>")
         print(f"  The AWS CLI wrapper will automatically use these credentials.")
     
     def get_aws_credentials(self, profile: str) -> Optional[Dict]:
-        """Get AWS credentials"""
+        """Get AWS credentials (region comes from workspace, not here)"""
         access_key = self.backend.get_credential(f"cloud/aws/{profile}/access-key-id")
         secret_key = self.backend.get_credential(f"cloud/aws/{profile}/secret-access-key")
-        region = self.backend.get_credential(f"cloud/aws/{profile}/region")
         
         if access_key and secret_key:
             return {
                 "access_key_id": access_key,
-                "secret_access_key": secret_key,
-                "region": region or "us-east-1"
+                "secret_access_key": secret_key
             }
         return None
     
@@ -282,7 +281,6 @@ def main():
     # AWS specific
     add_parser.add_argument("--access-key-id", help="AWS access key ID")
     add_parser.add_argument("--secret-access-key", help="AWS secret access key")
-    add_parser.add_argument("--region", default="us-east-1", help="AWS region")
     
     # Azure specific
     add_parser.add_argument("--tenant-id", help="Azure tenant ID")
@@ -346,7 +344,7 @@ def main():
             if not args.secret_access_key:
                 args.secret_access_key = getpass.getpass("AWS Secret Access Key: ")
             
-            manager.add_aws_credentials(args.name, args.access_key_id, args.secret_access_key, args.region)
+            manager.add_aws_credentials(args.name, args.access_key_id, args.secret_access_key)
         
         elif args.type == "azure":
             if not args.tenant_id:
@@ -385,7 +383,7 @@ def main():
                     print(f"AWS Credentials: {args.name}")
                     print(f"  Access Key ID: {creds['access_key_id']}")
                     print(f"  Secret Access Key: {creds['secret_access_key'][:4]}...{creds['secret_access_key'][-4:]}")
-                    print(f"  Region: {creds['region']}")
+                    print(f"  (Region is set on workspace, not credential)")
             else:
                 print(f"✗ Credentials not found: {args.name}", file=sys.stderr)
                 sys.exit(1)
