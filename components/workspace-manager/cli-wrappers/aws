@@ -43,6 +43,10 @@ if ! pass show "$PASS_PATH" &>/dev/null; then
     CRED_NAME="default"
 fi
 
+# Get region from pass (stored when credentials were added)
+REGION=$(pass show "nubifer/${NUBIFER_WORKSPACE_ID}/cloud/aws/${CRED_NAME}/region" 2>/dev/null)
+REGION="${REGION:-us-east-1}"
+
 # Inject credentials securely using credential_process
 # This avoids putting credentials in environment variables
 export AWS_CONFIG_FILE=$(mktemp)
@@ -51,7 +55,7 @@ trap "rm -f $AWS_CONFIG_FILE" EXIT
 cat > "$AWS_CONFIG_FILE" << EOF
 [default]
 credential_process = /usr/local/bin/nubifer-aws-credential-helper ${CRED_NAME}
-region = ${NUBIFER_REGION:-us-east-1}
+region = ${REGION}
 EOF
 
 # Set workspace environment for credential helper
