@@ -43,8 +43,11 @@ if ! pass show "$PASS_PATH" &>/dev/null; then
     CRED_NAME="default"
 fi
 
-# Get region from pass (stored when credentials were added)
-REGION=$(pass show "nubifer/${NUBIFER_WORKSPACE_ID}/cloud/aws/${CRED_NAME}/region" 2>/dev/null)
+# Get region from workspace config (not pass - region is context, not a secret)
+WORKSPACE_FILE="$HOME/.config/nubifer/workspaces/${NUBIFER_WORKSPACE_ID}.json"
+if [ -f "$WORKSPACE_FILE" ]; then
+    REGION=$(python3 -c "import json; print(json.load(open('$WORKSPACE_FILE')).get('region', 'us-east-1'))" 2>/dev/null)
+fi
 REGION="${REGION:-us-east-1}"
 
 # Inject credentials securely using credential_process
