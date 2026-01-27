@@ -1,0 +1,138 @@
+# NubiferOS Tools Configuration
+# Used by nubifer-update-checker to track installed vs latest versions
+# Add/remove tools here - the checker reads this config
+
+tools:
+  # Cloud CLIs
+  aws:
+    name: "AWS CLI"
+    check_cmd: "aws --version 2>&1 | awk '{print $1}' | cut -d/ -f2"
+    latest_type: "github"
+    latest_source: "aws/aws-cli"
+    installer: null  # Installed via apt or awscliv2.zip
+
+  gcloud:
+    name: "Google Cloud SDK"
+    check_cmd: "gcloud version 2>/dev/null | head -1 | awk '{print $4}'"
+    latest_type: "apt"
+    latest_source: "google-cloud-cli"
+    installer: "install-cloud-sdks.sh"
+
+  az:
+    name: "Azure CLI"
+    check_cmd: "az version 2>/dev/null | jq -r '.\"azure-cli\"'"
+    latest_type: "github"
+    latest_source: "Azure/azure-cli"
+    installer: "install-cloud-sdks.sh"
+
+  # Kubernetes Tools
+  kubectl:
+    name: "kubectl"
+    check_cmd: "kubectl version --client -o json 2>/dev/null | jq -r '.clientVersion.gitVersion' | tr -d 'v'"
+    latest_type: "url"
+    latest_source: "https://dl.k8s.io/release/stable.txt"
+    latest_transform: "tr -d 'v'"
+    installer: "installers/install-kubectl.sh"
+
+  helm:
+    name: "Helm"
+    check_cmd: "helm version --short 2>/dev/null | tr -d 'v' | cut -d+ -f1"
+    latest_type: "github"
+    latest_source: "helm/helm"
+    installer: "installers/install-helm.sh"
+
+  k9s:
+    name: "k9s"
+    check_cmd: "k9s version --short 2>/dev/null | grep Version | awk '{print $2}' | tr -d 'v'"
+    latest_type: "github"
+    latest_source: "derailed/k9s"
+    installer: "installers/install-k9s.sh"
+
+  eksctl:
+    name: "eksctl"
+    check_cmd: "eksctl version 2>/dev/null"
+    latest_type: "github"
+    latest_source: "eksctl-io/eksctl"
+    installer: "installers/install-eksctl.sh"
+
+  # Infrastructure as Code
+  terraform:
+    name: "Terraform"
+    check_cmd: "terraform version -json 2>/dev/null | jq -r '.terraform_version'"
+    latest_type: "github"
+    latest_source: "hashicorp/terraform"
+    installer: "installers/install-terraform.sh"
+
+  opentofu:
+    name: "OpenTofu"
+    check_cmd: "tofu version -json 2>/dev/null | jq -r '.terraform_version'"
+    latest_type: "github"
+    latest_source: "opentofu/opentofu"
+    installer: null
+
+  ansible:
+    name: "Ansible"
+    check_cmd: "ansible --version 2>/dev/null | head -1 | awk '{print $3}' | tr -d '[]'"
+    latest_type: "apt"
+    latest_source: "ansible"
+    installer: null
+
+  # Containers
+  docker:
+    name: "Docker"
+    check_cmd: "docker --version 2>/dev/null | awk '{print $3}' | tr -d ','"
+    latest_type: "github"
+    latest_source: "moby/moby"
+    installer: null
+
+  podman:
+    name: "Podman"
+    check_cmd: "podman --version 2>/dev/null | awk '{print $3}'"
+    latest_type: "github"
+    latest_source: "containers/podman"
+    installer: null
+
+  # AWS Specific Tools
+  sam:
+    name: "AWS SAM CLI"
+    check_cmd: "sam --version 2>/dev/null | awk '{print $4}'"
+    latest_type: "github"
+    latest_source: "aws/aws-sam-cli"
+    installer: null
+
+  copilot:
+    name: "AWS Copilot"
+    check_cmd: "copilot --version 2>/dev/null | awk '{print $3}'"
+    latest_type: "github"
+    latest_source: "aws/copilot-cli"
+    installer: null
+
+  cdk:
+    name: "AWS CDK"
+    check_cmd: "cdk --version 2>/dev/null | awk '{print $1}'"
+    latest_type: "npm"
+    latest_source: "aws-cdk"
+    installer: null
+
+  eb:
+    name: "AWS EB CLI"
+    check_cmd: "eb --version 2>/dev/null | awk '{print $3}'"
+    latest_type: "pypi"
+    latest_source: "awsebcli"
+    installer: null
+
+  # Security Tools
+  trivy:
+    name: "Trivy"
+    check_cmd: "trivy --version 2>/dev/null | head -1 | awk '{print $2}'"
+    latest_type: "github"
+    latest_source: "aquasecurity/trivy"
+    installer: null
+
+  # IDEs (check if installed, version less critical)
+  code:
+    name: "VS Code"
+    check_cmd: "code --version 2>/dev/null | head -1"
+    latest_type: "skip"
+    latest_source: null
+    installer: "installers/install-vscode.sh"

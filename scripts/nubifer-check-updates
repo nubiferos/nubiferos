@@ -1,0 +1,276 @@
+#!/usr/bin/env python3
+"""
+NubiferOS Tool Update Checker
+Compares installed tool versions against latest available versions.
+Configuration is read from tools-config.yaml
+"""
+
+import subprocess
+import sys
+import os
+import json
+import urllib.request
+import urllib.error
+from pathlib import Path
+
+# ANSI colors
+GREEN = '\033[92m'
+YELLOW = '\033[93m'
+RED = '\033[91m'
+CYAN = '\033[96m'
+RESET = '\033[0m'
+BOLD = '\033[1m'
+
+def load_config():
+    """Load tools configuration from YAML file."""
+    config_path = Path(__file__).parent / "tools-config.yaml"
+    
+    if not config_path.exists():
+        print(f"{RED}Error: tools-config.yaml not found{RESET}")
+        sys.exit(1)
+    
+    # Simple YAML parser (avoid external dependency)
+    tools = {}
+    current_tool = None
+    
+    with open(config_path) as f:
+        for line in f:
+            line = line.rstrip()
+            if not line or line.startswith('#'):
+                continue
+            
+            # Tool name (2 spaces indent)
+            if line.startswith('  ') and not line.startswith('    ') and ':' in line:
+                key = line.strip().rstrip(':')
+                if key != 'tools':
+                    current_tool = key
+                    tools[current_tool] = {}
+            
+            # Tool property (4 spaces indent)
+            elif line.startswith('    ') and current_tool and ':' in line:
+                key, _, value = line.strip().partition(':')
+                value = value.strip().strip('"').strip("'")
+                if value == 'null':
+                    value = None
+                tools[current_tool][key] = value
+    
+    return tools
+
+
+def run_cmd(cmd):
+    """Run a shell command and return output."""
+    try:
+        result = subprocess.run(
+            cmd, shell=True, capture_output=True, text=True, timeout=10
+        )
+        return result.stdout.strip() if result.returncode == 0 else None
+    except:
+        return None
+
+
+def get_installed_version(tool_config):
+    """Get the installed version of a tool."""
+    check_cmd = tool_config.get('check_cmd')
+    if not check_cmd:
+        return None
+    return run_cmd(check_cmd)
+
+
+def get_latest_github(repo):
+    """Get latest version from GitHub releases."""
+    try:
+        url = f"https://api.github.com/repos/{repo}/releases/latest"
+        req = urllib.request.Request(url, headers={'User-Agent': 'NubiferOS'})
+        with urllib.request.urlopen(req, timeout=10) as response:
+            data = json.loads(response.read().decode())
+            tag = data.get('tag_name', '')
+            # Strip common prefixes
+            for prefix in ['v', 'release-', 'cli-']:
+                if tag.startswith(prefix):
+                    tag = tag[len(prefix):]
+            return tag
+    except:
+        return None
+
+
+def get_latest_url(url, transform=None):
+    """Get latest version from a URL."""
+    try:
+        req = urllib.request.Request(url, headers={'User-Agent': 'NubiferOS'})
+        with urllib.request.urlopen(req, timeout=10) as response:
+            version = response.read().decode().strip()
+            if transform:
+                version = run_cmd(f"echo '{version}' | {transform}")
+            return version
+    except:
+        return None
+
+
+def get_latest_npm(package):
+    """Get latest version from npm registry."""
+    try:
+        url = f"https://registry.npmjs.org/{package}/latest"
+        req = urllib.request.Request(url, headers={'User-Agent': 'NubiferOS'})
+        with urllib.request.urlopen(req, timeout=10) as response:
+            data = json.loads(response.read().decode())
+            return data.get('version')
+    except:
+        return None
+
+
+def get_latest_pypi(package):
+    """Get latest version from PyPI."""
+    try:
+        url = f"https://pypi.org/pypi/{package}/json"
+        req = urllib.request.Request(url, headers={'User-Agent': 'NubiferOS'})
+        with urllib.request.urlopen(req, timeout=10) as response:
+            data = json.loads(response.read().decode())
+            return data.get('info', {}).get('version')
+    except:
+        return None
+
+
+def get_latest_version(tool_config):
+    """Get the latest available version of a tool."""
+    latest_type = tool_config.get('latest_type')
+    latest_source = tool_config.get('latest_source')
+    
+    if latest_type == 'skip' or not latest_source:
+        return None
+    
+    if latest_type == 'github':
+        return get_latest_github(latest_source)
+    elif latest_type == 'url':
+        transform = tool_config.get('latest_transform')
+        return get_latest_url(latest_source, transform)
+    elif latest_type == 'npm':
+        return get_latest_npm(latest_source)
+    elif latest_type == 'pypi':
+        return get_latest_pypi(latest_source)
+    elif latest_type == 'apt':
+        # Skip apt version checks for now (would need apt-cache policy)
+        return None
+    
+    return None
+
+
+def normalize_version(v):
+    """Normalize version string for comparison."""
+    if not v:
+        return None
+    # Remove common prefixes and suffixes
+    v = v.strip().lstrip('v').split('+')[0].split('-')[0]
+    return v
+
+
+def compare_versions(installed, latest):
+    """Compare two version strings. Returns: -1 (older), 0 (same), 1 (newer)."""
+    if not installed or not latest:
+        return None
+    
+    inst = normalize_version(installed)
+    lat = normalize_version(latest)
+    
+    if inst == lat:
+        return 0
+    
+    # Simple numeric comparison
+    try:
+        inst_parts = [int(x) for x in inst.split('.')]
+        lat_parts = [int(x) for x in lat.split('.')]
+        
+        # Pad to same length
+        max_len = max(len(inst_parts), len(lat_parts))
+        inst_parts.extend([0] * (max_len - len(inst_parts)))
+        lat_parts.extend([0] * (max_len - len(lat_parts)))
+        
+        for i, l in zip(inst_parts, lat_parts):
+            if i < l:
+                return -1
+            elif i > l:
+                return 1
+        return 0
+    except:
+        # Fall back to string comparison
+        return 0 if inst == lat else -1
+
+
+def main():
+    print(f"\n{BOLD}{CYAN}🔍 NubiferOS Tool Update Checker{RESET}\n")
+    
+    tools = load_config()
+    
+    results = {
+        'up_to_date': [],
+        'outdated': [],
+        'not_installed': [],
+        'unknown': []
+    }
+    
+    for tool_id, config in tools.items():
+        name = config.get('name', tool_id)
+        
+        # Get installed version
+        installed = get_installed_version(config)
+        
+        if not installed:
+            results['not_installed'].append((name, tool_id))
+            continue
+        
+        # Get latest version
+        latest = get_latest_version(config)
+        
+        if not latest:
+            results['unknown'].append((name, installed))
+            continue
+        
+        # Compare
+        cmp = compare_versions(installed, latest)
+        
+        if cmp == 0:
+            results['up_to_date'].append((name, installed))
+        elif cmp == -1:
+            results['outdated'].append((name, installed, latest))
+        else:
+            results['up_to_date'].append((name, installed))
+    
+    # Print results
+    if results['up_to_date']:
+        print(f"{GREEN}{BOLD}✓ Up to date:{RESET}")
+        for name, version in results['up_to_date']:
+            print(f"  {name}: {version}")
+        print()
+    
+    if results['outdated']:
+        print(f"{YELLOW}{BOLD}⚠ Updates available:{RESET}")
+        for name, installed, latest in results['outdated']:
+            print(f"  {name}: {installed} → {latest}")
+        print()
+    
+    if results['unknown']:
+        print(f"{CYAN}? Version check skipped:{RESET}")
+        for name, version in results['unknown']:
+            print(f"  {name}: {version}")
+        print()
+    
+    if results['not_installed']:
+        print(f"{RED}✗ Not installed:{RESET}")
+        for name, tool_id in results['not_installed']:
+            print(f"  {name}")
+        print()
+    
+    # Summary
+    total = len(tools)
+    installed = total - len(results['not_installed'])
+    outdated = len(results['outdated'])
+    
+    print(f"{BOLD}Summary:{RESET} {installed}/{total} tools installed", end="")
+    if outdated:
+        print(f", {YELLOW}{outdated} updates available{RESET}")
+    else:
+        print(f", {GREEN}all up to date{RESET}")
+    print()
+
+
+if __name__ == "__main__":
+    main()
