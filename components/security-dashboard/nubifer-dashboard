@@ -15,6 +15,41 @@ from datetime import datetime
 
 
 class SecurityDashboard(Gtk.Window):
+    # Tooltip definitions for all dashboard items
+    TOOLTIPS = {
+        # Components
+        "Workspace Manager": "Manages isolated cloud workspaces with separate credentials and configurations. Use 'nubifer-workspace' CLI to create and switch workspaces.",
+        "Credential Manager": "Securely stores cloud credentials in GPG-encrypted pass store. Credentials are never exposed as environment variables.",
+        "AWS Credential Helper": "Provides on-demand AWS credentials to CLI tools via credential_process. Credentials exist only in memory during API calls.",
+        "CLI Wrappers": "Intercept cloud CLI commands (aws, az, gcloud) to inject workspace-specific credentials automatically.",
+        "Context Indicator": "GNOME Shell extension showing active workspace in the top panel. Helps prevent accidental cross-account operations.",
+        
+        # Workspace & Credentials
+        "Active Workspace": "Currently selected workspace. All cloud operations use this workspace's credentials and region settings.",
+        "Pass Store (GPG)": "GNU Pass password manager with GPG encryption. Initialize with 'pass init <gpg-key-id>' to store credentials securely.",
+        
+        # System Security
+        "LUKS Encryption": "Full disk encryption protects data at rest. Critical for protecting credentials if device is lost or stolen.",
+        "Firewall (UFW)": "Uncomplicated Firewall controls network access. Enable with 'sudo ufw enable' for basic protection.",
+        "AppArmor": "Mandatory Access Control system that confines programs to limited resources. Provides defense-in-depth.",
+        "Automatic Updates": "Unattended security updates keep system patched against known vulnerabilities.",
+        
+        # CPU Vulnerabilities
+        "Spectre V1": "Bounds check bypass vulnerability. Mitigations include array bounds checking and speculation barriers.",
+        "Spectre V2": "Branch target injection vulnerability. Mitigated via retpolines and IBRS/IBPB.",
+        "Meltdown": "Rogue data cache load vulnerability. Mitigated via KPTI (Kernel Page Table Isolation).",
+        "Retbleed": "Return instruction speculation vulnerability. Mitigated via IBRS or return thunks.",
+        "Mds": "Microarchitectural Data Sampling. Mitigated via CPU microcode updates and buffer clearing.",
+        
+        # Score breakdown
+        "Disk Encryption": "LUKS full disk encryption protects all data at rest including credentials and workspace configurations.",
+        "Firewall Active": "Network firewall prevents unauthorized inbound connections and limits attack surface.",
+        "AppArmor Enabled": "Mandatory access control provides additional security layer beyond standard permissions.",
+        "Credential Store": "GPG-encrypted credential storage ensures secrets are never stored in plaintext.",
+        "Auto Updates": "Automatic security updates protect against newly discovered vulnerabilities.",
+        "Workspace Configured": "At least one workspace is configured for isolated cloud operations.",
+    }
+    
     def __init__(self):
         super().__init__(title="NubiferOS Security Dashboard")
         self.set_default_size(950, 700)
@@ -213,6 +248,11 @@ class SecurityDashboard(Gtk.Window):
             
             label = Gtk.Label(label=item)
             label.get_style_context().add_class("status-label")
+            # Add tooltip for score breakdown items
+            tooltip = self.TOOLTIPS.get(item)
+            if tooltip:
+                label.set_tooltip_text(tooltip)
+                icon.set_tooltip_text(tooltip)
             row.pack_start(label, False, False, 0)
             
             breakdown_box.pack_start(row, False, False, 0)
@@ -233,7 +273,8 @@ class SecurityDashboard(Gtk.Window):
         components = self._check_components()
         
         for name, status in components.items():
-            row = self._create_status_row(name, status)
+            tooltip = self.TOOLTIPS.get(name)
+            row = self._create_status_row(name, status, tooltip)
             card.pack_start(row, False, False, 0)
         
         return card
@@ -261,6 +302,7 @@ class SecurityDashboard(Gtk.Window):
         ws_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
         ws_value = Gtk.Label(label=str(workspace_count))
         ws_value.get_style_context().add_class("metric-value")
+        ws_value.set_tooltip_text("Number of configured workspaces. Each workspace has isolated credentials and settings.")
         ws_box.pack_start(ws_value, False, False, 0)
         ws_label = Gtk.Label(label="Workspaces")
         ws_label.get_style_context().add_class("metric-label")
@@ -271,6 +313,7 @@ class SecurityDashboard(Gtk.Window):
         cred_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
         cred_value = Gtk.Label(label=str(credential_count))
         cred_value.get_style_context().add_class("metric-value")
+        cred_value.set_tooltip_text("Credentials stored in GPG-encrypted pass store. Never exposed as environment variables.")
         cred_box.pack_start(cred_value, False, False, 0)
         cred_label = Gtk.Label(label="Protected Credentials")
         cred_label.get_style_context().add_class("metric-label")
@@ -281,14 +324,14 @@ class SecurityDashboard(Gtk.Window):
         
         # Active workspace
         if active_workspace:
-            row = self._create_status_row("Active Workspace", ("info", active_workspace))
+            row = self._create_status_row("Active Workspace", ("info", active_workspace), self.TOOLTIPS.get("Active Workspace"))
         else:
-            row = self._create_status_row("Active Workspace", ("warn", "None"))
+            row = self._create_status_row("Active Workspace", ("warn", "None"), self.TOOLTIPS.get("Active Workspace"))
         card.pack_start(row, False, False, 0)
         
         # Pass store status
         pass_status = self._check_pass_store()
-        row = self._create_status_row("Pass Store (GPG)", pass_status)
+        row = self._create_status_row("Pass Store (GPG)", pass_status, self.TOOLTIPS.get("Pass Store (GPG)"))
         card.pack_start(row, False, False, 0)
         
         return card
@@ -311,7 +354,8 @@ class SecurityDashboard(Gtk.Window):
         }
         
         for name, status in checks.items():
-            row = self._create_status_row(name, status)
+            tooltip = self.TOOLTIPS.get(name)
+            row = self._create_status_row(name, status, tooltip)
             card.pack_start(row, False, False, 0)
         
         return card
@@ -328,18 +372,21 @@ class SecurityDashboard(Gtk.Window):
         vulns = self._check_cpu_vulnerabilities()
         
         for name, status in vulns.items():
-            row = self._create_status_row(name, status)
+            tooltip = self.TOOLTIPS.get(name)
+            row = self._create_status_row(name, status, tooltip)
             card.pack_start(row, False, False, 0)
         
         return card
     
-    def _create_status_row(self, label_text, status):
+    def _create_status_row(self, label_text, status, tooltip=None):
         row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
         row.get_style_context().add_class("status-row")
         
         label = Gtk.Label(label=label_text)
         label.get_style_context().add_class("status-label")
         label.set_halign(Gtk.Align.START)
+        if tooltip:
+            label.set_tooltip_text(tooltip)
         row.pack_start(label, True, True, 0)
         
         if isinstance(status, tuple):
@@ -354,6 +401,8 @@ class SecurityDashboard(Gtk.Window):
         status_label = Gtk.Label(label=status_text)
         status_label.get_style_context().add_class(f"status-{status_type}")
         status_label.set_halign(Gtk.Align.END)
+        if tooltip:
+            status_label.set_tooltip_text(tooltip)
         row.pack_end(status_label, False, False, 0)
         
         return row
