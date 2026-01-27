@@ -46,7 +46,15 @@ fi
 # Get region from workspace config (not pass - region is context, not a secret)
 WORKSPACE_FILE="$HOME/.config/nubifer/workspaces/${NUBIFER_WORKSPACE_ID}.json"
 if [ -f "$WORKSPACE_FILE" ]; then
-    REGION=$(python3 -c "import json; print(json.load(open('$WORKSPACE_FILE')).get('region', 'us-east-1'))" 2>/dev/null)
+    # Try top-level 'region' first, then fall back to environment.AWS_REGION
+    REGION=$(python3 -c "
+import json
+data = json.load(open('$WORKSPACE_FILE'))
+region = data.get('region')
+if not region:
+    region = data.get('environment', {}).get('AWS_REGION')
+print(region if region else 'us-east-1')
+" 2>/dev/null)
 fi
 REGION="${REGION:-us-east-1}"
 
