@@ -76,6 +76,9 @@ secondary-color='#00ffff'
 picture-uri='file:///usr/share/backgrounds/nubiferos/cyan_black_original_4K.png'
 primary-color='#000000'
 secondary-color='#00ffff'
+
+[org/gnome/desktop/wm/preferences]
+button-layout='appmenu:minimize,maximize,close'
 EOF
 
 # Create dconf profile if it doesn't exist
