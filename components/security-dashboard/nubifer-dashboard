@@ -1,0 +1,599 @@
+#!/usr/bin/env python3
+"""
+NubiferOS Security Dashboard
+Shows system security status and NubiferOS component health
+"""
+
+import gi
+gi.require_version('Gtk', '3.0')
+from gi.repository import Gtk, GLib, Gdk
+import subprocess
+import os
+import json
+from pathlib import Path
+from datetime import datetime
+
+
+class SecurityDashboard(Gtk.Window):
+    def __init__(self):
+        super().__init__(title="NubiferOS Security Dashboard")
+        self.set_default_size(950, 700)
+        self.set_border_width(0)
+        
+        self._apply_css()
+        
+        # Main container
+        main_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+        self.add(main_box)
+        
+        # Header
+        header = self._create_header()
+        main_box.pack_start(header, False, False, 0)
+        
+        # Scrollable content
+        scrolled = Gtk.ScrolledWindow()
+        scrolled.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+        main_box.pack_start(scrolled, True, True, 0)
+        
+        # Content grid
+        content = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=16)
+        content.set_margin_start(24)
+        content.set_margin_end(24)
+        content.set_margin_top(16)
+        content.set_margin_bottom(24)
+        scrolled.add(content)
+        
+        # Security Score Section
+        score_section = self._create_score_section()
+        content.pack_start(score_section, False, False, 0)
+        
+        # Two-column layout for cards
+        cards_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=16)
+        content.pack_start(cards_box, False, False, 0)
+        
+        # Left column
+        left_col = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=16)
+        left_col.set_hexpand(True)
+        cards_box.pack_start(left_col, True, True, 0)
+        
+        # Right column
+        right_col = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=16)
+        right_col.set_hexpand(True)
+        cards_box.pack_start(right_col, True, True, 0)
+        
+        # NubiferOS Components Card
+        components_card = self._create_components_card()
+        left_col.pack_start(components_card, False, False, 0)
+        
+        # Workspaces & Credentials Card
+        workspace_card = self._create_workspace_card()
+        left_col.pack_start(workspace_card, False, False, 0)
+        
+        # System Security Card
+        system_card = self._create_system_security_card()
+        right_col.pack_start(system_card, False, False, 0)
+        
+        # CPU Security Card
+        cpu_card = self._create_cpu_security_card()
+        right_col.pack_start(cpu_card, False, False, 0)
+        
+        self.show_all()
+    
+    def _apply_css(self):
+        css = b"""
+        window {
+            background-color: #1a1a2e;
+        }
+        .header-bar {
+            background: linear-gradient(to right, #16213e, #1a1a2e);
+            padding: 16px 24px;
+        }
+        .header-title {
+            color: #00d4ff;
+            font-size: 20px;
+            font-weight: bold;
+        }
+        .score-box {
+            background: linear-gradient(135deg, #1e3a5f, #16213e);
+            border-radius: 16px;
+            padding: 24px;
+        }
+        .score-label {
+            color: #00d4ff;
+            font-size: 48px;
+            font-weight: bold;
+        }
+        .score-text {
+            color: #a0a0a0;
+            font-size: 14px;
+        }
+        .card {
+            background-color: #252540;
+            border-radius: 12px;
+            padding: 20px;
+        }
+        .card-title {
+            color: #00d4ff;
+            font-size: 16px;
+            font-weight: bold;
+            margin-bottom: 12px;
+        }
+        .status-row {
+            padding: 8px 0;
+        }
+        .status-label {
+            color: #ccc;
+            font-size: 13px;
+        }
+        .status-ok {
+            color: #00ff88;
+            font-weight: bold;
+        }
+        .status-warn {
+            color: #ffaa00;
+            font-weight: bold;
+        }
+        .status-error {
+            color: #ff4444;
+            font-weight: bold;
+        }
+        .status-info {
+            color: #00d4ff;
+            font-weight: bold;
+        }
+        .metric-value {
+            color: #ffffff;
+            font-size: 24px;
+            font-weight: bold;
+        }
+        .metric-label {
+            color: #888;
+            font-size: 12px;
+        }
+        """
+        provider = Gtk.CssProvider()
+        provider.load_from_data(css)
+        Gtk.StyleContext.add_provider_for_screen(
+            Gdk.Screen.get_default(),
+            provider,
+            Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
+        )
+    
+    def _create_header(self):
+        header = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
+        header.get_style_context().add_class("header-bar")
+        
+        title = Gtk.Label(label="🛡️ NubiferOS Security Dashboard")
+        title.get_style_context().add_class("header-title")
+        header.pack_start(title, False, False, 0)
+        
+        # Refresh button
+        refresh_btn = Gtk.Button(label="↻ Refresh")
+        refresh_btn.connect("clicked", self._on_refresh)
+        header.pack_end(refresh_btn, False, False, 0)
+        
+        return header
+    
+    def _create_score_section(self):
+        box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=24)
+        box.get_style_context().add_class("score-box")
+        
+        # Calculate score
+        score, details = self._calculate_security_score()
+        
+        # Score display
+        score_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+        score_box.set_valign(Gtk.Align.CENTER)
+        
+        score_label = Gtk.Label(label=str(score))
+        score_label.get_style_context().add_class("score-label")
+        score_box.pack_start(score_label, False, False, 0)
+        
+        score_text = Gtk.Label(label="Security Score")
+        score_text.get_style_context().add_class("score-text")
+        score_box.pack_start(score_text, False, False, 0)
+        
+        box.pack_start(score_box, False, False, 24)
+        
+        # Score breakdown
+        breakdown_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+        breakdown_box.set_valign(Gtk.Align.CENTER)
+        
+        for item, status in details.items():
+            row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+            
+            if status:
+                icon = Gtk.Label(label="✓")
+                icon.get_style_context().add_class("status-ok")
+            else:
+                icon = Gtk.Label(label="✗")
+                icon.get_style_context().add_class("status-error")
+            
+            row.pack_start(icon, False, False, 0)
+            
+            label = Gtk.Label(label=item)
+            label.get_style_context().add_class("status-label")
+            row.pack_start(label, False, False, 0)
+            
+            breakdown_box.pack_start(row, False, False, 0)
+        
+        box.pack_start(breakdown_box, False, False, 0)
+        
+        return box
+    
+    def _create_components_card(self):
+        card = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+        card.get_style_context().add_class("card")
+        
+        title = Gtk.Label(label="NubiferOS Components")
+        title.get_style_context().add_class("card-title")
+        title.set_halign(Gtk.Align.START)
+        card.pack_start(title, False, False, 0)
+        
+        components = self._check_components()
+        
+        for name, status in components.items():
+            row = self._create_status_row(name, status)
+            card.pack_start(row, False, False, 0)
+        
+        return card
+    
+    def _create_workspace_card(self):
+        card = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+        card.get_style_context().add_class("card")
+        
+        title = Gtk.Label(label="Workspaces & Credentials")
+        title.get_style_context().add_class("card-title")
+        title.set_halign(Gtk.Align.START)
+        card.pack_start(title, False, False, 0)
+        
+        # Get counts
+        workspace_count = self._count_workspaces()
+        credential_count = self._count_credentials()
+        active_workspace = self._get_active_workspace()
+        
+        # Metrics row
+        metrics = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=32)
+        metrics.set_margin_top(12)
+        metrics.set_margin_bottom(12)
+        
+        # Workspaces metric
+        ws_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+        ws_value = Gtk.Label(label=str(workspace_count))
+        ws_value.get_style_context().add_class("metric-value")
+        ws_box.pack_start(ws_value, False, False, 0)
+        ws_label = Gtk.Label(label="Workspaces")
+        ws_label.get_style_context().add_class("metric-label")
+        ws_box.pack_start(ws_label, False, False, 0)
+        metrics.pack_start(ws_box, False, False, 0)
+        
+        # Credentials metric
+        cred_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+        cred_value = Gtk.Label(label=str(credential_count))
+        cred_value.get_style_context().add_class("metric-value")
+        cred_box.pack_start(cred_value, False, False, 0)
+        cred_label = Gtk.Label(label="Protected Credentials")
+        cred_label.get_style_context().add_class("metric-label")
+        cred_box.pack_start(cred_label, False, False, 0)
+        metrics.pack_start(cred_box, False, False, 0)
+        
+        card.pack_start(metrics, False, False, 0)
+        
+        # Active workspace
+        if active_workspace:
+            row = self._create_status_row("Active Workspace", ("info", active_workspace))
+        else:
+            row = self._create_status_row("Active Workspace", ("warn", "None"))
+        card.pack_start(row, False, False, 0)
+        
+        # Pass store status
+        pass_status = self._check_pass_store()
+        row = self._create_status_row("Pass Store (GPG)", pass_status)
+        card.pack_start(row, False, False, 0)
+        
+        return card
+    
+    def _create_system_security_card(self):
+        card = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+        card.get_style_context().add_class("card")
+        
+        title = Gtk.Label(label="System Security")
+        title.get_style_context().add_class("card-title")
+        title.set_halign(Gtk.Align.START)
+        card.pack_start(title, False, False, 0)
+        
+        # Check various security features
+        checks = {
+            "LUKS Encryption": self._check_luks(),
+            "Firewall (UFW)": self._check_firewall(),
+            "AppArmor": self._check_apparmor(),
+            "Automatic Updates": self._check_auto_updates(),
+        }
+        
+        for name, status in checks.items():
+            row = self._create_status_row(name, status)
+            card.pack_start(row, False, False, 0)
+        
+        return card
+    
+    def _create_cpu_security_card(self):
+        card = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+        card.get_style_context().add_class("card")
+        
+        title = Gtk.Label(label="CPU Vulnerability Mitigations")
+        title.get_style_context().add_class("card-title")
+        title.set_halign(Gtk.Align.START)
+        card.pack_start(title, False, False, 0)
+        
+        vulns = self._check_cpu_vulnerabilities()
+        
+        for name, status in vulns.items():
+            row = self._create_status_row(name, status)
+            card.pack_start(row, False, False, 0)
+        
+        return card
+    
+    def _create_status_row(self, label_text, status):
+        row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
+        row.get_style_context().add_class("status-row")
+        
+        label = Gtk.Label(label=label_text)
+        label.get_style_context().add_class("status-label")
+        label.set_halign(Gtk.Align.START)
+        row.pack_start(label, True, True, 0)
+        
+        if isinstance(status, tuple):
+            status_type, status_text = status
+        elif status is True:
+            status_type, status_text = "ok", "Active"
+        elif status is False:
+            status_type, status_text = "error", "Inactive"
+        else:
+            status_type, status_text = "info", str(status)
+        
+        status_label = Gtk.Label(label=status_text)
+        status_label.get_style_context().add_class(f"status-{status_type}")
+        status_label.set_halign(Gtk.Align.END)
+        row.pack_end(status_label, False, False, 0)
+        
+        return row
+    
+    # ==================== Data Collection Methods ====================
+    
+    def _calculate_security_score(self):
+        score = 0
+        details = {}
+        
+        # LUKS encryption (25 points)
+        luks = self._check_luks()
+        if luks and luks[0] == "ok":
+            score += 25
+            details["Disk Encryption"] = True
+        else:
+            details["Disk Encryption"] = False
+        
+        # Firewall (20 points)
+        fw = self._check_firewall()
+        if fw and fw[0] == "ok":
+            score += 20
+            details["Firewall Active"] = True
+        else:
+            details["Firewall Active"] = False
+        
+        # AppArmor (15 points)
+        aa = self._check_apparmor()
+        if aa and aa[0] == "ok":
+            score += 15
+            details["AppArmor Enabled"] = True
+        else:
+            details["AppArmor Enabled"] = False
+        
+        # Pass store initialized (20 points)
+        ps = self._check_pass_store()
+        if ps and ps[0] == "ok":
+            score += 20
+            details["Credential Store"] = True
+        else:
+            details["Credential Store"] = False
+        
+        # Auto updates (10 points)
+        au = self._check_auto_updates()
+        if au and au[0] == "ok":
+            score += 10
+            details["Auto Updates"] = True
+        else:
+            details["Auto Updates"] = False
+        
+        # Workspace configured (10 points)
+        if self._count_workspaces() > 0:
+            score += 10
+            details["Workspace Configured"] = True
+        else:
+            details["Workspace Configured"] = False
+        
+        return score, details
+    
+    def _check_components(self):
+        components = {}
+        
+        # Workspace Manager
+        if os.path.exists("/usr/local/bin/nubifer-workspace"):
+            components["Workspace Manager"] = ("ok", "Installed")
+        else:
+            components["Workspace Manager"] = ("error", "Not Found")
+        
+        # Credential Manager
+        if os.path.exists("/usr/local/bin/nubifer-creds"):
+            components["Credential Manager"] = ("ok", "Installed")
+        else:
+            components["Credential Manager"] = ("error", "Not Found")
+        
+        # AWS Credential Helper
+        if os.path.exists("/usr/local/bin/nubifer-aws-credential-helper"):
+            components["AWS Credential Helper"] = ("ok", "Installed")
+        else:
+            components["AWS Credential Helper"] = ("error", "Not Found")
+        
+        # CLI Wrappers
+        if os.path.exists("/usr/local/bin/aws") and os.path.islink("/usr/local/bin/aws"):
+            components["CLI Wrappers"] = ("ok", "Enabled")
+        else:
+            components["CLI Wrappers"] = ("warn", "Not Linked")
+        
+        # Context Indicator (GNOME Extension)
+        ext_path = Path.home() / ".local/share/gnome-shell/extensions/nubiferos-context@nubiferos.io"
+        if ext_path.exists():
+            components["Context Indicator"] = ("ok", "Installed")
+        else:
+            # Check system-wide
+            if os.path.exists("/usr/share/gnome-shell/extensions/nubiferos-context@nubiferos.io"):
+                components["Context Indicator"] = ("ok", "Installed")
+            else:
+                components["Context Indicator"] = ("warn", "Not Found")
+        
+        return components
+    
+    def _count_workspaces(self):
+        workspace_dir = Path.home() / ".config/nubifer/workspaces"
+        if not workspace_dir.exists():
+            return 0
+        return len(list(workspace_dir.glob("*.json")))
+    
+    def _count_credentials(self):
+        """Count credentials in pass store under nubifer/"""
+        try:
+            result = subprocess.run(
+                ["pass", "ls", "nubifer"],
+                capture_output=True,
+                text=True,
+                timeout=5
+            )
+            if result.returncode != 0:
+                return 0
+            
+            # Count lines that look like credential entries
+            count = 0
+            for line in result.stdout.split('\n'):
+                if 'access-key-id' in line or 'client-id' in line or 'project-id' in line:
+                    count += 1
+            return count
+        except:
+            return 0
+    
+    def _get_active_workspace(self):
+        workspace_id = os.environ.get("NUBIFER_WORKSPACE_ID")
+        workspace_name = os.environ.get("NUBIFER_WORKSPACE_NAME")
+        
+        if workspace_name:
+            return workspace_name
+        elif workspace_id:
+            return workspace_id[:12] + "..."
+        return None
+    
+    def _check_pass_store(self):
+        pass_dir = Path.home() / ".password-store"
+        if not pass_dir.exists():
+            return ("error", "Not Initialized")
+        
+        gpg_id = pass_dir / ".gpg-id"
+        if not gpg_id.exists():
+            return ("error", "No GPG Key")
+        
+        return ("ok", "Initialized")
+    
+    def _check_luks(self):
+        try:
+            result = subprocess.run(
+                ["lsblk", "-o", "NAME,TYPE,FSTYPE"],
+                capture_output=True,
+                text=True,
+                timeout=5
+            )
+            if "crypto_LUKS" in result.stdout or "crypt" in result.stdout:
+                return ("ok", "Encrypted")
+            return ("warn", "Not Detected")
+        except:
+            return ("error", "Check Failed")
+    
+    def _check_firewall(self):
+        try:
+            result = subprocess.run(
+                ["ufw", "status"],
+                capture_output=True,
+                text=True,
+                timeout=5
+            )
+            if "Status: active" in result.stdout:
+                return ("ok", "Active")
+            return ("warn", "Inactive")
+        except:
+            return ("error", "Not Installed")
+    
+    def _check_apparmor(self):
+        try:
+            result = subprocess.run(
+                ["aa-status", "--enabled"],
+                capture_output=True,
+                timeout=5
+            )
+            if result.returncode == 0:
+                return ("ok", "Enabled")
+            return ("warn", "Disabled")
+        except:
+            return ("error", "Not Installed")
+    
+    def _check_auto_updates(self):
+        config_file = Path("/etc/apt/apt.conf.d/20auto-upgrades")
+        if config_file.exists():
+            try:
+                content = config_file.read_text()
+                if 'Unattended-Upgrade "1"' in content:
+                    return ("ok", "Enabled")
+            except:
+                pass
+        return ("warn", "Disabled")
+    
+    def _check_cpu_vulnerabilities(self):
+        vulns = {}
+        vuln_path = Path("/sys/devices/system/cpu/vulnerabilities")
+        
+        if not vuln_path.exists():
+            return {"Status": ("error", "Cannot Read")}
+        
+        important_vulns = ["spectre_v1", "spectre_v2", "meltdown", "retbleed", "mds"]
+        
+        for vuln in important_vulns:
+            vuln_file = vuln_path / vuln
+            if vuln_file.exists():
+                try:
+                    status = vuln_file.read_text().strip()
+                    name = vuln.replace("_", " ").title()
+                    
+                    if "Not affected" in status:
+                        vulns[name] = ("ok", "Not Affected")
+                    elif "Mitigation" in status:
+                        vulns[name] = ("ok", "Mitigated")
+                    elif "Vulnerable" in status:
+                        vulns[name] = ("error", "Vulnerable")
+                    else:
+                        vulns[name] = ("warn", status[:20])
+                except:
+                    pass
+        
+        return vulns
+    
+    def _on_refresh(self, button):
+        # Rebuild the window
+        for child in self.get_children():
+            child.destroy()
+        self.__init__()
+
+
+def main():
+    app = SecurityDashboard()
+    app.connect("destroy", Gtk.main_quit)
+    Gtk.main()
+
+
+if __name__ == "__main__":
+    main()

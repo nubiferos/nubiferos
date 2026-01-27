@@ -1,0 +1,10 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=NubiferOS Security Dashboard
+Comment=View system security status and NubiferOS component health
+Exec=/usr/local/bin/nubifer-dashboard
+Icon=security-high
+Terminal=false
+Categories=System;Security;
+Keywords=security;dashboard;nubifer;status;

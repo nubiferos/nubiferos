@@ -416,6 +416,13 @@ EOF
     chmod +x "${CHROOT_DIR}/usr/bin/nubifer-software"
     cp "${PROJECT_ROOT}/components/software-center/nubifer-software.desktop" "${CHROOT_DIR}/usr/share/applications/"
     
+    # Install NubiferOS Security Dashboard
+    log "INFO" "Installing NubiferOS Security Dashboard..."
+    cp "${PROJECT_ROOT}/components/security-dashboard/nubifer-dashboard" "${CHROOT_DIR}/usr/local/bin/"
+    chmod +x "${CHROOT_DIR}/usr/local/bin/nubifer-dashboard"
+    cp "${PROJECT_ROOT}/components/security-dashboard/nubifer-dashboard.desktop" "${CHROOT_DIR}/usr/share/applications/"
+    log "INFO" "  ✓ Security Dashboard installed"
+    
     # Install tool installer scripts
     mkdir -p "${CHROOT_DIR}/usr/share/nubiferos/installers"
     for script in "${PROJECT_ROOT}/scripts/installers/"*.sh; do
