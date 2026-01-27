@@ -6,12 +6,33 @@
   description: "Docker, Python cloud SDKs, and AWS CLI"
   selected: true
   critical: false
-  packages:
-    - docker.io
-    - docker-compose
-    - python3-boto3
-    - python3-azure
-    - awscli
+  expanded: true
+  subgroups:
+    - name: "docker.io"
+      description: "Container runtime engine"
+      selected: true
+      packages:
+        - docker.io
+    - name: "docker-compose"
+      description: "Multi-container Docker applications"
+      selected: true
+      packages:
+        - docker-compose
+    - name: "python3-boto3"
+      description: "AWS SDK for Python"
+      selected: true
+      packages:
+        - python3-boto3
+    - name: "python3-azure"
+      description: "Azure SDK for Python"
+      selected: true
+      packages:
+        - python3-azure
+    - name: "awscli"
+      description: "AWS Command Line Interface"
+      selected: true
+      packages:
+        - awscli
 
 - name: "Kubernetes Tools"
   description: "kubectl, Helm, k9s, and eksctl (installed from official sources)"
@@ -56,38 +77,125 @@
   description: "Git, build tools, and development utilities"
   selected: true
   critical: false
-  packages:
-    - git
-    - build-essential
-    - python3-dev
-    - python3-pip
-    - python3-venv
-    - nodejs
-    - npm
-    - curl
-    - wget
-    - jq
+  expanded: true
+  subgroups:
+    - name: "git"
+      description: "Distributed version control system"
+      selected: true
+      packages:
+        - git
+    - name: "build-essential"
+      description: "C/C++ compiler and build tools"
+      selected: true
+      packages:
+        - build-essential
+    - name: "python3-dev"
+      description: "Python development headers"
+      selected: true
+      packages:
+        - python3-dev
+    - name: "python3-pip"
+      description: "Python package installer"
+      selected: true
+      packages:
+        - python3-pip
+    - name: "python3-venv"
+      description: "Python virtual environments"
+      selected: true
+      packages:
+        - python3-venv
+    - name: "nodejs"
+      description: "JavaScript runtime"
+      selected: true
+      packages:
+        - nodejs
+    - name: "npm"
+      description: "Node.js package manager"
+      selected: true
+      packages:
+        - npm
+    - name: "curl"
+      description: "Command-line HTTP client"
+      selected: true
+      packages:
+        - curl
+    - name: "wget"
+      description: "Network file downloader"
+      selected: true
+      packages:
+        - wget
+    - name: "jq"
+      description: "JSON processor for command line"
+      selected: true
+      packages:
+        - jq
 
 - name: "Terminal Editors"
   description: "Vim, Neovim, Emacs"
   selected: true
   critical: false
-  packages:
-    - vim
-    - neovim
-    - emacs-nox
+  expanded: true
+  subgroups:
+    - name: "vim"
+      description: "Vi IMproved text editor"
+      selected: true
+      packages:
+        - vim
+    - name: "neovim"
+      description: "Modern Vim fork with Lua support"
+      selected: true
+      packages:
+        - neovim
+    - name: "emacs-nox"
+      description: "GNU Emacs (terminal version)"
+      selected: true
+      packages:
+        - emacs-nox
 
 - name: "Security & Hardening"
   description: "Firejail, AppArmor, and security tools (REQUIRED)"
   selected: true
   critical: true
   immutable: true
-  packages:
-    - firejail
-    - apparmor
-    - apparmor-utils
-    - fail2ban
-    - ufw
-    - aide
-    - rkhunter
-    - lynis
+  expanded: true
+  subgroups:
+    - name: "firejail"
+      description: "Sandbox for application isolation"
+      selected: true
+      packages:
+        - firejail
+    - name: "apparmor"
+      description: "Mandatory access control system"
+      selected: true
+      packages:
+        - apparmor
+    - name: "apparmor-utils"
+      description: "AppArmor profile management tools"
+      selected: true
+      packages:
+        - apparmor-utils
+    - name: "fail2ban"
+      description: "Intrusion prevention (bans failed logins)"
+      selected: true
+      packages:
+        - fail2ban
+    - name: "ufw"
+      description: "Uncomplicated Firewall"
+      selected: true
+      packages:
+        - ufw
+    - name: "aide"
+      description: "File integrity checker"
+      selected: true
+      packages:
+        - aide
+    - name: "rkhunter"
+      description: "Rootkit detection scanner"
+      selected: true
+      packages:
+        - rkhunter
+    - name: "lynis"
+      description: "Security auditing tool"
+      selected: true
+      packages:
+        - lynis
