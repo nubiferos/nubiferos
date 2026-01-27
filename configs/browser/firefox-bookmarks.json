@@ -85,6 +85,54 @@
           "url": "https://console.aws.amazon.com/cloudformation/"
         },
         {
+          "title": "AWS Bedrock",
+          "url": "https://console.aws.amazon.com/bedrock/"
+        },
+        {
+          "title": "AWS SageMaker",
+          "url": "https://console.aws.amazon.com/sagemaker/"
+        },
+        {
+          "title": "AWS CodePipeline",
+          "url": "https://console.aws.amazon.com/codesuite/codepipeline/"
+        },
+        {
+          "title": "AWS CodeBuild",
+          "url": "https://console.aws.amazon.com/codesuite/codebuild/"
+        },
+        {
+          "title": "AWS CodeCommit",
+          "url": "https://console.aws.amazon.com/codesuite/codecommit/"
+        },
+        {
+          "title": "AWS CodeDeploy",
+          "url": "https://console.aws.amazon.com/codesuite/codedeploy/"
+        },
+        {
+          "title": "AWS SNS",
+          "url": "https://console.aws.amazon.com/sns/"
+        },
+        {
+          "title": "AWS SQS",
+          "url": "https://console.aws.amazon.com/sqs/"
+        },
+        {
+          "title": "AWS DynamoDB",
+          "url": "https://console.aws.amazon.com/dynamodbv2/"
+        },
+        {
+          "title": "AWS ElastiCache",
+          "url": "https://console.aws.amazon.com/elasticache/"
+        },
+        {
+          "title": "AWS Athena",
+          "url": "https://console.aws.amazon.com/athena/"
+        },
+        {
+          "title": "AWS Glue",
+          "url": "https://console.aws.amazon.com/glue/"
+        },
+        {
           "title": "AWS Systems Manager",
           "url": "https://console.aws.amazon.com/systems-manager/"
         },
@@ -348,6 +396,10 @@
         {
           "title": "EKS Best Practices",
           "url": "https://aws.github.io/aws-eks-best-practices/"
+        },
+        {
+          "title": "eksctl Documentation",
+          "url": "https://eksctl.io/"
         },
         {
           "title": "AKS Documentation",
@@ -765,6 +817,83 @@
         {
           "title": "JetBrains Plugin Marketplace",
           "url": "https://plugins.jetbrains.com/"
+        }
+      ]
+    },
+    {
+      "title": "AI & Machine Learning",
+      "children": [
+        {
+          "title": "AWS Bedrock Console",
+          "url": "https://console.aws.amazon.com/bedrock/"
+        },
+        {
+          "title": "AWS Bedrock Documentation",
+          "url": "https://docs.aws.amazon.com/bedrock/"
+        },
+        {
+          "title": "AWS SageMaker Console",
+          "url": "https://console.aws.amazon.com/sagemaker/"
+        },
+        {
+          "title": "AWS SageMaker Documentation",
+          "url": "https://docs.aws.amazon.com/sagemaker/"
+        },
+        {
+          "title": "Azure OpenAI Service",
+          "url": "https://portal.azure.com/#blade/Microsoft_Azure_ProjectOxford/CognitiveServicesHub/OpenAI"
+        },
+        {
+          "title": "Azure AI Studio",
+          "url": "https://ai.azure.com/"
+        },
+        {
+          "title": "Azure Machine Learning",
+          "url": "https://ml.azure.com/"
+        },
+        {
+          "title": "Google Vertex AI",
+          "url": "https://console.cloud.google.com/vertex-ai"
+        },
+        {
+          "title": "Google AI Studio",
+          "url": "https://aistudio.google.com/"
+        },
+        {
+          "title": "OpenAI Platform",
+          "url": "https://platform.openai.com/"
+        },
+        {
+          "title": "OpenAI API Documentation",
+          "url": "https://platform.openai.com/docs"
+        },
+        {
+          "title": "Anthropic Console",
+          "url": "https://console.anthropic.com/"
+        },
+        {
+          "title": "Anthropic API Documentation",
+          "url": "https://docs.anthropic.com/"
+        },
+        {
+          "title": "Hugging Face",
+          "url": "https://huggingface.co/"
+        },
+        {
+          "title": "Hugging Face Documentation",
+          "url": "https://huggingface.co/docs"
+        },
+        {
+          "title": "LangChain Documentation",
+          "url": "https://python.langchain.com/docs/"
+        },
+        {
+          "title": "LlamaIndex Documentation",
+          "url": "https://docs.llamaindex.ai/"
+        },
+        {
+          "title": "Ollama",
+          "url": "https://ollama.ai/"
         }
       ]
     },
