@@ -152,6 +152,18 @@ Terminal=false
 EOF
 chmod +x "${CHROOT_DIR}/etc/skel/Desktop/software-center.desktop"
 
+# Security Dashboard shortcut
+cat > "${CHROOT_DIR}/etc/skel/Desktop/security-dashboard.desktop" << 'EOF'
+[Desktop Entry]
+Type=Application
+Name=Security Dashboard
+Comment=View system security status and NubiferOS health
+Exec=/usr/local/bin/nubifer-dashboard
+Icon=security-high
+Terminal=false
+EOF
+chmod +x "${CHROOT_DIR}/etc/skel/Desktop/security-dashboard.desktop"
+
 # Create a script to clean up shortcuts for apps that aren't installed
 cat > "${CHROOT_DIR}/etc/profile.d/cleanup-desktop-shortcuts.sh" << 'CLEANUP_EOF'
 #!/bin/bash

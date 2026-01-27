@@ -421,6 +421,8 @@ EOF
     cp "${PROJECT_ROOT}/components/security-dashboard/nubifer-dashboard" "${CHROOT_DIR}/usr/local/bin/"
     chmod +x "${CHROOT_DIR}/usr/local/bin/nubifer-dashboard"
     cp "${PROJECT_ROOT}/components/security-dashboard/nubifer-dashboard.desktop" "${CHROOT_DIR}/usr/share/applications/"
+    # Autostart dashboard on first login after setup wizard completes
+    cp "${PROJECT_ROOT}/components/security-dashboard/nubifer-dashboard-autostart.desktop" "${CHROOT_DIR}/etc/xdg/autostart/"
     log "INFO" "  ✓ Security Dashboard installed"
     
     # Install tool installer scripts
