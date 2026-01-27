@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Software Center - NubiferOS</title>
+    <style>
+        :root {
+            --bg: #1e1e2e;
+            --surface: #313244;
+            --text: #cdd6f4;
+            --subtext: #a6adc8;
+            --blue: #89b4fa;
+            --green: #a6e3a1;
+            --peach: #fab387;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Cantarell', 'Segoe UI', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.6;
+            padding: 2rem;
+            max-width: 900px;
+            margin: 0 auto;
+        }
+        h1 { color: var(--blue); margin-bottom: 1rem; }
+        h2 { color: var(--peach); margin: 2rem 0 1rem; border-bottom: 1px solid var(--surface); padding-bottom: 0.5rem; }
+        h3 { color: var(--green); margin: 1.5rem 0 0.5rem; }
+        p { margin-bottom: 1rem; color: var(--subtext); }
+        a { color: var(--blue); }
+        code {
+            background: var(--surface);
+            padding: 0.2rem 0.5rem;
+            border-radius: 4px;
+            font-family: 'JetBrains Mono', 'Fira Code', monospace;
+            font-size: 0.9rem;
+        }
+        pre {
+            background: var(--surface);
+            padding: 1rem;
+            border-radius: 8px;
+            overflow-x: auto;
+            margin: 1rem 0;
+        }
+        pre code { padding: 0; background: none; }
+        nav { margin-bottom: 2rem; }
+        .category {
+            background: var(--surface);
+            border-radius: 8px;
+            padding: 1rem 1.5rem;
+            margin: 1rem 0;
+        }
+        .category h3 { margin-top: 0; }
+        ul { margin-left: 1.5rem; color: var(--subtext); }
+        li { margin: 0.5rem 0; }
+        .note {
+            background: rgba(137, 180, 250, 0.1);
+            border-left: 4px solid var(--blue);
+            padding: 1rem;
+            margin: 1rem 0;
+            border-radius: 0 8px 8px 0;
+        }
+    </style>
+</head>
+<body>
+    <nav>
+        <a href="index.html">← Back to Docs</a>
+    </nav>
+
+    <h1>📦 Software Center</h1>
+    <p>NubiferOS includes a curated Software Center with tools specifically chosen for cloud development and DevOps work.</p>
+
+    <h2>Launching the Software Center</h2>
+    <pre><code>nubifer-software</code></pre>
+    <p>Or find it in the Applications menu under "NubiferOS Software Center".</p>
+
+    <h2>Available Categories</h2>
+
+    <div class="category">
+        <h3>☁️ Cloud CLIs</h3>
+        <ul>
+            <li><strong>AWS CLI v2</strong> - Official Amazon Web Services CLI</li>
+            <li><strong>Google Cloud SDK</strong> - GCP command-line tools</li>
+            <li><strong>Azure CLI</strong> - Microsoft Azure CLI</li>
+        </ul>
+    </div>
+
+    <div class="category">
+        <h3>☸️ Kubernetes</h3>
+        <ul>
+            <li><strong>kubectl</strong> - Kubernetes command-line tool</li>
+            <li><strong>Helm</strong> - Kubernetes package manager</li>
+            <li><strong>k9s</strong> - Terminal UI for Kubernetes</li>
+            <li><strong>Minikube</strong> - Local Kubernetes for development</li>
+            <li><strong>eksctl</strong> - Amazon EKS cluster management</li>
+        </ul>
+    </div>
+
+    <div class="category">
+        <h3>🏗️ Infrastructure as Code</h3>
+        <ul>
+            <li><strong>Terraform</strong> - Infrastructure provisioning by HashiCorp</li>
+            <li><strong>Pulumi</strong> - Modern IaC in any programming language</li>
+            <li><strong>Ansible</strong> - Configuration management and automation</li>
+        </ul>
+    </div>
+
+    <div class="category">
+        <h3>📦 Containers</h3>
+        <ul>
+            <li><strong>Docker</strong> - Container platform</li>
+            <li><strong>Podman</strong> - Daemonless container engine</li>
+        </ul>
+    </div>
+
+    <div class="category">
+        <h3>✏️ IDEs & Editors</h3>
+        <ul>
+            <li><strong>Visual Studio Code</strong> - Popular code editor</li>
+            <li><strong>IntelliJ IDEA Community</strong> - Java/Kotlin IDE</li>
+            <li><strong>PyCharm Community</strong> - Python IDE</li>
+            <li><strong>Neovim</strong> - Hyperextensible Vim-based editor</li>
+        </ul>
+    </div>
+
+    <div class="category">
+        <h3>🔧 DevOps Tools</h3>
+        <ul>
+            <li><strong>GitHub CLI</strong> - GitHub's official CLI</li>
+            <li><strong>ArgoCD CLI</strong> - GitOps continuous delivery</li>
+            <li><strong>Trivy</strong> - Security scanner for containers and IaC</li>
+        </ul>
+    </div>
+
+    <div class="category">
+        <h3>🗄️ Database Clients</h3>
+        <ul>
+            <li><strong>PostgreSQL Client</strong> - psql and related tools</li>
+            <li><strong>MySQL Client</strong> - MySQL command-line tools</li>
+            <li><strong>Redis CLI</strong> - Redis command-line tools</li>
+        </ul>
+    </div>
+
+    <div class="category">
+        <h3>🔐 Security Tools</h3>
+        <ul>
+            <li><strong>KeePassXC</strong> - Offline password manager with local encrypted database</li>
+            <li><strong>Bitwarden</strong> - Open source password manager with cloud sync</li>
+            <li><strong>1Password</strong> - Premium password manager for teams</li>
+        </ul>
+    </div>
+
+    <h2>Password Managers</h2>
+    <p>NubiferOS uses <code>pass</code> (password-store) internally for cloud credential management. However, you may want a separate password manager for:</p>
+    <ul>
+        <li>SSH keys and passphrases</li>
+        <li>API tokens for non-cloud services</li>
+        <li>Personal passwords and secure notes</li>
+        <li>Team credential sharing</li>
+    </ul>
+
+    <div class="note">
+        <strong>💡 Recommendation:</strong> Use <strong>KeePassXC</strong> if you prefer fully offline, local-only storage. Use <strong>Bitwarden</strong> if you need cross-device sync. Both are open source and well-audited.
+    </div>
+
+    <h2>Installing via CLI</h2>
+    <p>You can also install tools directly via apt or the official installers:</p>
+    <pre><code># Example: Install KeePassXC
+sudo apt install keepassxc
+
+# Example: Install Docker
+sudo apt install docker.io docker-compose
+sudo usermod -aG docker $USER</code></pre>
+
+    <h2>Requesting New Tools</h2>
+    <p>If you need a tool that's not in the Software Center, you can:</p>
+    <ul>
+        <li>Install it manually via <code>apt</code> or the official installer</li>
+        <li>Open an issue on <a href="https://github.com/jessetop/nubiferOS">GitHub</a> to request it be added</li>
+    </ul>
+</body>
+</html>
