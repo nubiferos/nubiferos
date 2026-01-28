@@ -72,6 +72,10 @@ EOF
 # Set workspace environment for credential helper
 export NUBIFER_WORKSPACE="$NUBIFER_WORKSPACE_ID"
 
+# Disable AWS pager to prevent terminal corruption on Ctrl+C
+# Users can re-enable with: export AWS_PAGER="less"
+export AWS_PAGER=""
+
 # Run with Firejail isolation if available
 if [ -x "$FIREJAIL_WRAPPER" ]; then
     exec "$FIREJAIL_WRAPPER" aws /usr/bin/aws "$@"

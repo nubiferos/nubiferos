@@ -8,10 +8,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- Initial project structure and build system
-- Build configuration with security hardening options
-- Project documentation (README, CONTRIBUTING, LICENSE)
-- Version control setup with .gitignore
+- Security Dashboard: Real-time security status monitoring with score calculation
+- Tool Update Checker: Config-driven version checking for all cloud tools (`nubifer-check-updates`)
+- Installer package descriptions: Every package now shows what it does
+- Security Dashboard slide added to installer slideshow
+- Firefox bookmarks: AI/ML section, expanded AWS services, security tools
+- LUKS + TPM cloud strategy documentation
+
+### Changed
+- AWS CLI pager disabled by default (prevents terminal corruption on Ctrl+C)
+- Region is now required when creating workspaces
+- AWS wrapper reads region from workspace environment config
+- Wayland slide text updated (removed X11 comparison)
+
+### Fixed
+- AWS wrapper now correctly reads region from `environment.AWS_REGION`
+- Security Dashboard checks for UFW, AppArmor, Context Indicator improved
 
 ## [1.0.0] - TBD
 
