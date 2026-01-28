@@ -132,7 +132,7 @@ SOFTWARE_CATALOG = {
             {
                 "id": "docker",
                 "name": "Docker",
-                "description": "Container platform",
+                "description": "Container platform and runtime",
                 "check_cmd": "docker --version",
                 "install_cmd": "sudo apt-get install -y docker.io docker-compose && sudo systemctl enable docker && sudo usermod -aG docker $USER",
                 "size": "~200MB"
@@ -140,10 +140,58 @@ SOFTWARE_CATALOG = {
             {
                 "id": "podman",
                 "name": "Podman",
-                "description": "Daemonless container engine",
+                "description": "Daemonless container engine (rootless)",
                 "check_cmd": "podman --version",
                 "install_cmd": "sudo apt-get install -y podman podman-compose",
                 "size": "~150MB"
+            },
+            {
+                "id": "buildah",
+                "name": "Buildah",
+                "description": "Build OCI container images without daemon",
+                "check_cmd": "buildah --version",
+                "install_cmd": "sudo apt-get install -y buildah",
+                "size": "~50MB"
+            },
+            {
+                "id": "skopeo",
+                "name": "Skopeo",
+                "description": "Copy and inspect container images between registries",
+                "check_cmd": "skopeo --version",
+                "install_cmd": "sudo apt-get install -y skopeo",
+                "size": "~30MB"
+            },
+            {
+                "id": "dive",
+                "name": "Dive",
+                "description": "Explore and analyze Docker image layers",
+                "check_cmd": "dive --version",
+                "install_cmd": "cd /tmp && curl -Lo dive.deb https://github.com/wagoodman/dive/releases/latest/download/dive_0.12.0_linux_amd64.deb && sudo dpkg -i dive.deb && rm dive.deb",
+                "size": "~10MB"
+            },
+            {
+                "id": "lazydocker",
+                "name": "Lazydocker",
+                "description": "Terminal UI for Docker containers and images",
+                "check_cmd": "lazydocker --version",
+                "install_cmd": "cd /tmp && curl -Lo lazydocker.tar.gz https://github.com/jesseduffield/lazydocker/releases/latest/download/lazydocker_0.23.1_Linux_x86_64.tar.gz && tar -xzf lazydocker.tar.gz lazydocker && sudo mv lazydocker /usr/local/bin/ && rm lazydocker.tar.gz",
+                "size": "~15MB"
+            },
+            {
+                "id": "ctop",
+                "name": "ctop",
+                "description": "Top-like interface for container metrics",
+                "check_cmd": "ctop -v",
+                "install_cmd": "sudo curl -Lo /usr/local/bin/ctop https://github.com/bcicen/ctop/releases/latest/download/ctop-0.7.7-linux-amd64 && sudo chmod +x /usr/local/bin/ctop",
+                "size": "~10MB"
+            },
+            {
+                "id": "hadolint",
+                "name": "Hadolint",
+                "description": "Dockerfile linter for best practices",
+                "check_cmd": "hadolint --version",
+                "install_cmd": "sudo curl -Lo /usr/local/bin/hadolint https://github.com/hadolint/hadolint/releases/latest/download/hadolint-Linux-x86_64 && sudo chmod +x /usr/local/bin/hadolint",
+                "size": "~5MB"
             }
         ]
     },
