@@ -69,6 +69,44 @@ aws ec2 describe-instances | less
 
 **Why:** Prevents "None" region errors in AWS CLI calls. Region is essential context for cloud operations.
 
+### Sudo Required for Write Mode
+
+**What:** Enabling read-write mode on workspaces requires `sudo`.
+
+**Why:**
+- Prevents unauthorized writes from compromised sessions
+- Creates audit trail via sudo logs
+- Forces intentional action before allowing cloud modifications
+- Defense in depth: even if attacker gets shell access, they can't write
+
+**Commands:**
+```bash
+# Lock workspace (no sudo needed)
+nubifer-workspace ro
+
+# Unlock workspace (requires sudo)
+sudo nubifer-workspace rw
+
+# Timed unlock (auto-reverts to read-only)
+sudo nubifer-workspace rw -d 30  # 30 minute window
+```
+
+### High-Visibility Mode Indicators
+
+**What:** Terminal prompt shows read-only/read-write status with colored backgrounds.
+
+**Why:** 
+- Green background (`[🔒 RO]`) = safe, writes blocked
+- Red background (`[🔓 RW]`) = danger, writes allowed
+- High contrast ensures visibility even for users with poor eyesight
+- Prevents "wrong mode" mistakes
+
+**Example prompt:**
+```
+[🔒 RO][☁️ prod-account] user@host:~$
+[🔓 RW][☁️ prod-account] user@host:~$
+```
+
 ---
 
 ## Adding New Tweaks

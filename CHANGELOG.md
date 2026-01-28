@@ -14,16 +14,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Security Dashboard slide added to installer slideshow
 - Firefox bookmarks: AI/ML section, expanded AWS services, security tools
 - LUKS + TPM cloud strategy documentation
+- Read-only mode shortcuts: `nubifer-workspace ro` and `nubifer-workspace rw`
+- Timed write sessions: `sudo nubifer-workspace rw -d 30` auto-reverts after 30 minutes
+- High-visibility mode indicators: green background for read-only, red for read-write
 
 ### Changed
 - AWS CLI pager disabled by default (prevents terminal corruption on Ctrl+C)
 - Region is now required when creating workspaces
 - AWS wrapper reads region from workspace environment config
 - Wayland slide text updated (removed X11 comparison)
+- Write mode (`rw`) now requires sudo for security (prevents unauthorized writes)
+- Terminal prompt shows `[🔒 RO]` or `[🔓 RW]` with colored backgrounds
 
 ### Fixed
 - AWS wrapper now correctly reads region from `environment.AWS_REGION`
 - Security Dashboard checks for UFW, AppArmor, Context Indicator improved
+
+### Security
+- Sudo required to enable write mode on workspaces
+- Timed write sessions auto-revert to read-only
+- Prevents compromised sessions from modifying cloud resources
 
 ## [1.0.0] - TBD
 
