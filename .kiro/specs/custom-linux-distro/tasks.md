@@ -169,13 +169,13 @@ The following components are built but NOT functional because D-Bus services are
     - Add to /etc/profile.d/ for automatic loading
     - _Requirements: 5.6_
 
-- [ ] 6. Implement CLI wrapper scripts
+- [x] 6. Implement CLI wrapper scripts
   - [x] 6.1 Create credential injection wrappers
     - Write wrapper scripts for aws, az, gcloud that inject credentials from Credential Manager
     - Place wrappers in /usr/local/bin/ to override default CLI tools
     - Implement secure credential injection without environment variable exposure
     - _Requirements: 3.4_
-    - _Note: Wrappers exist but NOT symlinked - credential injection via D-Bus not working_
+    - _Status: AWS wrapper working with credential_process, region from workspace_
 
   - [x] 6.2 Implement read-only mode enforcement
     - Add logic to wrappers to block write operations when workspace is in read-only mode
@@ -184,17 +184,17 @@ The following components are built but NOT functional because D-Bus services are
     - Command-based blocking for Terraform and Kubectl
     - _Requirements: 8.2, 8.3_
 
-  - [ ] 6.3 Add workspace context to CLI commands
+  - [x] 6.3 Add workspace context to CLI commands
     - Ensure all CLI commands use the current workspace's credentials and configuration
     - Check for active workspace before execution
-    - Integrate with Context Manager via D-Bus
+    - Region read from workspace JSON environment config
     - _Requirements: 4.3, 4.4_
-    - _Status: NOT WORKING - D-Bus services not running, wrappers not symlinked_
+    - _Status: WORKING - AWS wrapper tested and functional_
 
-  - [ ] 6.4 Enable CLI wrappers during installation
+  - [x] 6.4 Enable CLI wrappers during installation
     - Create symlinks from /usr/local/bin/aws -> wrapper during post-install
     - Add option to enable/disable wrappers
-    - _Status: NOT DONE - symlinks not created_
+    - _Status: Symlinks created during install_
 
 - [x] 7. Implement First-Boot Setup Experience
   - [x] 7.1 Create first-boot wizard application

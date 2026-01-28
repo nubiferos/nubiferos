@@ -176,6 +176,14 @@ class SecurityDashboard(Gtk.Window):
             color: #00d4ff;
             font-weight: bold;
         }
+        .info-icon {
+            color: #00d4ff;
+            font-size: 12px;
+            opacity: 0.7;
+        }
+        .info-icon:hover {
+            opacity: 1.0;
+        }
         .metric-value {
             color: #ffffff;
             font-size: 24px;
@@ -388,6 +396,13 @@ class SecurityDashboard(Gtk.Window):
         if tooltip:
             label.set_tooltip_text(tooltip)
         row.pack_start(label, True, True, 0)
+        
+        # Add info icon if tooltip exists
+        if tooltip:
+            info_icon = Gtk.Label(label="ℹ")
+            info_icon.get_style_context().add_class("info-icon")
+            info_icon.set_tooltip_text(tooltip)
+            row.pack_start(info_icon, False, False, 4)
         
         if isinstance(status, tuple):
             status_type, status_text = status
