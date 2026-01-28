@@ -92,6 +92,15 @@ class WorkspaceManager:
             print(f"  Valid providers: {', '.join(PROVIDER_COLORS.keys())}", file=sys.stderr)
             return None
         
+        # Check for duplicate account ID (one workspace per account)
+        existing = self.list_workspaces()
+        for ws in existing:
+            if ws.get('account_id') == account_id and ws.get('provider') == provider:
+                print(f"✗ Workspace already exists for this account", file=sys.stderr)
+                print(f"  Existing workspace: {ws.get('name')} (ID: {ws.get('workspace_id')})", file=sys.stderr)
+                print(f"  Use 'nubifer-workspace update {ws.get('workspace_id')} --region <region>' to change region", file=sys.stderr)
+                return None
+        
         # Generate workspace ID
         workspace_id = self._generate_workspace_id(name)
         
