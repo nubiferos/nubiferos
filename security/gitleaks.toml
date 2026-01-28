@@ -1,0 +1,28 @@
+# NubiferOS Gitleaks Configuration
+# Custom rules for secret detection
+#
+# See: https://github.com/gitleaks/gitleaks#configuration
+
+[extend]
+useDefault = true
+
+# NubiferOS-specific rules
+[[rules]]
+id = "nubifer-credential-path"
+description = "NubiferOS credential path exposure in code"
+regex = '''nubifer/[a-zA-Z0-9_-]+/cloud/(aws|azure|gcp)/[a-zA-Z0-9_-]+/'''
+keywords = ["nubifer"]
+
+[[rules]]
+id = "aws-credential-export"
+description = "AWS credentials exported to environment"
+regex = '''export\s+(AWS_ACCESS_KEY_ID|AWS_SECRET_ACCESS_KEY)\s*='''
+keywords = ["export", "AWS"]
+
+# Allowlist paths that are expected to contain example/test credentials
+[allowlist]
+paths = [
+  '''.*test.*''',
+  '''.*example.*''',
+  '''.*\.md$''',
+]
