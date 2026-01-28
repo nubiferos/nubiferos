@@ -101,6 +101,14 @@ SOFTWARE_CATALOG = {
                 "size": "~80MB"
             },
             {
+                "id": "packer",
+                "name": "Packer",
+                "description": "Machine image builder by HashiCorp (AMIs, VM images)",
+                "check_cmd": "packer --version",
+                "install_cmd": "cd /tmp && curl -fsSL https://releases.hashicorp.com/packer/1.10.0/packer_1.10.0_linux_amd64.zip -o packer.zip && unzip -q packer.zip && sudo mv packer /usr/local/bin/ && rm packer.zip",
+                "size": "~80MB"
+            },
+            {
                 "id": "pulumi",
                 "name": "Pulumi",
                 "description": "Modern infrastructure as code in any language",
