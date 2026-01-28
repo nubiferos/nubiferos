@@ -509,11 +509,14 @@ class SoftwareCenter(Gtk.Window):
         
         def install_thread():
             try:
-                # Run in terminal for visibility
-                cmd = f"gnome-terminal -- bash -c '{tool['install_cmd']}; echo; echo Press Enter to close...; read'"
+                # Run in terminal and wait for it to close
+                # Using --wait flag makes gnome-terminal block until the window closes
+                cmd = f"gnome-terminal --wait -- bash -c '{tool['install_cmd']}; echo; echo Press Enter to close...; read'"
                 subprocess.run(cmd, shell=True)
                 
+                # Terminal closed - refresh the UI
                 GLib.idle_add(self._install_complete, button, tool, True)
+                GLib.idle_add(self._on_refresh, None)  # Auto-refresh on terminal close
             except Exception as e:
                 GLib.idle_add(self._install_complete, button, tool, False, str(e))
         
