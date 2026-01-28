@@ -607,17 +607,7 @@ class SecurityDashboard(Gtk.Window):
             return ("error", "Not Installed")
         
         try:
-            # Check if AppArmor kernel module is loaded
-            if os.path.exists("/sys/kernel/security/apparmor"):
-                # Check if profiles are loaded
-                profiles_file = Path("/sys/kernel/security/apparmor/profiles")
-                if profiles_file.exists():
-                    content = profiles_file.read_text()
-                    if content.strip():
-                        return ("ok", "Enabled")
-                return ("ok", "Loaded")
-            
-            # Fallback: check systemd service
+            # First try systemctl - most reliable
             result = subprocess.run(
                 ["systemctl", "is-active", "apparmor"],
                 capture_output=True,
@@ -626,8 +616,27 @@ class SecurityDashboard(Gtk.Window):
             )
             if result.stdout.strip() == "active":
                 return ("ok", "Active")
+            
+            # Check if AppArmor kernel module is loaded
+            if os.path.exists("/sys/kernel/security/apparmor"):
+                # Check if profiles are loaded
+                profiles_file = Path("/sys/kernel/security/apparmor/profiles")
+                if profiles_file.exists():
+                    try:
+                        content = profiles_file.read_text()
+                        if content.strip():
+                            return ("ok", "Enabled")
+                    except:
+                        pass
+                return ("ok", "Loaded")
+            
+            # Check /sys/module/apparmor as alternative
+            if os.path.exists("/sys/module/apparmor"):
+                return ("ok", "Loaded")
+            
             return ("warn", "Inactive")
-        except:
+        except Exception as e:
+            return ("warn", "Unknown")
             return ("warn", "Unknown")
     
     def _check_auto_updates(self):
