@@ -112,38 +112,124 @@ Mode:      🔓 Read-Write
 
 ## Terminal Prompt Integration
 
-When a workspace is active, your terminal prompt shows the context:
+When a workspace is active, your terminal prompt shows the context with high-visibility mode indicators:
 
 ```bash
-# AWS workspace (orange)
-[☁️ prod-account] user@host:~$
+# Read-only mode (green background = safe)
+[🔒 RO][☁️ prod-account] user@host:~$
 
-# Azure workspace (blue)
-[⛅ dev-subscription] user@host:~$
+# Read-write mode (red background = danger)  
+[🔓 RW][☁️ prod-account] user@host:~$
 
-# GCP workspace (red)
-[🌩️ staging-project] user@host:~$
+# Azure workspace
+[🔒 RO][⛅ dev-subscription] user@host:~$
 
-# Read-only mode (with lock)
-[☁️ prod-account 🔒] user@host:~$
+# GCP workspace
+[🔓 RW][🔵🔴🟡🟢 staging-project] user@host:~$
 ```
+
+The mode indicator uses colored backgrounds for visibility:
+- **Green background (🔒 RO)**: Safe mode, writes blocked
+- **Red background (🔓 RW)**: Danger mode, writes allowed
 
 ## Read-Only Mode
 
-Protect against accidental modifications:
+Protect against accidental modifications with security-enforced write controls.
+
+### Quick Commands (Recommended)
+
+```bash
+# Lock workspace (enable read-only) - uses current workspace if omitted
+nubifer-workspace ro
+nubifer-workspace ro <workspace-id>
+
+# Unlock workspace (enable read-write) - REQUIRES SUDO for security
+sudo nubifer-workspace rw
+sudo nubifer-workspace rw <workspace-id>
+
+# Timed write access (auto-reverts to read-only)
+sudo nubifer-workspace rw -d 30        # 30 minutes
+sudo nubifer-workspace rw -d 60        # 1 hour
+```
+
+### Why Sudo for Write Mode?
+
+Enabling write mode requires `sudo` as a security measure:
+- Prevents unauthorized writes from compromised sessions
+- Stops attackers who gain shell access from modifying resources
+- Creates audit trail via sudo logs
+- Forces intentional action (can't accidentally enable writes)
+
+### Long-Form Commands
 
 ```bash
 # Enable read-only mode
 nubifer-workspace readonly <workspace-id> --enable
 
-# Disable read-only mode
+# Disable read-only mode (no sudo required for long form)
 nubifer-workspace readonly <workspace-id> --disable
 ```
 
-When read-only mode is active:
-- Terminal prompt shows 🔒 lock icon
-- Write operations are blocked
-- Clear error messages explain why operations are blocked
+### Visual Indicators
+
+The terminal prompt shows your current mode with high visibility:
+
+```bash
+# Read-only mode (green background = safe)
+[🔒 RO][☁️ prod-account] user@host:~$
+
+# Read-write mode (red background = danger)
+[🔓 RW][☁️ prod-account] user@host:~$
+```
+
+### When Write Operations Are Blocked
+
+```
+┌─────────────────────────────────────────────────────────┐
+│ 🔒 WRITE BLOCKED  Workspace is in read-only mode        │
+└─────────────────────────────────────────────────────────┘
+
+  Command: aws ec2 terminate-instances --instance-ids i-123
+
+  To enable writes (requires sudo):
+    sudo nubifer-workspace rw
+
+  For timed write access (auto-reverts):
+    sudo nubifer-workspace rw -d 30  # 30 minutes
+```
+
+### Creating Read-Only Workspaces
+
+Create workspaces in read-only mode by default:
+
+```bash
+nubifer-workspace create \
+  --name "AWS Production" \
+  --provider aws \
+  --account-id 123456789012 \
+  --region us-east-1 \
+  --read-only              # Start in read-only mode
+```
+
+### Best Practice: Default to Read-Only
+
+For production accounts, create workspaces with `--read-only` and only enable writes when needed:
+
+```bash
+# Create production workspace (read-only by default)
+nubifer-workspace create --name "Prod" --provider aws \
+  --account-id 123456789012 --region us-east-1 --read-only
+
+# When you need to make changes
+sudo nubifer-workspace rw -d 15   # 15 minute window
+
+# Make your changes...
+aws ec2 run-instances ...
+
+# Workspace auto-reverts to read-only after 15 minutes
+# Or manually lock it immediately:
+nubifer-workspace ro
+```
 
 ## Environment Variables
 
@@ -367,15 +453,17 @@ Workspace configuration (`~/.config/nubifer/workspaces/<id>.json`):
 
 1. **Use Descriptive Names**: Include environment and purpose (e.g., "AWS Production Web", "Azure Dev Database")
 
-2. **Enable Read-Only by Default**: Create workspaces in read-only mode, disable only when needed
+2. **Create Production Workspaces as Read-Only**: Use `--read-only` flag when creating production workspaces
 
-3. **One Workspace Per Account**: Don't mix multiple accounts in one workspace
+3. **Use Timed Write Sessions**: When making changes, use `sudo nubifer-workspace rw -d 30` to auto-revert
 
-4. **Regular Audits**: Review `workspace-audit.log` for unexpected activity
+4. **One Workspace Per Account**: Don't mix multiple accounts in one workspace
 
-5. **Visual Confirmation**: Always check terminal prompt before running commands
+5. **Regular Audits**: Review `workspace-audit.log` for unexpected activity
 
-6. **Separate Production**: Use different workspaces (and ideally different machines) for production
+6. **Visual Confirmation**: Always check terminal prompt (green=safe, red=danger) before running commands
+
+7. **Separate Production**: Use different workspaces (and ideally different machines) for production
 
 ## Integration with Other NubiferOS Components
 

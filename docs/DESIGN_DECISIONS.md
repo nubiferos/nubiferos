@@ -228,6 +228,40 @@ apt-get install terraform
 
 ---
 
+### Decision 9: Sudo Required for Write Mode
+
+**What We Chose**: Require `sudo` to enable read-write mode on workspaces  
+**Instead Of**: Simple toggle without authentication
+
+**Why**:
+- ✅ **Prevents unauthorized writes**: Compromised sessions can't modify resources
+- ✅ **Audit trail**: sudo logs all privilege escalations
+- ✅ **Intentional action**: Can't accidentally enable writes
+- ✅ **Defense in depth**: Even if attacker gets shell, they can't write
+- ✅ **Timed sessions**: Auto-revert to read-only after N minutes
+
+**How It Works**:
+```bash
+# Lock workspace (no sudo needed - always safe to lock)
+nubifer-workspace ro
+
+# Unlock workspace (requires sudo)
+sudo nubifer-workspace rw
+
+# Timed unlock (auto-reverts to read-only)
+sudo nubifer-workspace rw -d 30  # 30 minute window
+```
+
+**Visual Indicators**:
+- **Green background** `[🔒 RO]`: Safe mode, writes blocked
+- **Red background** `[🔓 RW]`: Danger mode, writes allowed
+
+**Security Benefit**: An attacker who gains access to an unlocked terminal session cannot enable write mode without knowing the user's password.
+
+**Trade-off**: Slight friction when making legitimate changes, but that's intentional - writes to cloud infrastructure *should* require thought.
+
+---
+
 ## 🎨 Design Philosophy
 
 ### Principle 1: Security Over Convenience
