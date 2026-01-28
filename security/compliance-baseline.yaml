@@ -1,0 +1,50 @@
+# NubiferOS Hardening Compliance Baseline
+# Defines minimum security requirements for builds
+#
+# This file configures the compliance-check.sh script behavior.
+# Lynis is used as the underlying audit tool.
+
+# Minimum lynis hardening index score (0-100)
+# Builds will fail if score is below this threshold
+min_score: 70
+
+# Critical checks that must pass (lynis test IDs)
+# These are informational - lynis runs all tests regardless
+required_checks:
+  - AUTH-9262  # No accounts without password
+  - AUTH-9282  # Password hashing rounds
+  - AUTH-9328  # Default umask
+  - FILE-6310  # /tmp partition options
+  - KRNL-5820  # Core dumps restricted
+  - KRNL-6000  # Kernel hardening sysctl
+  - SSH-7408   # SSH protocol version
+  - SSH-7440   # SSH root login disabled
+  - STRG-1840  # USB storage disabled (optional)
+
+# Checks to skip (with justification)
+# These won't affect the score but are documented here
+skip_checks:
+  - FIRE-4512  # Firewall - handled by cloud security groups
+  - MALW-3280  # Malware scanner - not needed for cloud workstation
+  - NETW-2705  # IPv6 - may be needed in some environments
+
+# Warnings that are acceptable for NubiferOS
+# These are expected based on our design decisions
+acceptable_warnings:
+  - "No malware scanner installed"
+  - "iptables not enabled"
+  - "No firewall active"
+
+# Categories to focus on (informational)
+focus_categories:
+  - authentication
+  - file_permissions
+  - kernel_hardening
+  - ssh_configuration
+  - logging
+
+# Score thresholds for different environments
+thresholds:
+  production: 80
+  staging: 70
+  development: 60

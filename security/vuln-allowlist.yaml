@@ -1,0 +1,23 @@
+# NubiferOS Vulnerability Allowlist
+# CVEs listed here will not cause build failures
+#
+# Format:
+#   vulnerabilities:
+#     - id: CVE-YYYY-NNNNN
+#       reason: "Explanation for why this is acceptable"
+#       expires: "YYYY-MM-DD"  # Optional expiration date
+#       package: "package-name" # Optional - specific package
+#
+# All entries should be reviewed periodically and removed when patches are available.
+# Expired entries are automatically ignored.
+#
+# Example:
+#   vulnerabilities:
+#     - id: CVE-2024-12345
+#       reason: "False positive - vulnerable function not called in our code"
+#       expires: "2026-06-01"
+#     - id: CVE-2024-67890
+#       reason: "Accepted risk - no upstream patch available yet"
+#       package: "libfoo"
+
+vulnerabilities: []
