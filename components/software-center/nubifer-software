@@ -262,6 +262,157 @@ SOFTWARE_CATALOG = {
                 "size": "~200MB"
             }
         ]
+    },
+    "AWS SDKs & Tools": {
+        "icon": "cloud",
+        "tools": [
+            {
+                "id": "aws-sam-cli",
+                "name": "AWS SAM CLI",
+                "description": "Serverless Application Model - build & deploy Lambda functions",
+                "check_cmd": "sam --version",
+                "install_cmd": "pip3 install --user aws-sam-cli",
+                "size": "~100MB"
+            },
+            {
+                "id": "aws-cdk",
+                "name": "AWS CDK",
+                "description": "Cloud Development Kit - define infrastructure in code",
+                "check_cmd": "cdk --version",
+                "install_cmd": "sudo npm install -g aws-cdk",
+                "size": "~50MB"
+            },
+            {
+                "id": "aws-copilot",
+                "name": "AWS Copilot",
+                "description": "CLI for containerized apps on ECS and App Runner",
+                "check_cmd": "copilot --version",
+                "install_cmd": "cd /tmp && curl -Lo copilot https://github.com/aws/copilot-cli/releases/latest/download/copilot-linux && chmod +x copilot && sudo mv copilot /usr/local/bin/",
+                "size": "~80MB"
+            },
+            {
+                "id": "aws-amplify",
+                "name": "AWS Amplify CLI",
+                "description": "Build full-stack web and mobile apps",
+                "check_cmd": "amplify --version",
+                "install_cmd": "sudo npm install -g @aws-amplify/cli",
+                "size": "~200MB"
+            },
+            {
+                "id": "boto3",
+                "name": "Boto3 (Python SDK)",
+                "description": "AWS SDK for Python - install per-project with pip",
+                "check_cmd": "python3 -c 'import boto3; print(boto3.__version__)'",
+                "install_cmd": "pip3 install --user boto3",
+                "size": "~5MB"
+            },
+            {
+                "id": "aws-sdk-js",
+                "name": "AWS SDK for JavaScript",
+                "description": "AWS SDK for Node.js - install per-project with npm",
+                "check_cmd": "npm list -g @aws-sdk/client-s3 2>/dev/null | grep -q @aws-sdk",
+                "install_cmd": "sudo npm install -g @aws-sdk/client-s3 @aws-sdk/client-ec2 @aws-sdk/client-lambda",
+                "size": "~20MB"
+            },
+            {
+                "id": "session-manager-plugin",
+                "name": "Session Manager Plugin",
+                "description": "Connect to EC2 instances via AWS Systems Manager",
+                "check_cmd": "session-manager-plugin --version",
+                "install_cmd": "cd /tmp && curl -o session-manager-plugin.deb https://s3.amazonaws.com/session-manager-downloads/plugin/latest/ubuntu_64bit/session-manager-plugin.deb && sudo dpkg -i session-manager-plugin.deb && rm session-manager-plugin.deb",
+                "size": "~10MB"
+            }
+        ]
+    },
+    "GCP SDKs & Tools": {
+        "icon": "cloud",
+        "tools": [
+            {
+                "id": "google-cloud-python",
+                "name": "Google Cloud Python SDK",
+                "description": "Python client libraries for GCP services",
+                "check_cmd": "python3 -c 'import google.cloud; print(\"installed\")'",
+                "install_cmd": "pip3 install --user google-cloud-storage google-cloud-bigquery google-cloud-pubsub",
+                "size": "~50MB"
+            },
+            {
+                "id": "gcp-sdk-nodejs",
+                "name": "Google Cloud Node.js SDK",
+                "description": "Node.js client libraries for GCP services",
+                "check_cmd": "npm list -g @google-cloud/storage 2>/dev/null | grep -q @google-cloud",
+                "install_cmd": "sudo npm install -g @google-cloud/storage @google-cloud/bigquery @google-cloud/pubsub",
+                "size": "~30MB"
+            },
+            {
+                "id": "cloud-sql-proxy",
+                "name": "Cloud SQL Auth Proxy",
+                "description": "Secure connection to Cloud SQL databases",
+                "check_cmd": "cloud-sql-proxy --version",
+                "install_cmd": "cd /tmp && curl -o cloud-sql-proxy https://storage.googleapis.com/cloud-sql-connectors/cloud-sql-proxy/v2.8.0/cloud-sql-proxy.linux.amd64 && chmod +x cloud-sql-proxy && sudo mv cloud-sql-proxy /usr/local/bin/",
+                "size": "~20MB"
+            },
+            {
+                "id": "gke-gcloud-auth-plugin",
+                "name": "GKE Auth Plugin",
+                "description": "Kubernetes authentication for GKE clusters",
+                "check_cmd": "gke-gcloud-auth-plugin --version",
+                "install_cmd": "sudo apt-get install -y google-cloud-sdk-gke-gcloud-auth-plugin",
+                "size": "~10MB"
+            },
+            {
+                "id": "firebase-tools",
+                "name": "Firebase CLI",
+                "description": "Firebase development and deployment tools",
+                "check_cmd": "firebase --version",
+                "install_cmd": "sudo npm install -g firebase-tools",
+                "size": "~100MB"
+            }
+        ]
+    },
+    "Azure SDKs & Tools": {
+        "icon": "cloud",
+        "tools": [
+            {
+                "id": "azure-sdk-python",
+                "name": "Azure SDK for Python",
+                "description": "Python client libraries for Azure services",
+                "check_cmd": "python3 -c 'import azure.identity; print(\"installed\")'",
+                "install_cmd": "pip3 install --user azure-identity azure-storage-blob azure-mgmt-compute azure-mgmt-resource",
+                "size": "~50MB"
+            },
+            {
+                "id": "azure-sdk-nodejs",
+                "name": "Azure SDK for Node.js",
+                "description": "Node.js client libraries for Azure services",
+                "check_cmd": "npm list -g @azure/identity 2>/dev/null | grep -q @azure",
+                "install_cmd": "sudo npm install -g @azure/identity @azure/storage-blob @azure/arm-compute",
+                "size": "~30MB"
+            },
+            {
+                "id": "azure-functions-core-tools",
+                "name": "Azure Functions Core Tools",
+                "description": "Local development for Azure Functions",
+                "check_cmd": "func --version",
+                "install_cmd": "sudo npm install -g azure-functions-core-tools@4",
+                "size": "~200MB"
+            },
+            {
+                "id": "azurite",
+                "name": "Azurite",
+                "description": "Local Azure Storage emulator for development",
+                "check_cmd": "azurite --version",
+                "install_cmd": "sudo npm install -g azurite",
+                "size": "~50MB"
+            },
+            {
+                "id": "bicep",
+                "name": "Bicep",
+                "description": "Domain-specific language for Azure ARM templates",
+                "check_cmd": "bicep --version",
+                "install_cmd": "cd /tmp && curl -Lo bicep https://github.com/Azure/bicep/releases/latest/download/bicep-linux-x64 && chmod +x bicep && sudo mv bicep /usr/local/bin/",
+                "size": "~50MB"
+            }
+        ]
     }
 }
 
