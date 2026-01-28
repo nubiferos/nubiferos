@@ -595,7 +595,7 @@ Presentation
                 }
 
                 Text {
-                    text: "Unlike X11, Wayland prevents applications from reading other apps' keyboard input or capturing screenshots without permission."
+                    text: "Wayland prevents applications from reading other apps' keyboard input or capturing screenshots without permission."
                     font.pixelSize: 16
                     color: "#ecf0f1"
                     width: parent.width
