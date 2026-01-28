@@ -421,7 +421,7 @@ def main():
                               help="Cloud provider")
     create_parser.add_argument("--account-id", required=True, help="Account ID")
     create_parser.add_argument("--account-name", help="Account name (display)")
-    create_parser.add_argument("--region", help="Default region")
+    create_parser.add_argument("--region", required=True, help="Default region (e.g., us-east-1, eu-west-1)")
     create_parser.add_argument("--credential-id", help="Credential ID from nubifer-creds")
     create_parser.add_argument("--read-only", action="store_true", 
                               help="Create in read-only mode")
