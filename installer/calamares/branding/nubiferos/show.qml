@@ -409,7 +409,61 @@ Presentation
         }
     }
 
-    // SLIDE 8 - PREVENT DISASTERS
+    // SLIDE 8 - SECURITY DASHBOARD
+    Slide {
+        anchors.fill: parent
+
+        Rectangle {
+            anchors.fill: parent
+            color: "#2c3e50"
+
+            Column {
+                anchors.centerIn: parent
+                spacing: 20
+                width: parent.width * 0.85
+
+                Text {
+                    text: "Security Dashboard shows your protection status at a glance."
+                    font.pixelSize: 28
+                    font.bold: true
+                    color: "#3498db"
+                    width: parent.width
+                    wrapMode: Text.WordWrap
+                    horizontalAlignment: Text.AlignHCenter
+                }
+
+                Text {
+                    text: "Real-time checks for LUKS encryption, UFW firewall, AppArmor, CPU mitigations, workspace count, and credential store status. Calculates overall security score."
+                    font.pixelSize: 16
+                    color: "#ecf0f1"
+                    width: parent.width
+                    wrapMode: Text.WordWrap
+                    horizontalAlignment: Text.AlignHCenter
+                }
+
+                Text {
+                    text: "What's that really mean?:"
+                    font.pixelSize: 15
+                    font.italic: true
+                    color: "#f39c12"
+                    width: parent.width
+                    wrapMode: Text.WordWrap
+                    horizontalAlignment: Text.AlignHCenter
+                }
+
+                Text {
+                    text: "One window tells you if everything's configured correctly. Green checkmarks mean you're protected, warnings show what needs attention."
+                    font.pixelSize: 15
+                    color: "#bdc3c7"
+                    width: parent.width
+                    wrapMode: Text.WordWrap
+                    horizontalAlignment: Text.AlignHCenter
+                }
+            }
+        }
+    }
+
+    // SLIDE 9 - PREVENT DISASTERS
     Slide {
         anchors.fill: parent
 
@@ -463,7 +517,7 @@ Presentation
         }
     }
 
-    // SLIDE 9 - PRIVACY FIRST
+    // SLIDE 10 - PRIVACY FIRST
     Slide {
         anchors.fill: parent
 
@@ -517,7 +571,7 @@ Presentation
         }
     }
 
-    // SLIDE 10 - BUILT ON DEBIAN
+    // SLIDE 11 - BUILT ON DEBIAN
     Slide {
         anchors.fill: parent
 
@@ -571,7 +625,7 @@ Presentation
         }
     }
 
-    // SLIDE 11 - WAYLAND SECURITY
+    // SLIDE 12 - WAYLAND SECURITY
     Slide {
         anchors.fill: parent
 
@@ -625,7 +679,7 @@ Presentation
         }
     }
 
-    // SLIDE 12 - FIREJAIL ISOLATION
+    // SLIDE 13 - FIREJAIL ISOLATION
     Slide {
         anchors.fill: parent
 
@@ -679,7 +733,7 @@ Presentation
         }
     }
 
-    // SLIDE 13 - OPEN SOURCE
+    // SLIDE 14 - OPEN SOURCE
     Slide {
         anchors.fill: parent
 
@@ -733,7 +787,7 @@ Presentation
         }
     }
 
-    // SLIDE 14 - CLI WRAPPERS
+    // SLIDE 15 - CLI WRAPPERS
     Slide {
         anchors.fill: parent
 
@@ -787,7 +841,7 @@ Presentation
         }
     }
 
-    // SLIDE 15 - ALMOST DONE
+    // SLIDE 16 - ALMOST DONE
     Slide {
         anchors.fill: parent
 
