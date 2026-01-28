@@ -313,8 +313,16 @@ class WorkspaceManager:
     def _display_workspace_context(self, workspace: Dict):
         """Display visual workspace context"""
         theme = workspace['theme']
-        mode_icon = '🔒' if workspace['read_only'] else '🔓'
-        mode_text = 'Read-Only' if workspace['read_only'] else 'Read-Write'
+        
+        # Use ANSI colors for terminal visibility
+        if workspace['read_only']:
+            # Green background for read-only (safe)
+            mode_display = '\033[48;5;22;97m 🔒 READ-ONLY \033[0m'
+            mode_text = 'Read-Only (writes blocked)'
+        else:
+            # Red background for read-write (danger)
+            mode_display = '\033[48;5;196;97m 🔓 READ-WRITE \033[0m'
+            mode_text = 'Read-Write (writes allowed)'
         
         print("\n" + "="*60)
         print(f"{theme['icon']} Workspace: {workspace['name']}")
@@ -323,7 +331,14 @@ class WorkspaceManager:
         print(f"Account:   {workspace['account_name']}")
         if workspace.get('region'):
             print(f"Region:    {workspace['region']}")
-        print(f"Mode:      {mode_icon} {mode_text}")
+        print(f"Mode:      {mode_display} {mode_text}")
+        
+        # Show expiration if in timed read-write mode
+        if not workspace['read_only'] and workspace.get('rw_expires_at'):
+            remaining = int((workspace['rw_expires_at'] - datetime.now().timestamp()) / 60)
+            if remaining > 0:
+                print(f"           ⏱️  Reverts to read-only in ~{remaining} minutes")
+        
         print("="*60)
     
     def export_environment(self, workspace_id: str):
@@ -333,6 +348,18 @@ class WorkspaceManager:
         if not workspace:
             print(f"✗ Workspace not found: {workspace_id}", file=sys.stderr)
             return
+        
+        # Check if read-write mode has expired
+        if not workspace['read_only'] and workspace.get('rw_expires_at'):
+            if datetime.now().timestamp() > workspace['rw_expires_at']:
+                # Auto-revert to read-only
+                workspace['read_only'] = True
+                workspace.pop('rw_expires_at', None)
+                workspace.pop('rw_duration', None)
+                workspace_file = self.workspace_dir / f"{workspace_id}.json"
+                with open(workspace_file, 'w') as f:
+                    json.dump(workspace, f, indent=2)
+                print("# ⚠️  Read-write session expired, reverted to read-only", file=sys.stderr)
         
         # Export environment variables
         for key, value in workspace['environment'].items():
@@ -348,11 +375,21 @@ class WorkspaceManager:
         print(f"export NUBIFER_PROMPT_COLOR='{theme['terminal_color']}'")
         print(f"export NUBIFER_PROMPT_ICON='{theme['icon']}'")
         
-        # Update PS1 for visual context
-        ps1 = f"'[\\[\\e[38;5;{theme['terminal_color']}m\\]"
-        ps1 += f"{theme['icon']} {workspace['account_name']}"
+        # Build PS1 with highly visible read-only/read-write indicator
+        # Read-only: 🔒 with green background (safe)
+        # Read-write: 🔓 with red background (danger - writes allowed)
         if workspace['read_only']:
-            ps1 += " 🔒"
+            # Green background (48;5;22) for read-only (safe mode)
+            mode_indicator = "\\[\\e[48;5;22;97m\\] 🔒 RO \\[\\e[0m\\]"
+        else:
+            # Red background (48;5;196) for read-write (danger mode)
+            mode_indicator = "\\[\\e[48;5;196;97m\\] 🔓 RW \\[\\e[0m\\]"
+        
+        # Build the full prompt
+        # Format: [MODE] [provider_icon account_name] user@host:path$
+        ps1 = f"'{mode_indicator}"
+        ps1 += f"[\\[\\e[38;5;{theme['terminal_color']}m\\]"
+        ps1 += f"{theme['icon']} {workspace['account_name']}"
         ps1 += "\\[\\e[0m\\]] \\u@\\h:\\w\\$ '"
         print(f"export PS1={ps1}")
     
@@ -380,8 +417,14 @@ class WorkspaceManager:
         print(f"✓ Workspace deleted: {workspace['name']}")
         return True
     
-    def set_read_only(self, workspace_id: str, enabled: bool):
-        """Set read-only mode for workspace"""
+    def set_read_only(self, workspace_id: str, enabled: bool, duration: int = 0):
+        """Set read-only mode for workspace
+        
+        Args:
+            workspace_id: The workspace ID
+            enabled: True to enable read-only, False to enable read-write
+            duration: Minutes until auto-revert to read-only (0 = permanent, only for rw)
+        """
         workspace = self.get_workspace(workspace_id)
         
         if not workspace:
@@ -390,16 +433,50 @@ class WorkspaceManager:
         
         workspace['read_only'] = enabled
         
+        # Handle duration-based auto-revert for write mode
+        if not enabled and duration > 0:
+            revert_time = datetime.now().timestamp() + (duration * 60)
+            workspace['rw_expires_at'] = revert_time
+            workspace['rw_duration'] = duration
+        else:
+            # Clear any existing expiration
+            workspace.pop('rw_expires_at', None)
+            workspace.pop('rw_duration', None)
+        
         workspace_file = self.workspace_dir / f"{workspace_id}.json"
         with open(workspace_file, 'w') as f:
             json.dump(workspace, f, indent=2)
         
         mode = "enabled" if enabled else "disabled"
-        self._audit_log_entry("SET_READ_ONLY", workspace_id, f"mode={mode}")
+        self._audit_log_entry("SET_READ_ONLY", workspace_id, f"mode={mode}, duration={duration}")
         
-        icon = '🔒' if enabled else '🔓'
-        print(f"✓ Read-only mode {mode}: {workspace['name']} {icon}")
+        if enabled:
+            print(f"🔒 Read-only mode enabled: {workspace['name']}")
+            print(f"   Write operations are now blocked")
+        else:
+            print(f"🔓 Read-write mode enabled: {workspace['name']}")
+            print(f"   ⚠️  Write operations are now allowed")
+            if duration > 0:
+                print(f"   ⏱️  Auto-reverts to read-only in {duration} minutes")
+                # Schedule the revert using systemd-run (runs as user)
+                self._schedule_read_only_revert(workspace_id, duration)
+        
         return True
+    
+    def _schedule_read_only_revert(self, workspace_id: str, minutes: int):
+        """Schedule automatic revert to read-only mode"""
+        try:
+            # Use systemd-run to schedule the revert
+            subprocess.run([
+                'systemd-run', '--user', '--on-active=' + str(minutes) + 'm',
+                '--unit=nubifer-ro-revert-' + workspace_id[:8],
+                '--description=NubiferOS auto-revert to read-only',
+                '/usr/local/bin/nubifer-workspace', 'ro', workspace_id
+            ], check=False, capture_output=True)
+        except Exception:
+            # Fallback: just warn user
+            print(f"   Note: Auto-revert scheduled. If you log out, manually run:", file=sys.stderr)
+            print(f"         nubifer-workspace ro {workspace_id}", file=sys.stderr)
     
     def update_workspace(self, workspace_id: str, **kwargs):
         """Update workspace configuration"""
@@ -475,11 +552,21 @@ def main():
     delete_parser = subparsers.add_parser("delete", help="Delete a workspace")
     delete_parser.add_argument("workspace_id", help="Workspace ID")
     
-    # Read-only command
+    # Read-only command (full form)
     readonly_parser = subparsers.add_parser("readonly", help="Set read-only mode")
     readonly_parser.add_argument("workspace_id", help="Workspace ID")
     readonly_parser.add_argument("--enable", action="store_true", help="Enable read-only")
     readonly_parser.add_argument("--disable", action="store_true", help="Disable read-only")
+    
+    # ro - shorthand for enabling read-only (lock workspace)
+    ro_parser = subparsers.add_parser("ro", help="Enable read-only mode (shorthand)")
+    ro_parser.add_argument("workspace_id", nargs="?", help="Workspace ID (uses current if omitted)")
+    
+    # rw - shorthand for enabling read-write (requires sudo for security)
+    rw_parser = subparsers.add_parser("rw", help="Enable read-write mode (requires sudo)")
+    rw_parser.add_argument("workspace_id", nargs="?", help="Workspace ID (uses current if omitted)")
+    rw_parser.add_argument("--duration", "-d", type=int, default=0,
+                          help="Auto-revert to read-only after N minutes (0 = permanent)")
     
     # Update command
     update_parser = subparsers.add_parser("update", help="Update workspace")
@@ -573,6 +660,41 @@ def main():
             manager.set_read_only(args.workspace_id, False)
         else:
             print("✗ Specify --enable or --disable", file=sys.stderr)
+    
+    elif args.command == "ro":
+        # Shorthand for enabling read-only (lock)
+        workspace_id = args.workspace_id
+        if not workspace_id:
+            current = manager.get_current_workspace()
+            if not current:
+                print("✗ No active workspace. Specify workspace ID.", file=sys.stderr)
+                sys.exit(1)
+            workspace_id = current['workspace_id']
+        manager.set_read_only(workspace_id, True)
+    
+    elif args.command == "rw":
+        # Shorthand for enabling read-write (unlock) - requires sudo
+        workspace_id = args.workspace_id
+        if not workspace_id:
+            current = manager.get_current_workspace()
+            if not current:
+                print("✗ No active workspace. Specify workspace ID.", file=sys.stderr)
+                sys.exit(1)
+            workspace_id = current['workspace_id']
+        
+        # Security: require sudo to enable write mode
+        if os.geteuid() != 0:
+            print("🔐 Write mode requires elevated privileges for security.", file=sys.stderr)
+            print("   This prevents unauthorized writes from compromised sessions.", file=sys.stderr)
+            print("", file=sys.stderr)
+            print("   Run with sudo:", file=sys.stderr)
+            if args.duration:
+                print(f"   sudo nubifer-workspace rw {workspace_id} -d {args.duration}", file=sys.stderr)
+            else:
+                print(f"   sudo nubifer-workspace rw {workspace_id}", file=sys.stderr)
+            sys.exit(1)
+        
+        manager.set_read_only(workspace_id, False, duration=args.duration)
     
     elif args.command == "update":
         manager.update_workspace(

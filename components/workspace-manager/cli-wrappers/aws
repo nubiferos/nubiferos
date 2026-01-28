@@ -19,9 +19,17 @@ if [ "$NUBIFER_WORKSPACE_READ_ONLY" = "true" ]; then
     write_commands="create|delete|update|put|modify|terminate|stop|start|reboot|attach|detach|associate|disassociate|enable|disable|register|deregister"
     
     if echo "$@" | grep -qE "$write_commands"; then
-        echo "✗ AWS write operation blocked: Workspace is in read-only mode 🔒" >&2
+        echo "" >&2
+        echo -e "\033[48;5;22;97m 🔒 WRITE BLOCKED \033[0m Workspace is in read-only mode" >&2
+        echo "" >&2
         echo "  Command: aws $@" >&2
-        echo "  Disable read-only: nubifer-workspace readonly $NUBIFER_WORKSPACE_ID --disable" >&2
+        echo "" >&2
+        echo "  To enable writes (requires sudo):" >&2
+        echo "    sudo nubifer-workspace rw $NUBIFER_WORKSPACE_ID" >&2
+        echo "" >&2
+        echo "  For timed write access (auto-reverts):" >&2
+        echo "    sudo nubifer-workspace rw $NUBIFER_WORKSPACE_ID -d 30  # 30 minutes" >&2
+        echo "" >&2
         exit 1
     fi
 fi
