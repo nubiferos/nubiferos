@@ -8,6 +8,7 @@ import gi
 import os
 import subprocess
 import sys
+import threading
 
 gi.require_version('Gtk', '4.0')
 gi.require_version('Adw', '1')
@@ -305,16 +306,43 @@ class CredentialSetupPage(Gtk.Box):
         return False  # Don't repeat
 
     def _on_setup_clicked(self, button):
-        """Launch terminal setup wizard"""
-        try:
-            subprocess.Popen([
-                "gnome-terminal",
-                "--",
-                "bash", "-c",
-                "nubifer-setup-wizard setup; echo; echo 'Press Enter to close...'; read"
-            ])
-        except Exception as e:
-            print(f"Failed to launch terminal: {e}")
+        """Launch terminal setup wizard and refresh status when done"""
+        button.set_sensitive(False)
+        button.set_label("Setting up...")
+        
+        def run_setup():
+            try:
+                # Use --wait to block until terminal closes
+                subprocess.run([
+                    "gnome-terminal",
+                    "--wait",
+                    "--",
+                    "bash", "-c",
+                    "nubifer-setup-wizard setup; echo; echo 'Press Enter to close...'; read"
+                ])
+                # Terminal closed - refresh status on main thread
+                GLib.idle_add(self._setup_complete, button)
+            except Exception as e:
+                print(f"Failed to launch terminal: {e}")
+                GLib.idle_add(self._setup_failed, button)
+        
+        # Run in thread so UI doesn't block
+        import threading
+        thread = threading.Thread(target=run_setup)
+        thread.daemon = True
+        thread.start()
+    
+    def _setup_complete(self, button):
+        """Called when setup terminal closes"""
+        button.set_sensitive(True)
+        button.set_label("Set Up Credential Manager")
+        # Auto-refresh status
+        self._on_refresh_clicked(None)
+    
+    def _setup_failed(self, button):
+        """Called if setup fails to launch"""
+        button.set_sensitive(True)
+        button.set_label("Set Up Credential Manager")
 
 
 class WorkspacePage(Gtk.Box):
