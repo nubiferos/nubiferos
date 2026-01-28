@@ -99,32 +99,82 @@ EOF
     echo "✓ Firefox configured"
 }
 
-# Import bookmarks
+# Import bookmarks via Firefox policy
 import_bookmarks() {
-    echo "Preparing bookmark import..."
+    echo "Importing bookmarks via Firefox policy..."
     
-    # Copy bookmarks to shared location
+    # Copy bookmarks JSON for reference
     mkdir -p /usr/share/nubifer/browser
     cp "${SCRIPT_DIR}/firefox-bookmarks.json" /usr/share/nubifer/browser/
     
-    # Create import script for first-run
-    cat > /usr/share/nubifer/browser/import-bookmarks.sh << 'EOF'
-#!/bin/bash
-# Import NubiferOS bookmarks on first run
+    # Convert our bookmarks JSON to Firefox ManagedBookmarks policy format
+    python3 << 'PYTHON_SCRIPT'
+import json
+import os
 
-FIREFOX_PROFILE=$(find ~/.mozilla/firefox -name "*.default-esr" | head -n1)
+# Read our bookmarks
+with open('/usr/share/nubifer/browser/firefox-bookmarks.json') as f:
+    bookmarks = json.load(f)
 
-if [ -n "$FIREFOX_PROFILE" ]; then
-    # Import bookmarks using Firefox's bookmark backup format
-    # This will be done via the Resource Viewer UI or manual import
-    echo "Firefox profile found: $FIREFOX_PROFILE"
-    echo "Import bookmarks from: /usr/share/nubifer/browser/firefox-bookmarks.json"
-fi
-EOF
+def convert_to_managed(children):
+    """Convert our format to Firefox ManagedBookmarks format"""
+    result = []
+    for item in children:
+        if 'children' in item:
+            # It's a folder
+            result.append({
+                "toplevel_name": item['title'],
+                "children": convert_children(item['children'])
+            })
+        elif 'url' in item:
+            # It's a bookmark
+            result.append({
+                "name": item['title'],
+                "url": item['url']
+            })
+    return result
+
+def convert_children(children):
+    """Convert child items"""
+    result = []
+    for item in children:
+        if 'children' in item:
+            result.append({
+                "name": item['title'],
+                "children": convert_children(item['children'])
+            })
+        elif 'url' in item:
+            result.append({
+                "name": item['title'],
+                "url": item['url']
+            })
+    return result
+
+# Build managed bookmarks array
+managed = []
+for folder in bookmarks.get('children', []):
+    if 'children' in folder:
+        managed.append({
+            "toplevel_name": folder['title'],
+            "children": convert_children(folder['children'])
+        })
+
+# Read existing policy
+policy_file = '/etc/firefox/policies/policies.json'
+with open(policy_file) as f:
+    policy = json.load(f)
+
+# Add ManagedBookmarks
+policy['policies']['ManagedBookmarks'] = managed
+
+# Write updated policy
+with open(policy_file, 'w') as f:
+    json.dump(policy, f, indent=2)
+
+print(f"Added {len(managed)} bookmark folders to Firefox policy")
+PYTHON_SCRIPT
     
-    chmod +x /usr/share/nubifer/browser/import-bookmarks.sh
-    
-    echo "✓ Bookmarks prepared for import"
+    echo "✓ Bookmarks imported via Firefox policy"
 }
 
 # Create container configuration
