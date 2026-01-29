@@ -3,6 +3,8 @@
 #
 # See: https://github.com/gitleaks/gitleaks#configuration
 
+title = "NubiferOS Secret Detection Rules"
+
 [extend]
 useDefault = true
 
@@ -12,17 +14,66 @@ id = "nubifer-credential-path"
 description = "NubiferOS credential path exposure in code"
 regex = '''nubifer/[a-zA-Z0-9_-]+/cloud/(aws|azure|gcp)/[a-zA-Z0-9_-]+/'''
 keywords = ["nubifer"]
+tags = ["nubiferos", "credential-path"]
 
 [[rules]]
 id = "aws-credential-export"
-description = "AWS credentials exported to environment"
-regex = '''export\s+(AWS_ACCESS_KEY_ID|AWS_SECRET_ACCESS_KEY)\s*='''
+description = "AWS credentials exported to environment (violates NubiferOS security rules)"
+regex = '''export\s+(AWS_ACCESS_KEY_ID|AWS_SECRET_ACCESS_KEY|AWS_SESSION_TOKEN)\s*='''
 keywords = ["export", "AWS"]
+tags = ["aws", "environment-variable", "security-violation"]
 
-# Allowlist paths that are expected to contain example/test credentials
+[[rules]]
+id = "azure-credential-export"
+description = "Azure credentials exported to environment"
+regex = '''export\s+(AZURE_CLIENT_SECRET|AZURE_TENANT_ID|AZURE_CLIENT_ID)\s*='''
+keywords = ["export", "AZURE"]
+tags = ["azure", "environment-variable"]
+
+[[rules]]
+id = "gcp-credential-export"
+description = "GCP credentials exported to environment"
+regex = '''export\s+(GOOGLE_APPLICATION_CREDENTIALS|GOOGLE_CLOUD_PROJECT)\s*='''
+keywords = ["export", "GOOGLE"]
+tags = ["gcp", "environment-variable"]
+
+[[rules]]
+id = "pass-store-path"
+description = "Password store path that might contain secrets"
+regex = '''pass\s+(show|insert|edit)\s+[^\s]+/(secret|password|key|token)'''
+keywords = ["pass"]
+tags = ["password-store"]
+
+[[rules]]
+id = "hardcoded-ip-internal"
+description = "Hardcoded internal IP address"
+regex = '''(10\.\d{1,3}\.\d{1,3}\.\d{1,3}|172\.(1[6-9]|2[0-9]|3[0-1])\.\d{1,3}\.\d{1,3}|192\.168\.\d{1,3}\.\d{1,3})'''
+keywords = ["10.", "172.", "192.168"]
+tags = ["network", "hardcoded-ip"]
+entropy = 0
+
+# Allowlist paths that are expected to contain example/test content
 [allowlist]
+description = "Global allowlist"
 paths = [
-  '''.*test.*''',
-  '''.*example.*''',
-  '''.*\.md$''',
+  '''\.md$''',
+  '''\.txt$''',
+  '''test.*''',
+  '''example.*''',
+  '''mock.*''',
+  '''fixture.*''',
+  '''docs/.*''',
+  '''\.kiro/.*''',
 ]
+
+# Allowlist specific patterns that are false positives
+regexes = [
+  '''EXAMPLE_.*''',
+  '''PLACEHOLDER_.*''',
+  '''YOUR_.*_HERE''',
+  '''<.*>''',
+  '''\$\{.*\}''',
+]
+
+# Allowlist specific commits (add commit SHAs here for known false positives)
+commits = []
