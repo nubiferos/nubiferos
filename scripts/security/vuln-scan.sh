@@ -274,8 +274,16 @@ run_scan() {
         target_type="directory"
     else
         # Try to find SBOM in output directory
-        if [[ -f "$OUTPUT_DIR/nubiferos-"*".sbom.json" ]]; then
-            SBOM_PATH=$(ls "$OUTPUT_DIR"/nubiferos-*.sbom.json 2>/dev/null | head -1)
+        local found_sbom=""
+        for f in "$OUTPUT_DIR"/nubiferos-*.sbom.json; do
+            if [[ -f "$f" ]]; then
+                found_sbom="$f"
+                break
+            fi
+        done
+        
+        if [[ -n "$found_sbom" ]]; then
+            SBOM_PATH="$found_sbom"
             target="sbom:$SBOM_PATH"
             target_type="SBOM"
             log "Using SBOM: $SBOM_PATH"
