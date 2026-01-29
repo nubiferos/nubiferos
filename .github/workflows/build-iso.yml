@@ -1,12 +1,18 @@
 name: Build NubiferOS ISO
 
 on:
+  # Disabled auto-build on push to reduce CI overhead during development
+  # push:
+  #   branches: [ main, develop, trunk ]
+  #   tags:
+  #     - 'v*'
+  # pull_request:
+  #   branches: [ main, trunk ]
+  
+  # Only build on release tags and manual trigger
   push:
-    branches: [ main, develop, trunk ]
     tags:
       - 'v*'
-  pull_request:
-    branches: [ main, trunk ]
   workflow_dispatch:  # Allow manual trigger
 
 # Required for OIDC authentication
