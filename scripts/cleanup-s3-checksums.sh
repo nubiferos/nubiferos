@@ -19,12 +19,11 @@ echo ""
 if ! aws sts get-caller-identity &>/dev/null; then
     echo "❌ ERROR: AWS CLI not configured or no valid credentials"
     echo ""
-    echo "Please configure AWS credentials first:"
-    echo "  aws configure"
+    echo "Please configure AWS credentials using the NubiferOS credential manager:"
+    echo "  nubifer-creds add -t aws -n default"
     echo ""
-    echo "Or set environment variables:"
-    echo "  export AWS_ACCESS_KEY_ID=..."
-    echo "  export AWS_SECRET_ACCESS_KEY=..."
+    echo "Or activate a workspace with credentials:"
+    echo "  nubifer-workspace switch <workspace-id>"
     echo ""
     exit 1
 fi
