@@ -110,6 +110,14 @@ main() {
     chroot_exec "apt-get clean" || true
     
     # ==========================================
+    # Final security update pass
+    # ==========================================
+    log "INFO" "--- Applying final security updates ---"
+    chroot_exec "apt-get update" || true
+    chroot_exec "DEBIAN_FRONTEND=noninteractive apt-get upgrade -y" || true
+    log "INFO" "✓ Latest security patches applied"
+    
+    # ==========================================
     # Summary
     # ==========================================
     log "INFO" ""

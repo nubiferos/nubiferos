@@ -189,6 +189,12 @@ update_chroot() {
     chroot "${CHROOT_DIR}" /bin/bash -c "apt-get update"
     
     log "INFO" "✓ Package lists updated"
+    
+    # Apply security updates
+    log "INFO" "Applying security updates..."
+    chroot "${CHROOT_DIR}" /bin/bash -c "DEBIAN_FRONTEND=noninteractive apt-get upgrade -y"
+    
+    log "INFO" "✓ Security updates applied"
 }
 
 # Install polkit after base system is configured
