@@ -79,8 +79,9 @@ jobs:
         fi
     
     - name: Upload SARIF (secrets)
-      # Note: Requires GitHub Advanced Security (free for public repos, paid for private)
-      # Skipping for now - results are available in workflow artifacts
+      # Note: SARIF upload requires GitHub Advanced Security
+      # For personal repos, this is only available in Organizations
+      # Results are still available in workflow artifacts
       if: false
       uses: github/codeql-action/upload-sarif@v4
       with:
