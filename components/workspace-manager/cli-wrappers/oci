@@ -16,11 +16,11 @@ fi
 # Check read-only mode
 if [ "$NUBIFER_WORKSPACE_READ_ONLY" = "true" ]; then
     # Check if command is a write operation
-    local write_commands="create|delete|update|terminate|start|stop|reset|change|move"
+    write_commands="create|delete|update|terminate|start|stop|reset|change|move"
     
-    if echo "$@" | grep -qE "$write_commands"; then
+    if echo "$*" | grep -qE "$write_commands"; then
         echo "✗ Oracle Cloud write operation blocked: Workspace is in read-only mode 🔒" >&2
-        echo "  Command: oci $@" >&2
+        echo "  Command: oci $*" >&2
         echo "  Disable read-only: nubifer-workspace readonly $NUBIFER_WORKSPACE_ID --disable" >&2
         exit 1
     fi

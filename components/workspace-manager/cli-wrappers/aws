@@ -18,11 +18,11 @@ if [ "$NUBIFER_WORKSPACE_READ_ONLY" = "true" ]; then
     # Check if command is a write operation
     write_commands="create|delete|update|put|modify|terminate|stop|start|reboot|attach|detach|associate|disassociate|enable|disable|register|deregister"
     
-    if echo "$@" | grep -qE "$write_commands"; then
+    if echo "$*" | grep -qE "$write_commands"; then
         echo "" >&2
         echo -e "\033[48;5;22;97m 🔒 WRITE BLOCKED \033[0m Workspace is in read-only mode" >&2
         echo "" >&2
-        echo "  Command: aws $@" >&2
+        echo "  Command: aws $*" >&2
         echo "" >&2
         echo "  To enable writes (requires sudo):" >&2
         echo "    sudo nubifer-workspace rw $NUBIFER_WORKSPACE_ID" >&2
@@ -53,6 +53,7 @@ fi
 
 # Get region from workspace config (not pass - region is context, not a secret)
 WORKSPACE_FILE="$HOME/.config/nubifer/workspaces/${NUBIFER_WORKSPACE_ID}.json"
+REGION=""
 if [ -f "$WORKSPACE_FILE" ]; then
     # Try top-level 'region' first, then fall back to environment.AWS_REGION
     REGION=$(python3 -c "
@@ -61,15 +62,16 @@ data = json.load(open('$WORKSPACE_FILE'))
 region = data.get('region')
 if not region:
     region = data.get('environment', {}).get('AWS_REGION')
-print(region if region else 'us-east-1')
+print(region if region else '')
 " 2>/dev/null)
 fi
 REGION="${REGION:-us-east-1}"
 
 # Inject credentials securely using credential_process
 # This avoids putting credentials in environment variables
-export AWS_CONFIG_FILE=$(mktemp)
-trap "rm -f $AWS_CONFIG_FILE" EXIT
+AWS_CONFIG_FILE=$(mktemp)
+export AWS_CONFIG_FILE
+trap 'rm -f "$AWS_CONFIG_FILE"' EXIT
 
 cat > "$AWS_CONFIG_FILE" << EOF
 [default]
