@@ -605,9 +605,6 @@ EOF
     # Return to original directory
     cd - > /dev/null
     
-    # Return to original directory
-    cd - > /dev/null
-    
     # Combine with GRUB boot sector
     cat /usr/lib/grub/i386-pc/cdboot.img "${ISO_DIR}/boot/grub/core.img" > "${ISO_DIR}/boot/grub/bios.img"
     
