@@ -24,6 +24,7 @@ on:
 permissions:
   id-token: write         # Required for OIDC authentication with AWS
   contents: read
+  actions: read           # Required for CodeQL SARIF upload
   security-events: write  # For SARIF upload
   pull-requests: write    # For PR comments
 
@@ -79,7 +80,7 @@ jobs:
     
     - name: Upload SARIF (secrets)
       if: always()
-      uses: github/codeql-action/upload-sarif@v3
+      uses: github/codeql-action/upload-sarif@v4
       with:
         sarif_file: output/secrets.sarif
         category: gitleaks
@@ -254,23 +255,47 @@ jobs:
     - name: Generate SBOM
       id: sbom
       run: |
-        echo "Generating SBOM..."
-        echo "SCAN_TARGET: $SCAN_TARGET"
-        echo "Target contents:"
-        ls -la "$SCAN_TARGET/" | head -20
+        set +e  # Don't exit on error, we want to capture it
         
-        # Run SBOM generation with verbose output
-        if ./scripts/security/generate-sbom.sh \
+        echo "=========================================="
+        echo "Generating SBOM"
+        echo "=========================================="
+        echo ""
+        echo "SCAN_TARGET: $SCAN_TARGET"
+        echo ""
+        echo "Target directory contents:"
+        ls -la "$SCAN_TARGET/" 2>&1 | head -20
+        echo ""
+        
+        # Check if target is accessible
+        if [[ ! -d "$SCAN_TARGET" ]]; then
+          echo "::error::Target directory does not exist: $SCAN_TARGET"
+          echo "sbom_generated=false" >> $GITHUB_OUTPUT
+          exit 0  # Don't fail the job
+        fi
+        
+        # Run SBOM generation with full output
+        echo "Running generate-sbom.sh..."
+        ./scripts/security/generate-sbom.sh \
           --chroot "$SCAN_TARGET" \
           --output output \
-          --version "$ISO_VERSION"; then
+          --version "$ISO_VERSION" 2>&1
+        EXIT_CODE=$?
+        
+        echo ""
+        echo "Script exit code: $EXIT_CODE"
+        
+        if [[ $EXIT_CODE -eq 0 ]]; then
           echo "sbom_generated=true" >> $GITHUB_OUTPUT
+          echo ""
           echo "SBOM files generated:"
-          ls -la output/*.sbom.json 2>/dev/null || echo "No SBOM files found"
+          ls -la output/*.sbom.json 2>/dev/null || echo "No SBOM files found despite success exit code"
         else
-          echo "::error::SBOM generation failed"
+          echo "::error::SBOM generation failed with exit code $EXIT_CODE"
           echo "sbom_generated=false" >> $GITHUB_OUTPUT
-          # Don't fail the job, but mark it
+          echo ""
+          echo "Output directory contents:"
+          ls -la output/ 2>/dev/null || echo "Output directory empty or missing"
         fi
     
     - name: Run vulnerability scan
