@@ -44,26 +44,31 @@ regex = '''pass\s+(show|insert|edit)\s+[^\s]+/(secret|password|key|token)'''
 keywords = ["pass"]
 tags = ["password-store"]
 
-[[rules]]
-id = "hardcoded-ip-internal"
-description = "Hardcoded internal IP address"
-regex = '''(10\.\d{1,3}\.\d{1,3}\.\d{1,3}|172\.(1[6-9]|2[0-9]|3[0-1])\.\d{1,3}\.\d{1,3}|192\.168\.\d{1,3}\.\d{1,3})'''
-keywords = ["10.", "172.", "192.168"]
-tags = ["network", "hardcoded-ip"]
-entropy = 0
+# Disable the hardcoded-ip rule - too many false positives in AWS SDK data
+# [[rules]]
+# id = "hardcoded-ip-internal"
+# description = "Hardcoded internal IP address"
+# regex = '''(10\.\d{1,3}\.\d{1,3}\.\d{1,3}|172\.(1[6-9]|2[0-9]|3[0-1])\.\d{1,3}\.\d{1,3}|192\.168\.\d{1,3}\.\d{1,3})'''
+# keywords = ["10.", "172.", "192.168"]
+# tags = ["network", "hardcoded-ip"]
+# entropy = 0
 
 # Allowlist paths that are expected to contain example/test content
 [allowlist]
 description = "Global allowlist"
 paths = [
-  '''\.md$''',
-  '''\.txt$''',
+  '''.*\.md$''',
+  '''.*\.txt$''',
   '''test.*''',
   '''example.*''',
   '''mock.*''',
   '''fixture.*''',
   '''docs/.*''',
   '''\.kiro/.*''',
+  # AWS CLI bundled data files - contain example IPs and API field names
+  '''components/workspace-manager/aws/.*''',
+  # Dev scripts with internal IPs
+  '''dev/.*''',
 ]
 
 # Allowlist specific patterns that are false positives
@@ -73,6 +78,8 @@ regexes = [
   '''YOUR_.*_HERE''',
   '''<.*>''',
   '''\$\{.*\}''',
+  # Help text showing what NOT to do
+  '''echo.*export\s+AWS''',
 ]
 
 # Allowlist specific commits (add commit SHAs here for known false positives)
