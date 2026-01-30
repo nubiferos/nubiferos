@@ -85,6 +85,24 @@ main() {
     remove_if_installed "linux-headers-6.1.0-*" "Kernel headers not needed in installer ISO"
     
     # ==========================================
+    # ImageMagick (6 Critical CVEs)
+    # ==========================================
+    # ImageMagick has a history of CVEs. Not needed in installer.
+    log "INFO" "--- Removing ImageMagick (6 Critical CVEs) ---"
+    remove_if_installed "imagemagick" "Image processing not needed in installer"
+    remove_if_installed "imagemagick-6-common" "CVE-2023-5841 and others"
+    remove_if_installed "libmagickcore-6.q16-6" "ImageMagick core library"
+    remove_if_installed "libmagickcore-6.q16-6-extra" "ImageMagick extra codecs"
+    remove_if_installed "libmagickwand-6.q16-6" "ImageMagick wand library"
+    
+    # ==========================================
+    # PPP (2 Critical CVEs)
+    # ==========================================
+    # PPP is for dial-up/VPN connections. Not needed in installer.
+    log "INFO" "--- Removing PPP (2 Critical CVEs) ---"
+    remove_if_installed "ppp" "Point-to-Point Protocol daemon (CVE-2024-58250)"
+    
+    # ==========================================
     # Cleanup orphaned dependencies
     # ==========================================
     log "INFO" "--- Cleaning up orphaned dependencies ---"
@@ -99,16 +117,24 @@ main() {
     log "INFO" "Security Cleanup Complete"
     log "INFO" "=========================================="
     log "INFO" "Removed packages:"
-    log "INFO" "  - gnome-remote-desktop (FreeRDP dependency)"
-    log "INFO" "  - libfreerdp*, libwinpr* (84 Critical CVEs)"
+    log "INFO" "  - gnome-remote-desktop (FreeRDP dependency - 84 Critical CVEs)"
+    log "INFO" "  - libfreerdp*, libwinpr* (FreeRDP libraries)"
     log "INFO" "  - ipp-usb (Go 1.19.8 - 7 Critical CVEs)"
-    log "INFO" "  - linux-kbuild, linux-compiler (build tools)"
+    log "INFO" "  - linux-kbuild, linux-compiler (build tools - 1676 High CVEs)"
     log "INFO" "  - linux-headers (development files)"
+    log "INFO" "  - imagemagick (6 Critical CVEs)"
+    log "INFO" "  - ppp (2 Critical CVEs)"
+    log "INFO" ""
+    log "INFO" "Remaining Critical CVEs are in core packages that require Debian updates:"
+    log "INFO" "  - linux-kernel: Update via apt upgrade"
+    log "INFO" "  - python3.11, openssl, libsoup: Await Debian security updates"
     log "INFO" ""
     log "INFO" "These packages can be installed post-install if needed:"
     log "INFO" "  apt install gnome-remote-desktop  # For RDP support"
     log "INFO" "  apt install ipp-usb               # For IPP-over-USB printing"
     log "INFO" "  apt install linux-headers-amd64   # For kernel module building"
+    log "INFO" "  apt install imagemagick           # For image processing"
+    log "INFO" "  apt install ppp                   # For PPP/dial-up connections"
     log "INFO" "=========================================="
 }
 
