@@ -171,26 +171,41 @@ generate_sbom_from_dir() {
     
     # Generate CycloneDX format
     log "Generating CycloneDX SBOM..."
-    syft dir:"$target_dir" \
+    log "Target directory: $target_dir"
+    log "Checking target exists and is readable..."
+    
+    if [[ ! -d "$target_dir" ]]; then
+        log_error "Target directory does not exist: $target_dir"
+        return 1
+    fi
+    
+    if [[ ! -r "$target_dir" ]]; then
+        log_error "Target directory is not readable: $target_dir"
+        return 1
+    fi
+    
+    # Show what we're scanning
+    log "Target contents (sample): $(ls "$target_dir" 2>/dev/null | head -10 | tr '\n' ' ')"
+    
+    if ! syft dir:"$target_dir" \
         -o cyclonedx-json="$OUTPUT_DIR/${output_prefix}.sbom.json" \
         --name "NubiferOS" \
-        --version "$nubifer_version" \
-        2>/dev/null || {
-            log_error "Failed to generate CycloneDX SBOM"
-            return 1
-        }
+        --version "$nubifer_version"; then
+        log_error "Failed to generate CycloneDX SBOM"
+        log_error "syft exit code: $?"
+        return 1
+    fi
     log_success "CycloneDX SBOM: $OUTPUT_DIR/${output_prefix}.sbom.json"
     
     # Generate SPDX format
     log "Generating SPDX SBOM..."
-    syft dir:"$target_dir" \
+    if ! syft dir:"$target_dir" \
         -o spdx-json="$OUTPUT_DIR/${output_prefix}.sbom.spdx.json" \
         --name "NubiferOS" \
-        --version "$nubifer_version" \
-        2>/dev/null || {
-            log_error "Failed to generate SPDX SBOM"
-            return 1
-        }
+        --version "$nubifer_version"; then
+        log_error "Failed to generate SPDX SBOM"
+        return 1
+    fi
     log_success "SPDX SBOM: $OUTPUT_DIR/${output_prefix}.sbom.spdx.json"
     
     # Add custom NubiferOS components to SBOM
