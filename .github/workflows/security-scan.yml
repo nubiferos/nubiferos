@@ -217,33 +217,81 @@ jobs:
       run: |
         mkdir -p mnt squashfs
         
+        echo "ISO_PATH: $ISO_PATH"
+        ls -la "$ISO_PATH"
+        
         # Mount ISO
         sudo mount -o loop,ro "$ISO_PATH" mnt
         
-        # Find and mount squashfs
-        SQUASHFS=$(find mnt -name "filesystem.squashfs" | head -1)
+        echo "ISO contents:"
+        ls -la mnt/
+        
+        # Find and mount squashfs - check multiple locations
+        SQUASHFS=""
+        for path in mnt/live/filesystem.squashfs mnt/casper/filesystem.squashfs mnt/install/filesystem.squashfs; do
+          if [[ -f "$path" ]]; then
+            SQUASHFS="$path"
+            break
+          fi
+        done
+        
+        # Also try find as fallback
+        if [[ -z "$SQUASHFS" ]]; then
+          SQUASHFS=$(find mnt -name "filesystem.squashfs" -o -name "*.squashfs" 2>/dev/null | head -1)
+        fi
+        
         if [[ -n "$SQUASHFS" ]]; then
+          echo "Found squashfs: $SQUASHFS"
           sudo mount -o loop,ro "$SQUASHFS" squashfs
           echo "SCAN_TARGET=squashfs" >> $GITHUB_ENV
+          echo "Squashfs contents (sample):"
+          ls squashfs/ | head -20
         else
+          echo "::warning::No squashfs found, scanning ISO root"
           echo "SCAN_TARGET=mnt" >> $GITHUB_ENV
         fi
     
     - name: Generate SBOM
+      id: sbom
       run: |
         echo "Generating SBOM..."
-        ./scripts/security/generate-sbom.sh \
+        echo "SCAN_TARGET: $SCAN_TARGET"
+        echo "Target contents:"
+        ls -la "$SCAN_TARGET/" | head -20
+        
+        # Run SBOM generation with verbose output
+        if ./scripts/security/generate-sbom.sh \
           --chroot "$SCAN_TARGET" \
           --output output \
-          --version "$ISO_VERSION" \
-          --quiet || true
+          --version "$ISO_VERSION"; then
+          echo "sbom_generated=true" >> $GITHUB_OUTPUT
+          echo "SBOM files generated:"
+          ls -la output/*.sbom.json 2>/dev/null || echo "No SBOM files found"
+        else
+          echo "::error::SBOM generation failed"
+          echo "sbom_generated=false" >> $GITHUB_OUTPUT
+          # Don't fail the job, but mark it
+        fi
     
     - name: Run vulnerability scan
       id: vulns
+      if: steps.sbom.outputs.sbom_generated == 'true'
       run: |
         echo "Running vulnerability scan..."
+        
+        # Find the SBOM file explicitly
+        SBOM_FILE=$(ls output/*.sbom.json 2>/dev/null | grep -v spdx | head -1)
+        
+        if [[ -z "$SBOM_FILE" ]]; then
+          echo "::error::No SBOM file found in output/"
+          ls -la output/
+          exit 1
+        fi
+        
+        echo "Using SBOM: $SBOM_FILE"
+        
         ./scripts/security/vuln-scan.sh \
-          --sbom output/*.sbom.json \
+          --sbom "$SBOM_FILE" \
           --output output \
           --threshold high \
           --quiet || true
