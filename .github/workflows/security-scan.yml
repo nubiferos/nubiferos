@@ -79,7 +79,9 @@ jobs:
         fi
     
     - name: Upload SARIF (secrets)
-      if: always()
+      # Note: Requires GitHub Advanced Security (free for public repos, paid for private)
+      # Skipping for now - results are available in workflow artifacts
+      if: false
       uses: github/codeql-action/upload-sarif@v4
       with:
         sarif_file: output/secrets.sarif
