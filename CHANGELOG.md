@@ -42,6 +42,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - CVE-2023-24531, CVE-2023-24540, CVE-2023-29402, CVE-2024-24790, etc.
   - Bundled old Go runtime; not needed in installer ISO
   - Install manually: `apt install ipp-usb`
+- **imagemagick**: Removed image processing suite (6 Critical CVEs)
+  - CVE-2023-5841 and others in libmagickcore, libmagickwand
+  - Not needed in installer ISO
+  - Install manually: `apt install imagemagick`
+- **ppp**: Removed Point-to-Point Protocol daemon (2 Critical CVEs)
+  - CVE-2024-58250
+  - Dial-up/VPN not needed in installer ISO
+  - Install manually: `apt install ppp`
 - **linux-headers-amd64**: Removed kernel headers (not needed in installer ISO)
   - Reduces attack surface and ISO size
   - Install manually: `apt install linux-headers-amd64`
