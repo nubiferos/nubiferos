@@ -32,3 +32,6 @@ components/workspace-manager/awscliv2.zip
 bfg-*.jar
 bfg-report/
 security/scan-results/
+# GPG key backups should never be in repo
+*.asc
+gpg-private-key-backup.asc
