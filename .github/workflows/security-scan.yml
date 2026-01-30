@@ -310,33 +310,48 @@ jobs:
         sudo umount mnt 2>/dev/null || true
     
     - name: Generate ISO scan summary
+      if: always()
       run: |
+        # Get values with defaults
+        CRITICAL="${{ steps.vulns.outputs.critical }}"
+        HIGH="${{ steps.vulns.outputs.high }}"
+        SBOM_STATUS="${{ steps.sbom.outputs.sbom_generated }}"
+        
+        [[ -z "$CRITICAL" ]] && CRITICAL="N/A"
+        [[ -z "$HIGH" ]] && HIGH="N/A"
+        
         cat >> $GITHUB_STEP_SUMMARY << EOF
         # 🔒 ISO Security Scan Results
         
         ## ISO Information
         - **Version**: ${{ env.ISO_VERSION }}
-        - **File**: $(basename "$ISO_PATH")
+        - **File**: $(basename "${ISO_PATH:-unknown}")
+        
+        ## Scan Status
+        - **SBOM Generated**: ${SBOM_STATUS:-false}
         
         ## Vulnerability Summary
         
         | Severity | Count |
         |----------|-------|
-        | Critical | ${{ steps.vulns.outputs.critical }} |
-        | High | ${{ steps.vulns.outputs.high }} |
+        | Critical | ${CRITICAL} |
+        | High | ${HIGH} |
         
-        ## Artifacts
-        - SBOM (CycloneDX): \`output/*.sbom.json\`
-        - Vulnerability Report: \`output/*.vulns.json\`
+        ## Output Files
+        \`\`\`
+        $(ls -la output/ 2>/dev/null || echo "No output files generated")
+        \`\`\`
         
         EOF
     
     - name: Upload ISO scan artifacts
+      if: always()
       uses: actions/upload-artifact@v4
       with:
         name: iso-security-scan-results
         path: output/
         retention-days: 30
+        if-no-files-found: warn
 
   # ==========================================
   # PR Comment (for pull requests)
