@@ -187,10 +187,10 @@ generate_sbom_from_dir() {
     # Show what we're scanning
     log "Target contents (sample): $(ls "$target_dir" 2>/dev/null | head -10 | tr '\n' ' ')"
     
-    if ! syft dir:"$target_dir" \
-        -o cyclonedx-json="$OUTPUT_DIR/${output_prefix}.sbom.json" \
-        --name "NubiferOS" \
-        --version "$nubifer_version"; then
+    # Note: syft no longer supports --name/--version flags
+    # The SBOM metadata will use defaults, we can post-process if needed
+    if ! syft scan "dir:$target_dir" \
+        -o "cyclonedx-json=$OUTPUT_DIR/${output_prefix}.sbom.json"; then
         log_error "Failed to generate CycloneDX SBOM"
         log_error "syft exit code: $?"
         return 1
@@ -199,10 +199,8 @@ generate_sbom_from_dir() {
     
     # Generate SPDX format
     log "Generating SPDX SBOM..."
-    if ! syft dir:"$target_dir" \
-        -o spdx-json="$OUTPUT_DIR/${output_prefix}.sbom.spdx.json" \
-        --name "NubiferOS" \
-        --version "$nubifer_version"; then
+    if ! syft scan "dir:$target_dir" \
+        -o "spdx-json=$OUTPUT_DIR/${output_prefix}.sbom.spdx.json"; then
         log_error "Failed to generate SPDX SBOM"
         return 1
     fi
