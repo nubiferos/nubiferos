@@ -17,6 +17,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Read-only mode shortcuts: `nubifer-workspace ro` and `nubifer-workspace rw`
 - Timed write sessions: `sudo nubifer-workspace rw -d 30` auto-reverts after 30 minutes
 - High-visibility mode indicators: green background for read-only, red for read-write
+- Build security pipeline: SBOM generation, vulnerability scanning, ISO signing
+- Security scan GitHub Actions workflow for automated CVE detection
 
 ### Changed
 - AWS CLI pager disabled by default (prevents terminal corruption on Ctrl+C)
@@ -29,11 +31,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - AWS wrapper now correctly reads region from `environment.AWS_REGION`
 - Security Dashboard checks for UFW, AppArmor, Context Indicator improved
+- Shellcheck errors in CLI wrappers (SC2168, SC2145, SC2155, SC2064)
+
+### Removed
+- **gnome-remote-desktop**: Removed to eliminate FreeRDP dependency (84 Critical CVEs)
+  - CVE-2026-22852 through CVE-2026-22857 and others in libfreerdp2-2, libwinpr2-2
+  - RDP client not needed in installer ISO; users can install post-install if needed
+  - Install manually: `apt install gnome-remote-desktop`
+- **ipp-usb**: Removed IPP-over-USB printer daemon (7 Critical CVEs from Go 1.19.8)
+  - CVE-2023-24531, CVE-2023-24540, CVE-2023-29402, CVE-2024-24790, etc.
+  - Bundled old Go runtime; not needed in installer ISO
+  - Install manually: `apt install ipp-usb`
+- **linux-headers-amd64**: Removed kernel headers (not needed in installer ISO)
+  - Reduces attack surface and ISO size
+  - Install manually: `apt install linux-headers-amd64`
+- **linux-kbuild, linux-compiler-gcc**: Removed kernel build tools (1676 High CVEs)
+  - Build tools not needed at runtime
+  - Pulled in by linux-headers; removed with headers
 
 ### Security
 - Sudo required to enable write mode on workspaces
 - Timed write sessions auto-revert to read-only
 - Prevents compromised sessions from modifying cloud resources
+- Added security cleanup step to build process to remove CVE-laden packages
+- ISO now scanned for vulnerabilities before release
 
 ## [1.0.0] - TBD
 

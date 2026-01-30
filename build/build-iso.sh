@@ -199,6 +199,10 @@ build_iso() {
     log "INFO" "Step 7.5/8: Installing first-boot wizard..."
     "${SCRIPT_DIR}/install-first-boot-wizard.sh"
     
+    # Step 7.6: Security cleanup - remove packages with known CVEs
+    log "INFO" "Step 7.6/8: Running security cleanup..."
+    "${SCRIPT_DIR}/security-cleanup.sh"
+    
     # Step 8: Create bootable ISO
     log "INFO" "Creating bootable ISO..."
     create_bootable_iso
