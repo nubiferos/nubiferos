@@ -1,0 +1,130 @@
+.\" Man page for nubifer-security-scan
+.\" Generated for NubiferOS
+.TH NUBIFER-SECURITY-SCAN 1 "January 2026" "NubiferOS" "User Commands"
+.SH NAME
+nubifer-security-scan \- run security scans on NubiferOS systems
+.SH SYNOPSIS
+.B nubifer-security-scan
+[\fIOPTIONS\fR]
+.SH DESCRIPTION
+.B nubifer-security-scan
+is a security scanning tool for NubiferOS that checks for vulnerabilities,
+audits system hardening, and verifies ISO signatures. It integrates with
+the NubiferOS Security Dashboard to provide a unified view of system security.
+.PP
+Scan results are saved to \fI~/.local/share/nubifer/security/\fR as JSON files
+and can be viewed in the Security Dashboard or processed programmatically.
+.SH OPTIONS
+.TP
+.B \-\-vuln-scan
+Run a vulnerability scan on the system using grype. Scans installed packages
+for known CVEs and generates a report sorted by severity.
+.TP
+.B \-\-compliance
+Run a hardening compliance audit using lynis. Checks system configuration
+against security best practices and generates a hardening score (0-100).
+.TP
+.BI \-\-verify-iso " ISO"
+Verify the GPG signature of an ISO file. Requires the ISO file path and
+expects a corresponding .asc signature file.
+.TP
+.B \-\-full
+Run all security scans (vulnerability scan and compliance check).
+Equivalent to running \fB\-\-vuln-scan\fR and \fB\-\-compliance\fR together.
+.TP
+.BI \-\-target " PATH"
+Specify a target path for vulnerability scanning instead of the root
+filesystem. Useful for scanning mounted ISOs or chroot environments.
+.TP
+.B \-\-json
+Output results in JSON format to stdout. Useful for scripting and
+integration with other tools.
+.TP
+.BR \-q ", " \-\-quiet
+Suppress non-essential output. Only errors will be displayed.
+.SH EXIT STATUS
+.TP
+.B 0
+Success. All scans completed without critical issues.
+.TP
+.B 2
+Critical vulnerabilities found. Review the vulnerability report.
+.SH FILES
+.TP
+.I ~/.local/share/nubifer/security/vuln-scan.json
+Vulnerability scan results in JSON format.
+.TP
+.I ~/.local/share/nubifer/security/compliance.json
+Compliance audit results in JSON format.
+.TP
+.I ~/.local/share/nubifer/security/full-scan.json
+Combined results from a full scan.
+.TP
+.I /usr/share/nubifer/nubiferos-signing-key.pub
+Public GPG key for ISO signature verification.
+.SH EXAMPLES
+.PP
+Run a vulnerability scan:
+.RS
+.nf
+$ nubifer-security-scan --vuln-scan
+.fi
+.RE
+.PP
+Run a full security audit:
+.RS
+.nf
+$ nubifer-security-scan --full
+.fi
+.RE
+.PP
+Get JSON output for scripting:
+.RS
+.nf
+$ nubifer-security-scan --vuln-scan --json | jq '.by_severity'
+.fi
+.RE
+.PP
+Verify an ISO signature:
+.RS
+.nf
+$ nubifer-security-scan --verify-iso nubiferos-1.0.iso
+.fi
+.RE
+.PP
+Scan a mounted ISO filesystem:
+.RS
+.nf
+$ sudo mount -o loop nubiferos.iso /mnt/iso
+$ nubifer-security-scan --vuln-scan --target /mnt/iso
+.fi
+.RE
+.SH DEPENDENCIES
+.TP
+.B grype
+Required for vulnerability scanning. Automatically installed if not present.
+.TP
+.B lynis
+Required for compliance auditing. Automatically installed if not present.
+.TP
+.B gpg
+Required for ISO signature verification.
+.SH SECURITY CONSIDERATIONS
+.PP
+Vulnerability scans require network access to download the latest CVE database.
+The grype database is cached locally and updated periodically.
+.PP
+Compliance audits may require root privileges to check certain system
+configurations. Run with sudo for complete results.
+.PP
+Scan results may contain sensitive information about system vulnerabilities.
+Protect the results directory appropriately.
+.SH SEE ALSO
+.BR nubifer-dashboard (1),
+.BR grype (1),
+.BR lynis (8),
+.BR gpg (1)
+.SH BUGS
+Report bugs to the NubiferOS issue tracker.
+.SH AUTHOR
+NubiferOS Team
