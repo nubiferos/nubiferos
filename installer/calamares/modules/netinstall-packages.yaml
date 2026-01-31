@@ -162,40 +162,48 @@
     - name: "firejail"
       description: "Sandbox for application isolation"
       selected: true
+      immutable: true
       packages:
         - firejail
     - name: "apparmor"
       description: "Mandatory access control system"
       selected: true
+      immutable: true
       packages:
         - apparmor
     - name: "apparmor-utils"
       description: "AppArmor profile management tools"
       selected: true
+      immutable: true
       packages:
         - apparmor-utils
     - name: "fail2ban"
       description: "Intrusion prevention (bans failed logins)"
       selected: true
+      immutable: true
       packages:
         - fail2ban
     - name: "ufw"
       description: "Uncomplicated Firewall"
       selected: true
+      immutable: true
       packages:
         - ufw
     - name: "aide"
       description: "File integrity checker"
       selected: true
+      immutable: true
       packages:
         - aide
     - name: "rkhunter"
       description: "Rootkit detection scanner"
       selected: true
+      immutable: true
       packages:
         - rkhunter
     - name: "lynis"
       description: "Security auditing tool"
       selected: true
+      immutable: true
       packages:
         - lynis
