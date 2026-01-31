@@ -36,11 +36,11 @@ remove_if_installed() {
     if chroot_exec "dpkg -l $pkg 2>/dev/null | grep -q '^ii'"; then
         log "INFO" "Removing $pkg: $reason"
         chroot_exec "DEBIAN_FRONTEND=noninteractive apt-get remove -y --purge $pkg 2>/dev/null || true"
-        return 0
     else
         log "INFO" "Package $pkg not installed (skipping)"
-        return 1
     fi
+    # Always return success - missing packages are not errors
+    return 0
 }
 
 main() {
