@@ -349,7 +349,8 @@ jobs:
         fi
         
     - name: Sign ISO
-      if: success() && env.GPG_PRIVATE_KEY != ''
+      if: success()
+      continue-on-error: true
       env:
         GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
         GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
@@ -358,15 +359,43 @@ jobs:
         echo "Signing ISO"
         echo "=========================================="
         
+        # Skip if no GPG key configured
+        if [ -z "$GPG_PRIVATE_KEY" ]; then
+          echo "ℹ️ GPG_PRIVATE_KEY secret not configured - skipping signing"
+          echo "To enable ISO signing, add GPG_PRIVATE_KEY secret to the repository"
+          exit 0
+        fi
+        
+        # Create isolated GPG home directory FIRST to avoid permission issues
+        # The default ~/.gnupg may have been affected by sudo commands earlier
+        export GNUPGHOME=$(mktemp -d -t gpg-signing-XXXXXX)
+        chmod 700 "$GNUPGHOME"
+        echo "Using temporary GPG home: $GNUPGHOME"
+        
         # Import GPG key
-        echo "$GPG_PRIVATE_KEY" | gpg --batch --import
+        echo "Importing GPG key..."
+        if ! echo "$GPG_PRIVATE_KEY" | gpg --batch --import 2>&1; then
+          echo "⚠️ Failed to import GPG key - skipping signing"
+          echo "Check that GPG_PRIVATE_KEY contains valid ASCII-armored key data"
+          rm -rf "$GNUPGHOME"
+          exit 0
+        fi
         
         # Get key ID
-        KEY_ID=$(gpg --list-secret-keys --keyid-format LONG | grep sec | head -1 | awk '{print $2}' | cut -d'/' -f2)
+        KEY_ID=$(gpg --list-secret-keys --keyid-format LONG 2>/dev/null | grep sec | head -1 | awk '{print $2}' | cut -d'/' -f2)
+        
+        if [ -z "$KEY_ID" ]; then
+          echo "⚠️ No secret key found after import - skipping signing"
+          rm -rf "$GNUPGHOME"
+          exit 0
+        fi
+        
         echo "Using GPG key: $KEY_ID"
         
         # Sign ISO
         ISO_FILE=$(ls output/*.iso | head -1)
+        echo "Signing: $ISO_FILE"
+        
         if [ -n "$GPG_PASSPHRASE" ]; then
           echo "$GPG_PASSPHRASE" | gpg --batch --yes --pinentry-mode loopback --passphrase-fd 0 \
             --detach-sign --armor -u "$KEY_ID" "$ISO_FILE"
@@ -376,6 +405,9 @@ jobs:
         
         # Export public key
         gpg --armor --export "$KEY_ID" > output/nubiferos-signing-key.pub
+        
+        # Cleanup temp GPG home
+        rm -rf "$GNUPGHOME"
         
         if [ -f "${ISO_FILE}.asc" ]; then
           echo "✓ ISO signed: ${ISO_FILE}.asc"
