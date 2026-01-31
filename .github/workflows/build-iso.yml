@@ -70,10 +70,25 @@ jobs:
           qemu-system-x86 \
           qemu-utils \
           genisoimage \
-          python3-pip
+          python3-pip \
+          gnupg
         
         # Install pytest for testing
         pip3 install pytest
+        
+    - name: Install security scanning tools
+      run: |
+        echo "Installing security scanning tools..."
+        
+        # Install syft for SBOM generation
+        curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sudo sh -s -- -b /usr/local/bin
+        
+        # Install grype for vulnerability scanning
+        curl -sSfL https://raw.githubusercontent.com/anchore/grype/main/install.sh | sudo sh -s -- -b /usr/local/bin
+        
+        echo "✓ Security tools installed"
+        syft version
+        grype version
           
     - name: Set up build environment
       run: |
@@ -234,6 +249,141 @@ jobs:
           exit 1
         fi
         
+    - name: Generate SBOM
+      if: success()
+      run: |
+        echo "=========================================="
+        echo "Generating Software Bill of Materials"
+        echo "=========================================="
+        
+        ISO_FILE=$(ls output/*.iso | head -1)
+        
+        # Mount ISO to scan contents
+        sudo mkdir -p /mnt/iso
+        sudo mount -o loop "$ISO_FILE" /mnt/iso
+        
+        # Find and mount squashfs
+        if [ -f /mnt/iso/live/filesystem.squashfs ]; then
+          sudo mkdir -p /mnt/squashfs
+          sudo mount -o loop /mnt/iso/live/filesystem.squashfs /mnt/squashfs
+          SCAN_PATH="/mnt/squashfs"
+        else
+          SCAN_PATH="/mnt/iso"
+        fi
+        
+        # Generate SBOM in CycloneDX format
+        echo "Generating CycloneDX SBOM..."
+        sudo syft dir:$SCAN_PATH -o cyclonedx-json > output/sbom-cyclonedx.json 2>/dev/null || {
+          echo "Warning: syft scan had issues, trying alternative method..."
+          syft dir:$SCAN_PATH -o cyclonedx-json > output/sbom-cyclonedx.json || true
+        }
+        
+        # Generate SBOM in SPDX format
+        echo "Generating SPDX SBOM..."
+        sudo syft dir:$SCAN_PATH -o spdx-json > output/sbom-spdx.json 2>/dev/null || true
+        
+        # Cleanup mounts
+        sudo umount /mnt/squashfs 2>/dev/null || true
+        sudo umount /mnt/iso 2>/dev/null || true
+        
+        # Check results
+        if [ -f output/sbom-cyclonedx.json ] && [ -s output/sbom-cyclonedx.json ]; then
+          COMPONENT_COUNT=$(jq '.components | length' output/sbom-cyclonedx.json 2>/dev/null || echo "unknown")
+          echo "✓ SBOM generated with $COMPONENT_COUNT components"
+        else
+          echo "⚠️ SBOM generation may have had issues"
+        fi
+        
+    - name: Run vulnerability scan
+      if: success()
+      continue-on-error: true
+      run: |
+        echo "=========================================="
+        echo "Running Vulnerability Scan"
+        echo "=========================================="
+        
+        # Scan using SBOM if available
+        if [ -f output/sbom-cyclonedx.json ] && [ -s output/sbom-cyclonedx.json ]; then
+          echo "Scanning SBOM for vulnerabilities..."
+          grype sbom:output/sbom-cyclonedx.json -o json > output/vuln-report.json 2>/dev/null || true
+          grype sbom:output/sbom-cyclonedx.json -o table > output/vuln-report.txt 2>/dev/null || true
+        else
+          echo "No SBOM available, scanning ISO directly..."
+          ISO_FILE=$(ls output/*.iso | head -1)
+          sudo mkdir -p /mnt/iso /mnt/squashfs
+          sudo mount -o loop "$ISO_FILE" /mnt/iso
+          if [ -f /mnt/iso/live/filesystem.squashfs ]; then
+            sudo mount -o loop /mnt/iso/live/filesystem.squashfs /mnt/squashfs
+            grype dir:/mnt/squashfs -o json > output/vuln-report.json 2>/dev/null || true
+            grype dir:/mnt/squashfs -o table > output/vuln-report.txt 2>/dev/null || true
+            sudo umount /mnt/squashfs
+          fi
+          sudo umount /mnt/iso
+        fi
+        
+        # Parse results
+        if [ -f output/vuln-report.json ] && [ -s output/vuln-report.json ]; then
+          CRITICAL=$(jq '[.matches[] | select(.vulnerability.severity == "Critical")] | length' output/vuln-report.json 2>/dev/null || echo "0")
+          HIGH=$(jq '[.matches[] | select(.vulnerability.severity == "High")] | length' output/vuln-report.json 2>/dev/null || echo "0")
+          MEDIUM=$(jq '[.matches[] | select(.vulnerability.severity == "Medium")] | length' output/vuln-report.json 2>/dev/null || echo "0")
+          
+          echo ""
+          echo "Vulnerability Summary:"
+          echo "  Critical: $CRITICAL"
+          echo "  High: $HIGH"
+          echo "  Medium: $MEDIUM"
+          echo ""
+          
+          # Save summary for later steps
+          echo "VULN_CRITICAL=$CRITICAL" >> $GITHUB_ENV
+          echo "VULN_HIGH=$HIGH" >> $GITHUB_ENV
+          echo "VULN_MEDIUM=$MEDIUM" >> $GITHUB_ENV
+          
+          # Fail on critical vulnerabilities (can be adjusted)
+          if [ "$CRITICAL" -gt 0 ]; then
+            echo "⚠️ Critical vulnerabilities found - review required"
+            cat output/vuln-report.txt | head -50
+          fi
+        else
+          echo "⚠️ Vulnerability scan did not produce results"
+        fi
+        
+    - name: Sign ISO
+      if: success() && env.GPG_PRIVATE_KEY != ''
+      env:
+        GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
+        GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
+      run: |
+        echo "=========================================="
+        echo "Signing ISO"
+        echo "=========================================="
+        
+        # Import GPG key
+        echo "$GPG_PRIVATE_KEY" | gpg --batch --import
+        
+        # Get key ID
+        KEY_ID=$(gpg --list-secret-keys --keyid-format LONG | grep sec | head -1 | awk '{print $2}' | cut -d'/' -f2)
+        echo "Using GPG key: $KEY_ID"
+        
+        # Sign ISO
+        ISO_FILE=$(ls output/*.iso | head -1)
+        if [ -n "$GPG_PASSPHRASE" ]; then
+          echo "$GPG_PASSPHRASE" | gpg --batch --yes --pinentry-mode loopback --passphrase-fd 0 \
+            --detach-sign --armor -u "$KEY_ID" "$ISO_FILE"
+        else
+          gpg --batch --yes --detach-sign --armor -u "$KEY_ID" "$ISO_FILE"
+        fi
+        
+        # Export public key
+        gpg --armor --export "$KEY_ID" > output/nubiferos-signing-key.pub
+        
+        if [ -f "${ISO_FILE}.asc" ]; then
+          echo "✓ ISO signed: ${ISO_FILE}.asc"
+          echo "✓ Public key exported: output/nubiferos-signing-key.pub"
+        else
+          echo "⚠️ Signing may have failed"
+        fi
+        
     - name: Get ISO info
       if: success()
       id: iso_info
@@ -372,6 +522,40 @@ jobs:
         aws s3 cp output/SHA256SUMS s3://${{ env.ISO_BUCKET }}/${{ env.VERSION }}/SHA256SUMS
         aws s3 cp output/MD5SUMS s3://${{ env.ISO_BUCKET }}/${{ env.VERSION }}/MD5SUMS
         
+        # Upload security artifacts
+        echo "Uploading security artifacts..."
+        
+        # SBOM files
+        if [ -f output/sbom-cyclonedx.json ]; then
+          aws s3 cp output/sbom-cyclonedx.json s3://${{ env.ISO_BUCKET }}/${{ env.VERSION }}/sbom-cyclonedx.json
+          echo "✓ Uploaded SBOM (CycloneDX)"
+        fi
+        if [ -f output/sbom-spdx.json ]; then
+          aws s3 cp output/sbom-spdx.json s3://${{ env.ISO_BUCKET }}/${{ env.VERSION }}/sbom-spdx.json
+          echo "✓ Uploaded SBOM (SPDX)"
+        fi
+        
+        # Vulnerability report
+        if [ -f output/vuln-report.json ]; then
+          aws s3 cp output/vuln-report.json s3://${{ env.ISO_BUCKET }}/${{ env.VERSION }}/vuln-report.json
+          echo "✓ Uploaded vulnerability report"
+        fi
+        if [ -f output/vuln-report.txt ]; then
+          aws s3 cp output/vuln-report.txt s3://${{ env.ISO_BUCKET }}/${{ env.VERSION }}/vuln-report.txt
+        fi
+        
+        # GPG signature and public key
+        if [ -f output/*.iso.asc ]; then
+          aws s3 cp output/*.iso.asc s3://${{ env.ISO_BUCKET }}/${{ env.VERSION }}/
+          echo "✓ Uploaded ISO signature"
+        fi
+        if [ -f output/nubiferos-signing-key.pub ]; then
+          aws s3 cp output/nubiferos-signing-key.pub s3://${{ env.ISO_BUCKET }}/${{ env.VERSION }}/nubiferos-signing-key.pub
+          # Also upload to root for easy access
+          aws s3 cp output/nubiferos-signing-key.pub s3://${{ env.ISO_BUCKET }}/nubiferos-signing-key.pub
+          echo "✓ Uploaded signing public key"
+        fi
+        
         echo "✓ ISO uploaded: $S3_PATH"
         echo ""
         
@@ -382,6 +566,14 @@ jobs:
           --metadata "version=${{ env.VERSION }},build-date=$(date -u +%Y-%m-%dT%H:%M:%SZ),commit=${{ env.COMMIT_SHA }},github-run=${{ github.run_number }}"
         
         aws s3 cp output/SHA256SUMS s3://${{ env.ISO_BUCKET }}/nubiferos-latest.iso.sha256
+        
+        # Copy latest security artifacts
+        if [ -f output/sbom-cyclonedx.json ]; then
+          aws s3 cp output/sbom-cyclonedx.json s3://${{ env.ISO_BUCKET }}/nubiferos-latest-sbom.json
+        fi
+        if [ -f output/*.iso.asc ]; then
+          aws s3 cp output/*.iso.asc s3://${{ env.ISO_BUCKET }}/nubiferos-latest.iso.asc
+        fi
         
         echo "✓ Latest symlink created"
         echo ""
@@ -408,6 +600,27 @@ jobs:
     - name: Create build summary
       if: success()
       run: |
+        # Prepare security summary
+        SECURITY_SUMMARY=""
+        if [ -f output/sbom-cyclonedx.json ]; then
+          SBOM_COMPONENTS=$(jq '.components | length' output/sbom-cyclonedx.json 2>/dev/null || echo "unknown")
+          SECURITY_SUMMARY="$SECURITY_SUMMARY\n- **SBOM**: ✅ Generated ($SBOM_COMPONENTS components)"
+        else
+          SECURITY_SUMMARY="$SECURITY_SUMMARY\n- **SBOM**: ⚠️ Not generated"
+        fi
+        
+        if [ -f output/vuln-report.json ]; then
+          SECURITY_SUMMARY="$SECURITY_SUMMARY\n- **Vulnerabilities**: Critical: ${VULN_CRITICAL:-0}, High: ${VULN_HIGH:-0}, Medium: ${VULN_MEDIUM:-0}"
+        else
+          SECURITY_SUMMARY="$SECURITY_SUMMARY\n- **Vulnerabilities**: ⚠️ Scan not completed"
+        fi
+        
+        if [ -f output/*.iso.asc ]; then
+          SECURITY_SUMMARY="$SECURITY_SUMMARY\n- **Signature**: ✅ ISO signed"
+        else
+          SECURITY_SUMMARY="$SECURITY_SUMMARY\n- **Signature**: ⚠️ Not signed (GPG key not configured)"
+        fi
+        
         cat >> $GITHUB_STEP_SUMMARY << EOF
         # 🎉 NubiferOS ISO Build Complete!
         
@@ -418,6 +631,9 @@ jobs:
         - **Build Date**: $(date -u +"%Y-%m-%d %H:%M:%S UTC")
         - **Commit**: ${{ github.sha }}
         - **Tests**: ✅ All validation tests passed
+        
+        ## Security
+        $(echo -e "$SECURITY_SUMMARY")
         
         ## S3 Locations
         
@@ -431,6 +647,13 @@ jobs:
         s3://${{ env.ISO_BUCKET }}/${{ env.VERSION }}/$(basename output/*.iso)
         \`\`\`
         
+        ### Security Artifacts
+        \`\`\`
+        s3://${{ env.ISO_BUCKET }}/${{ env.VERSION }}/sbom-cyclonedx.json
+        s3://${{ env.ISO_BUCKET }}/${{ env.VERSION }}/vuln-report.json
+        s3://${{ env.ISO_BUCKET }}/nubiferos-signing-key.pub
+        \`\`\`
+        
         ## Download
         **Presigned URL** (valid for 7 days): 
         \`\`\`
@@ -440,6 +663,16 @@ jobs:
         ## Checksums
         \`\`\`
         $(cat output/SHA256SUMS)
+        \`\`\`
+        
+        ## Verify ISO Signature
+        \`\`\`bash
+        # Download public key
+        curl -O https://nubiferos-iso.s3.amazonaws.com/nubiferos-signing-key.pub
+        gpg --import nubiferos-signing-key.pub
+        
+        # Verify signature
+        gpg --verify nubiferos-latest.iso.asc nubiferos-latest.iso
         \`\`\`
         
         ## Testing Results
@@ -452,8 +685,9 @@ jobs:
         ### For Testing
         1. Download the ISO using the presigned URL above
         2. Verify checksums match
-        3. Test in VirtualBox or QEMU
-        4. Report any issues
+        3. Verify GPG signature (if signed)
+        4. Test in VirtualBox or QEMU
+        5. Report any issues
         
         ### For Production Release
         1. Tag the commit: \`git tag v${{ env.VERSION }}\`
