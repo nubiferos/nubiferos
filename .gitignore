@@ -35,3 +35,4 @@ security/scan-results/
 # GPG key backups should never be in repo
 *.asc
 gpg-private-key-backup.asc
+.git-backup/

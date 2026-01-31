@@ -245,6 +245,10 @@ install_nubifer_components() {
     # Tools configuration for update checker
     cp "${PROJECT_ROOT}/scripts/tools-config.yaml" "${CHROOT_DIR}/usr/share/nubifer/"
     
+    # Security scanner
+    cp "${PROJECT_ROOT}/scripts/nubifer-security-scan" "${CHROOT_DIR}/usr/local/bin/"
+    chmod +x "${CHROOT_DIR}/usr/local/bin/nubifer-security-scan"
+    
     # IDE plugin installer
     cp "${PROJECT_ROOT}/configs/ide/install-ide-plugins.sh" "${CHROOT_DIR}/usr/local/bin/install-ide-plugins"
     chmod +x "${CHROOT_DIR}/usr/local/bin/install-ide-plugins"
