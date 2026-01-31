@@ -343,15 +343,32 @@ def full_scan(quiet=False, output_json=False):
 
 def main():
     parser = argparse.ArgumentParser(
-        description="NubiferOS Security Scanner",
+        description="NubiferOS Security Scanner - Check for vulnerabilities and audit system hardening",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
+Scan Types:
+  --vuln-scan     Scan installed packages for known CVEs using grype
+  --compliance    Audit system hardening using lynis (score 0-100)
+  --verify-iso    Verify GPG signature of an ISO file
+  --full          Run all scans (vuln-scan + compliance)
+
+Output:
+  Results are saved to ~/.local/share/nubifer/security/ as JSON files.
+  Use --json to output results to stdout for scripting.
+  View results in the NubiferOS Security Dashboard.
+
 Examples:
   nubifer-security-scan --vuln-scan          # Scan for vulnerabilities
   nubifer-security-scan --compliance         # Run hardening audit
   nubifer-security-scan --verify-iso file.iso  # Verify ISO signature
   nubifer-security-scan --full               # Run all scans
   nubifer-security-scan --full --json        # Output as JSON
+
+Exit Codes:
+  0  Success
+  2  Critical vulnerabilities found
+
+See also: man nubifer-security-scan
         """
     )
     

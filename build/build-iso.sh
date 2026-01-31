@@ -250,6 +250,13 @@ install_nubifer_components() {
     cp "${PROJECT_ROOT}/scripts/nubifer-security-scan" "${CHROOT_DIR}/usr/local/bin/"
     chmod +x "${CHROOT_DIR}/usr/local/bin/nubifer-security-scan"
     
+    # Man pages
+    mkdir -p "${CHROOT_DIR}/usr/share/man/man1"
+    if [ -f "${PROJECT_ROOT}/docs/man/nubifer-security-scan.1" ]; then
+        cp "${PROJECT_ROOT}/docs/man/nubifer-security-scan.1" "${CHROOT_DIR}/usr/share/man/man1/"
+        gzip -f "${CHROOT_DIR}/usr/share/man/man1/nubifer-security-scan.1" 2>/dev/null || true
+    fi
+    
     # IDE plugin installer
     cp "${PROJECT_ROOT}/configs/ide/install-ide-plugins.sh" "${CHROOT_DIR}/usr/local/bin/install-ide-plugins"
     chmod +x "${CHROOT_DIR}/usr/local/bin/install-ide-plugins"
