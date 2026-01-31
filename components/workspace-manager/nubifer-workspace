@@ -466,6 +466,9 @@ class WorkspaceManager:
     def _schedule_read_only_revert(self, workspace_id: str, minutes: int):
         """Schedule automatic revert to read-only mode"""
         try:
+            # Cancel any existing timer first
+            self._cancel_read_only_timer(workspace_id)
+            
             # Use systemd-run to schedule the revert
             subprocess.run([
                 'systemd-run', '--user', '--on-active=' + str(minutes) + 'm',
@@ -477,6 +480,47 @@ class WorkspaceManager:
             # Fallback: just warn user
             print(f"   Note: Auto-revert scheduled. If you log out, manually run:", file=sys.stderr)
             print(f"         nubifer-workspace ro {workspace_id}", file=sys.stderr)
+    
+    def _cancel_read_only_timer(self, workspace_id: str):
+        """Cancel the auto-revert timer for a workspace"""
+        try:
+            unit_name = 'nubifer-ro-revert-' + workspace_id[:8]
+            # Stop the timer if it exists
+            subprocess.run([
+                'systemctl', '--user', 'stop', unit_name + '.timer'
+            ], check=False, capture_output=True)
+            subprocess.run([
+                'systemctl', '--user', 'stop', unit_name + '.service'
+            ], check=False, capture_output=True)
+        except Exception:
+            pass
+    
+    def cancel_timer(self, workspace_id: str):
+        """Cancel the auto-revert timer and clear expiration from workspace config"""
+        workspace = self.get_workspace(workspace_id)
+        
+        if not workspace:
+            print(f"✗ Workspace not found: {workspace_id}", file=sys.stderr)
+            return False
+        
+        # Cancel the systemd timer
+        self._cancel_read_only_timer(workspace_id)
+        
+        # Clear expiration from workspace config
+        if workspace.get('rw_expires_at') or workspace.get('rw_duration'):
+            workspace.pop('rw_expires_at', None)
+            workspace.pop('rw_duration', None)
+            workspace_file = self.workspace_dir / f"{workspace_id}.json"
+            with open(workspace_file, 'w') as f:
+                json.dump(workspace, f, indent=2)
+            
+            self._audit_log_entry("CANCEL_TIMER", workspace_id, f"name={workspace['name']}")
+            print(f"⏱️  Timer cancelled: {workspace['name']}")
+            print(f"   Workspace will stay in read-write mode until manually locked")
+        else:
+            print(f"ℹ️  No active timer for: {workspace['name']}")
+        
+        return True
     
     def update_workspace(self, workspace_id: str, **kwargs):
         """Update workspace configuration"""
@@ -567,6 +611,8 @@ def main():
     rw_parser.add_argument("workspace_id", nargs="?", help="Workspace ID (uses current if omitted)")
     rw_parser.add_argument("--duration", "-d", type=int, default=0,
                           help="Auto-revert to read-only after N minutes (0 = permanent)")
+    rw_parser.add_argument("--cancel-timer", "-c", action="store_true",
+                          help="Cancel the auto-revert timer (stay in read-write mode)")
     
     # Update command
     update_parser = subparsers.add_parser("update", help="Update workspace")
@@ -675,6 +721,22 @@ def main():
     elif args.command == "rw":
         # Shorthand for enabling read-write (unlock) - requires sudo
         workspace_id = args.workspace_id
+        
+        # When running with sudo, we need to check the original user's config
+        # sudo changes HOME to /root, so we need to find the real user's home
+        original_user = os.environ.get('SUDO_USER')
+        if original_user and not workspace_id:
+            # Get the original user's home directory
+            import pwd
+            try:
+                original_home = pwd.getpwnam(original_user).pw_dir
+                original_config = Path(original_home) / '.config' / 'nubifer' / 'current-workspace'
+                if original_config.exists():
+                    with open(original_config, 'r') as f:
+                        workspace_id = f.read().strip()
+            except (KeyError, IOError):
+                pass
+        
         if not workspace_id:
             current = manager.get_current_workspace()
             if not current:
@@ -694,7 +756,20 @@ def main():
                 print(f"   sudo nubifer-workspace rw {workspace_id}", file=sys.stderr)
             sys.exit(1)
         
-        manager.set_read_only(workspace_id, False, duration=args.duration)
+        # Also read workspace config from original user's directory
+        if original_user:
+            import pwd
+            try:
+                original_home = pwd.getpwnam(original_user).pw_dir
+                manager.workspace_dir = Path(original_home) / '.config' / 'nubifer' / 'workspaces'
+            except KeyError:
+                pass
+        
+        # Handle cancel timer flag
+        if args.cancel_timer:
+            manager.cancel_timer(workspace_id)
+        else:
+            manager.set_read_only(workspace_id, False, duration=args.duration)
     
     elif args.command == "update":
         manager.update_workspace(
