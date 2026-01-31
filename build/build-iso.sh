@@ -243,6 +243,7 @@ install_nubifer_components() {
     chmod +x "${CHROOT_DIR}/usr/local/bin/nubifer-check-updates"
     
     # Tools configuration for update checker
+    mkdir -p "${CHROOT_DIR}/usr/share/nubifer"
     cp "${PROJECT_ROOT}/scripts/tools-config.yaml" "${CHROOT_DIR}/usr/share/nubifer/"
     
     # Security scanner
