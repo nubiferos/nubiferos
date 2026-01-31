@@ -479,6 +479,10 @@ class SoftwareCenter(Gtk.Window):
         self.set_default_size(900, 650)
         self.set_border_width(0)
         
+        # Cache for installation status (checked in background)
+        self._install_cache = {}
+        self._tool_widgets = {}  # Map tool_id -> (action_box, tool)
+        
         # Apply custom CSS
         self._apply_css()
         
@@ -503,7 +507,7 @@ class SoftwareCenter(Gtk.Window):
         self.content_stack.set_transition_type(Gtk.StackTransitionType.CROSSFADE)
         content_box.pack_start(self.content_stack, True, True, 0)
         
-        # Create pages for each category
+        # Create pages for each category (without blocking install checks)
         for category in SOFTWARE_CATALOG:
             page = self._create_category_page(category)
             self.content_stack.add_named(page, category)
@@ -514,10 +518,13 @@ class SoftwareCenter(Gtk.Window):
         
         # Status bar
         self.statusbar = Gtk.Statusbar()
-        self.statusbar.push(0, "Ready")
+        self.statusbar.push(0, "Checking installed tools...")
         main_box.pack_end(self.statusbar, False, False, 0)
         
         self.show_all()
+        
+        # Start background thread to check all installations
+        self._start_install_check_thread()
     
     def _apply_css(self):
         css = b"""
@@ -674,12 +681,63 @@ class SoftwareCenter(Gtk.Window):
         size_label.set_halign(Gtk.Align.START)
         card.pack_start(size_label, False, False, 0)
         
-        # Action area
+        # Action area - initially shows "Checking..." until background check completes
         action_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
         card.pack_start(action_box, False, False, 8)
         
-        # Check if installed
-        is_installed = self._check_installed(tool["check_cmd"])
+        # Store reference for async update
+        tool_id = tool["id"]
+        self._tool_widgets[tool_id] = (action_box, tool)
+        
+        # Check cache first (may already be populated from previous check)
+        if tool_id in self._install_cache:
+            self._update_tool_status(tool_id, self._install_cache[tool_id])
+        else:
+            # Show checking status
+            checking_label = Gtk.Label(label="⋯ Checking...")
+            checking_label.get_style_context().add_class("tool-description")
+            action_box.pack_start(checking_label, False, False, 0)
+        
+        return card
+    
+    def _start_install_check_thread(self):
+        """Start background thread to check all tool installations."""
+        def check_all_tools():
+            all_tools = []
+            for category, data in SOFTWARE_CATALOG.items():
+                for tool in data["tools"]:
+                    all_tools.append(tool)
+            
+            checked = 0
+            for tool in all_tools:
+                tool_id = tool["id"]
+                is_installed = self._check_installed(tool["check_cmd"])
+                self._install_cache[tool_id] = is_installed
+                
+                # Update UI on main thread
+                GLib.idle_add(self._update_tool_status, tool_id, is_installed)
+                
+                checked += 1
+                GLib.idle_add(
+                    self.statusbar.push, 0, 
+                    f"Checking tools... ({checked}/{len(all_tools)})"
+                )
+            
+            GLib.idle_add(self.statusbar.push, 0, "Ready")
+        
+        thread = threading.Thread(target=check_all_tools, daemon=True)
+        thread.start()
+    
+    def _update_tool_status(self, tool_id, is_installed):
+        """Update a tool card's status after background check."""
+        if tool_id not in self._tool_widgets:
+            return
+        
+        action_box, tool = self._tool_widgets[tool_id]
+        
+        # Clear existing children
+        for child in action_box.get_children():
+            action_box.remove(child)
         
         if is_installed:
             status = Gtk.Label(label="✓ Installed")
@@ -691,7 +749,7 @@ class SoftwareCenter(Gtk.Window):
             install_btn.connect("clicked", self._on_install, tool)
             action_box.pack_start(install_btn, False, False, 0)
         
-        return card
+        action_box.show_all()
     
     def _check_installed(self, check_cmd):
         try:
@@ -743,16 +801,10 @@ class SoftwareCenter(Gtk.Window):
             self.statusbar.push(0, f"Installation may still be in progress. Click Refresh to check.")
     
     def _on_refresh(self, button):
-        # Rebuild all category pages to refresh install status
-        for category in SOFTWARE_CATALOG:
-            old_page = self.content_stack.get_child_by_name(category)
-            if old_page:
-                self.content_stack.remove(old_page)
-            new_page = self._create_category_page(category)
-            self.content_stack.add_named(new_page, category)
-        
-        self.content_stack.show_all()
-        self.statusbar.push(0, "Refreshed installation status")
+        # Clear cache and re-check all tools in background
+        self._install_cache.clear()
+        self.statusbar.push(0, "Refreshing installation status...")
+        self._start_install_check_thread()
 
 
 def main():
