@@ -6,15 +6,19 @@ Shows system security status and NubiferOS component health
 
 import gi
 gi.require_version('Gtk', '3.0')
-from gi.repository import Gtk, GLib, Gdk
+from gi.repository import Gtk, GLib, Gdk, Pango
 import subprocess
 import os
 import json
+import threading
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, timedelta
 
 
 class SecurityDashboard(Gtk.Window):
+    # Security scan results directory
+    SCAN_RESULTS_DIR = Path.home() / ".local/share/nubifer/security"
+    
     # Tooltip definitions for all dashboard items
     TOOLTIPS = {
         # Components
@@ -48,12 +52,22 @@ class SecurityDashboard(Gtk.Window):
         "Credential Store": "GPG-encrypted credential storage ensures secrets are never stored in plaintext.",
         "Auto Updates": "Automatic security updates protect against newly discovered vulnerabilities.",
         "Workspace Configured": "At least one workspace is configured for isolated cloud operations.",
+        
+        # Security Scans
+        "Vulnerability Scan": "Scans installed packages for known CVEs using grype. Run regularly to identify security issues.",
+        "Compliance Check": "Audits system hardening using lynis. Higher scores indicate better security posture.",
+        "Last Scan": "Time since the last security scan was run. Regular scans help identify new vulnerabilities.",
     }
     
     def __init__(self):
         super().__init__(title="NubiferOS Security Dashboard")
-        self.set_default_size(950, 700)
+        self.set_default_size(950, 750)
         self.set_border_width(0)
+        
+        # Track if a scan is running
+        self._scan_running = False
+        self._scan_status_label = None
+        self._vuln_details_box = None
         
         self._apply_css()
         
@@ -111,6 +125,10 @@ class SecurityDashboard(Gtk.Window):
         # CPU Security Card
         cpu_card = self._create_cpu_security_card()
         right_col.pack_start(cpu_card, False, False, 0)
+        
+        # Security Scans Card (full width below the two columns)
+        scans_card = self._create_security_scans_card()
+        content.pack_start(scans_card, False, False, 0)
         
         self.show_all()
     
@@ -192,6 +210,74 @@ class SecurityDashboard(Gtk.Window):
         .metric-label {
             color: #888;
             font-size: 12px;
+        }
+        .vuln-critical {
+            background-color: rgba(255, 68, 68, 0.2);
+            border-left: 3px solid #ff4444;
+            padding: 8px 12px;
+            margin: 4px 0;
+            border-radius: 4px;
+        }
+        .vuln-high {
+            background-color: rgba(255, 170, 0, 0.2);
+            border-left: 3px solid #ffaa00;
+            padding: 8px 12px;
+            margin: 4px 0;
+            border-radius: 4px;
+        }
+        .vuln-medium {
+            background-color: rgba(0, 212, 255, 0.15);
+            border-left: 3px solid #00d4ff;
+            padding: 8px 12px;
+            margin: 4px 0;
+            border-radius: 4px;
+        }
+        .vuln-id {
+            color: #ffffff;
+            font-weight: bold;
+            font-size: 12px;
+        }
+        .vuln-package {
+            color: #aaa;
+            font-size: 11px;
+        }
+        .vuln-severity-critical {
+            color: #ff4444;
+            font-weight: bold;
+            font-size: 11px;
+        }
+        .vuln-severity-high {
+            color: #ffaa00;
+            font-weight: bold;
+            font-size: 11px;
+        }
+        .vuln-severity-medium {
+            color: #00d4ff;
+            font-weight: bold;
+            font-size: 11px;
+        }
+        .scan-button {
+            background-color: #1e3a5f;
+            color: #00d4ff;
+            border: 1px solid #00d4ff;
+            border-radius: 6px;
+            padding: 8px 16px;
+        }
+        .scan-button:hover {
+            background-color: #2a4a6f;
+        }
+        .scan-button:disabled {
+            opacity: 0.5;
+        }
+        .section-subtitle {
+            color: #888;
+            font-size: 12px;
+            margin-bottom: 8px;
+        }
+        .no-data {
+            color: #666;
+            font-style: italic;
+            padding: 16px;
         }
         """
         provider = Gtk.CssProvider()
@@ -652,7 +738,6 @@ class SecurityDashboard(Gtk.Window):
             return ("warn", "Inactive")
         except Exception as e:
             return ("warn", "Unknown")
-            return ("warn", "Unknown")
     
     def _check_auto_updates(self):
         config_file = Path("/etc/apt/apt.conf.d/20auto-upgrades")
@@ -693,6 +778,376 @@ class SecurityDashboard(Gtk.Window):
                     pass
         
         return vulns
+    
+    # ==================== Security Scans Section ====================
+    
+    def _create_security_scans_card(self):
+        """Create the security scans card showing CVE results and compliance."""
+        card = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+        card.get_style_context().add_class("card")
+        
+        # Header with title and scan button
+        header = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
+        
+        title = Gtk.Label(label="🔍 Security Scans")
+        title.get_style_context().add_class("card-title")
+        title.set_halign(Gtk.Align.START)
+        header.pack_start(title, True, True, 0)
+        
+        # Scan status label
+        self._scan_status_label = Gtk.Label(label="")
+        self._scan_status_label.get_style_context().add_class("status-label")
+        header.pack_start(self._scan_status_label, False, False, 8)
+        
+        # Run scan button
+        scan_btn = Gtk.Button(label="▶ Run Scan")
+        scan_btn.get_style_context().add_class("scan-button")
+        scan_btn.connect("clicked", self._on_run_scan)
+        scan_btn.set_tooltip_text("Run vulnerability and compliance scans (requires grype and lynis)")
+        header.pack_end(scan_btn, False, False, 0)
+        
+        card.pack_start(header, False, False, 0)
+        
+        # Load scan results
+        vuln_data = self._load_vuln_scan_results()
+        compliance_data = self._load_compliance_results()
+        
+        # Two-column layout for scan results
+        content = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=24)
+        content.set_margin_top(16)
+        
+        # Left: Vulnerability summary
+        vuln_box = self._create_vuln_summary_box(vuln_data)
+        content.pack_start(vuln_box, True, True, 0)
+        
+        # Right: Compliance summary
+        compliance_box = self._create_compliance_summary_box(compliance_data)
+        content.pack_start(compliance_box, True, True, 0)
+        
+        card.pack_start(content, False, False, 0)
+        
+        # Vulnerability details (expandable)
+        if vuln_data and vuln_data.get("vulnerabilities"):
+            details_expander = Gtk.Expander(label="View Top Vulnerabilities")
+            details_expander.set_margin_top(16)
+            
+            self._vuln_details_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
+            self._vuln_details_box.set_margin_top(8)
+            self._populate_vuln_details(vuln_data)
+            
+            details_expander.add(self._vuln_details_box)
+            card.pack_start(details_expander, False, False, 0)
+        
+        return card
+    
+    def _create_vuln_summary_box(self, vuln_data):
+        """Create vulnerability summary display."""
+        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+        
+        subtitle = Gtk.Label(label="Vulnerability Scan")
+        subtitle.get_style_context().add_class("section-subtitle")
+        subtitle.set_halign(Gtk.Align.START)
+        box.pack_start(subtitle, False, False, 0)
+        
+        if not vuln_data or "error" in vuln_data:
+            no_data = Gtk.Label(label="No scan results. Click 'Run Scan' to check for vulnerabilities.")
+            no_data.get_style_context().add_class("no-data")
+            no_data.set_line_wrap(True)
+            no_data.set_halign(Gtk.Align.START)
+            box.pack_start(no_data, False, False, 0)
+            return box
+        
+        # Severity counts
+        counts = vuln_data.get("by_severity", {})
+        
+        # Metrics row
+        metrics = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=24)
+        
+        for severity, color_class in [("Critical", "error"), ("High", "warn"), ("Medium", "info")]:
+            count = counts.get(severity, 0)
+            metric_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+            
+            value = Gtk.Label(label=str(count))
+            value.get_style_context().add_class("metric-value")
+            if count > 0:
+                value.get_style_context().add_class(f"status-{color_class}")
+            metric_box.pack_start(value, False, False, 0)
+            
+            label = Gtk.Label(label=severity)
+            label.get_style_context().add_class("metric-label")
+            metric_box.pack_start(label, False, False, 0)
+            
+            metrics.pack_start(metric_box, False, False, 0)
+        
+        box.pack_start(metrics, False, False, 0)
+        
+        # Last scan time
+        timestamp = vuln_data.get("timestamp")
+        if timestamp:
+            time_str = self._format_scan_time(timestamp)
+            time_label = Gtk.Label(label=f"Last scan: {time_str}")
+            time_label.get_style_context().add_class("status-label")
+            time_label.set_halign(Gtk.Align.START)
+            time_label.set_margin_top(8)
+            box.pack_start(time_label, False, False, 0)
+        
+        return box
+    
+    def _create_compliance_summary_box(self, compliance_data):
+        """Create compliance/hardening summary display."""
+        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+        
+        subtitle = Gtk.Label(label="Hardening Audit")
+        subtitle.get_style_context().add_class("section-subtitle")
+        subtitle.set_halign(Gtk.Align.START)
+        box.pack_start(subtitle, False, False, 0)
+        
+        if not compliance_data or "error" in compliance_data:
+            no_data = Gtk.Label(label="No audit results. Click 'Run Scan' to check system hardening.")
+            no_data.get_style_context().add_class("no-data")
+            no_data.set_line_wrap(True)
+            no_data.set_halign(Gtk.Align.START)
+            box.pack_start(no_data, False, False, 0)
+            return box
+        
+        # Hardening score
+        score = compliance_data.get("hardening_score", 0)
+        
+        score_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=16)
+        
+        score_value = Gtk.Label(label=str(score))
+        score_value.get_style_context().add_class("metric-value")
+        if score >= 80:
+            score_value.get_style_context().add_class("status-ok")
+        elif score >= 60:
+            score_value.get_style_context().add_class("status-warn")
+        else:
+            score_value.get_style_context().add_class("status-error")
+        score_box.pack_start(score_value, False, False, 0)
+        
+        score_label_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+        score_label = Gtk.Label(label="/100")
+        score_label.get_style_context().add_class("metric-label")
+        score_label.set_halign(Gtk.Align.START)
+        score_label_box.pack_start(score_label, False, False, 0)
+        
+        if score >= 80:
+            status_text = "Excellent"
+        elif score >= 60:
+            status_text = "Good"
+        else:
+            status_text = "Needs Work"
+        
+        status_label = Gtk.Label(label=status_text)
+        status_label.get_style_context().add_class("status-label")
+        status_label.set_halign(Gtk.Align.START)
+        score_label_box.pack_start(status_label, False, False, 0)
+        
+        score_box.pack_start(score_label_box, False, False, 0)
+        box.pack_start(score_box, False, False, 0)
+        
+        # Warnings and suggestions count
+        warnings = compliance_data.get("warnings_count", 0)
+        suggestions = compliance_data.get("suggestions_count", 0)
+        
+        counts_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=16)
+        counts_box.set_margin_top(8)
+        
+        warn_label = Gtk.Label(label=f"⚠ {warnings} warnings")
+        warn_label.get_style_context().add_class("status-label")
+        counts_box.pack_start(warn_label, False, False, 0)
+        
+        sugg_label = Gtk.Label(label=f"💡 {suggestions} suggestions")
+        sugg_label.get_style_context().add_class("status-label")
+        counts_box.pack_start(sugg_label, False, False, 0)
+        
+        box.pack_start(counts_box, False, False, 0)
+        
+        # Last scan time
+        timestamp = compliance_data.get("timestamp")
+        if timestamp:
+            time_str = self._format_scan_time(timestamp)
+            time_label = Gtk.Label(label=f"Last audit: {time_str}")
+            time_label.get_style_context().add_class("status-label")
+            time_label.set_halign(Gtk.Align.START)
+            time_label.set_margin_top(8)
+            box.pack_start(time_label, False, False, 0)
+        
+        return box
+    
+    def _populate_vuln_details(self, vuln_data):
+        """Populate the vulnerability details box with top CVEs."""
+        if not self._vuln_details_box:
+            return
+        
+        # Clear existing
+        for child in self._vuln_details_box.get_children():
+            child.destroy()
+        
+        vulns = vuln_data.get("vulnerabilities", [])
+        if not vulns:
+            return
+        
+        # Sort by severity (Critical > High > Medium)
+        severity_order = {"Critical": 0, "High": 1, "Medium": 2, "Low": 3, "Negligible": 4}
+        sorted_vulns = sorted(
+            vulns,
+            key=lambda v: severity_order.get(v.get("vulnerability", {}).get("severity", "Low"), 5)
+        )
+        
+        # Show top 10
+        for vuln in sorted_vulns[:10]:
+            vuln_info = vuln.get("vulnerability", {})
+            artifact = vuln.get("artifact", {})
+            
+            severity = vuln_info.get("severity", "Unknown")
+            cve_id = vuln_info.get("id", "Unknown")
+            package = artifact.get("name", "Unknown")
+            version = artifact.get("version", "")
+            fixed_in = vuln_info.get("fix", {}).get("versions", [])
+            
+            # Create vulnerability row
+            row = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
+            
+            if severity == "Critical":
+                row.get_style_context().add_class("vuln-critical")
+            elif severity == "High":
+                row.get_style_context().add_class("vuln-high")
+            else:
+                row.get_style_context().add_class("vuln-medium")
+            
+            # Top line: CVE ID and severity
+            top_line = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
+            
+            cve_label = Gtk.Label(label=cve_id)
+            cve_label.get_style_context().add_class("vuln-id")
+            cve_label.set_halign(Gtk.Align.START)
+            top_line.pack_start(cve_label, True, True, 0)
+            
+            sev_label = Gtk.Label(label=severity.upper())
+            sev_label.get_style_context().add_class(f"vuln-severity-{severity.lower()}")
+            top_line.pack_end(sev_label, False, False, 0)
+            
+            row.pack_start(top_line, False, False, 0)
+            
+            # Bottom line: Package info
+            pkg_text = f"{package}"
+            if version:
+                pkg_text += f" ({version})"
+            if fixed_in:
+                pkg_text += f" → fix: {', '.join(fixed_in[:2])}"
+            
+            pkg_label = Gtk.Label(label=pkg_text)
+            pkg_label.get_style_context().add_class("vuln-package")
+            pkg_label.set_halign(Gtk.Align.START)
+            pkg_label.set_ellipsize(Pango.EllipsizeMode.END)
+            row.pack_start(pkg_label, False, False, 0)
+            
+            self._vuln_details_box.pack_start(row, False, False, 0)
+        
+        self._vuln_details_box.show_all()
+    
+    def _load_vuln_scan_results(self):
+        """Load vulnerability scan results from disk."""
+        results_file = self.SCAN_RESULTS_DIR / "vuln-scan.json"
+        if not results_file.exists():
+            return None
+        
+        try:
+            with open(results_file) as f:
+                return json.load(f)
+        except:
+            return None
+    
+    def _load_compliance_results(self):
+        """Load compliance check results from disk."""
+        results_file = self.SCAN_RESULTS_DIR / "compliance.json"
+        if not results_file.exists():
+            return None
+        
+        try:
+            with open(results_file) as f:
+                return json.load(f)
+        except:
+            return None
+    
+    def _format_scan_time(self, timestamp_str):
+        """Format timestamp as relative time."""
+        try:
+            scan_time = datetime.fromisoformat(timestamp_str)
+            now = datetime.now()
+            delta = now - scan_time
+            
+            if delta < timedelta(minutes=1):
+                return "just now"
+            elif delta < timedelta(hours=1):
+                mins = int(delta.total_seconds() / 60)
+                return f"{mins} min ago"
+            elif delta < timedelta(days=1):
+                hours = int(delta.total_seconds() / 3600)
+                return f"{hours} hour{'s' if hours > 1 else ''} ago"
+            elif delta < timedelta(days=7):
+                days = delta.days
+                return f"{days} day{'s' if days > 1 else ''} ago"
+            else:
+                return scan_time.strftime("%Y-%m-%d")
+        except:
+            return timestamp_str
+    
+    def _on_run_scan(self, button):
+        """Run security scans in background thread."""
+        if self._scan_running:
+            return
+        
+        self._scan_running = True
+        button.set_sensitive(False)
+        
+        if self._scan_status_label:
+            self._scan_status_label.set_text("⏳ Scanning...")
+        
+        # Run scan in background
+        thread = threading.Thread(target=self._run_scan_thread, args=(button,))
+        thread.daemon = True
+        thread.start()
+    
+    def _run_scan_thread(self, button):
+        """Background thread to run security scans."""
+        try:
+            # Run the security scan script
+            result = subprocess.run(
+                ["nubifer-security-scan", "--full", "--quiet"],
+                capture_output=True,
+                text=True,
+                timeout=600  # 10 minute timeout
+            )
+            
+            success = result.returncode == 0
+            
+            # Update UI on main thread
+            GLib.idle_add(self._scan_complete, button, success)
+        except Exception as e:
+            GLib.idle_add(self._scan_complete, button, False, str(e))
+    
+    def _scan_complete(self, button, success, error=None):
+        """Called when scan completes - update UI."""
+        self._scan_running = False
+        button.set_sensitive(True)
+        
+        if success:
+            if self._scan_status_label:
+                self._scan_status_label.set_text("✓ Scan complete")
+            # Refresh the window to show new results
+            GLib.timeout_add(1000, self._delayed_refresh)
+        else:
+            if self._scan_status_label:
+                self._scan_status_label.set_text("✗ Scan failed")
+        
+        return False
+    
+    def _delayed_refresh(self):
+        """Refresh after a short delay."""
+        self._on_refresh(None)
+        return False
     
     def _on_refresh(self, button):
         # Rebuild the window
