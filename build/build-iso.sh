@@ -234,9 +234,16 @@ install_nubifer_components() {
     cp "${PROJECT_ROOT}/scripts/nubifer-setup-wizard" "${CHROOT_DIR}/usr/local/bin/"
     chmod +x "${CHROOT_DIR}/usr/local/bin/nubifer-setup-wizard"
     
-    # Update checker
+    # Update checker (bash version)
     cp "${PROJECT_ROOT}/scripts/nubifer-update-checker" "${CHROOT_DIR}/usr/local/bin/"
     chmod +x "${CHROOT_DIR}/usr/local/bin/nubifer-update-checker"
+    
+    # Update checker (Python version with version comparison)
+    cp "${PROJECT_ROOT}/scripts/nubifer-check-updates" "${CHROOT_DIR}/usr/local/bin/"
+    chmod +x "${CHROOT_DIR}/usr/local/bin/nubifer-check-updates"
+    
+    # Tools configuration for update checker
+    cp "${PROJECT_ROOT}/scripts/tools-config.yaml" "${CHROOT_DIR}/usr/share/nubifer/"
     
     # IDE plugin installer
     cp "${PROJECT_ROOT}/configs/ide/install-ide-plugins.sh" "${CHROOT_DIR}/usr/local/bin/install-ide-plugins"
