@@ -155,6 +155,9 @@ class WorkspaceManager:
         # Auto-assign to GNOME virtual desktop
         self._assign_gnome_desktop(workspace_id)
         
+        # Signal D-Bus service to refresh (for GNOME panel indicator)
+        self._signal_workspace_change(workspace_id, 'created')
+        
         print(f"✓ Workspace created: {name}")
         print(f"  ID: {workspace_id}")
         print(f"  Provider: {PROVIDER_COLORS[provider]['icon']} {PROVIDER_COLORS[provider]['name']}")
@@ -163,7 +166,38 @@ class WorkspaceManager:
             print(f"  Region: {region}")
         print(f"  Mode: {'🔒 Read-Only' if read_only else '🔓 Read-Write'}")
         
+        # Auto-switch to the new workspace
+        self._set_current_workspace(workspace_id)
+        
+        # Provide the eval command to activate in current shell
+        print("")
+        print("  To activate this workspace in your current terminal:")
+        print(f"    eval $(nubifer-workspace env {workspace_id})")
+        print("")
+        
         return workspace_id
+    
+    def _set_current_workspace(self, workspace_id: str):
+        """Set the current workspace without full switch (no display)"""
+        with open(self.current_workspace_file, 'w') as f:
+            f.write(workspace_id)
+        self.current_workspace_file.chmod(0o600)
+    
+    def _signal_workspace_change(self, workspace_id: str, action: str):
+        """Signal D-Bus service that workspace changed (for UI refresh)"""
+        try:
+            # Try to signal via D-Bus
+            subprocess.run([
+                'dbus-send', '--session',
+                '--dest=org.nubiferos.ContextManager',
+                '--type=signal',
+                '/org/nubiferos/ContextManager',
+                'org.nubiferos.ContextManager.WorkspaceChanged',
+                f'string:{workspace_id}',
+                f'string:{action}'
+            ], check=False, capture_output=True, timeout=2)
+        except Exception:
+            pass  # Silently fail if D-Bus not available
     
     def _get_default_region(self, provider: str) -> str:
         """Get default region for provider"""
@@ -273,6 +307,9 @@ class WorkspaceManager:
         
         # Try to switch GNOME virtual desktop
         self._switch_gnome_desktop(workspace_id)
+        
+        # Signal D-Bus service to refresh (for GNOME panel indicator)
+        self._signal_workspace_change(workspace_id, 'switched')
         
         # Display workspace context
         self._display_workspace_context(workspace)
