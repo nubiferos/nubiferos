@@ -23,10 +23,21 @@ BOLD = '\033[1m'
 
 def load_config():
     """Load tools configuration from YAML file."""
-    config_path = Path(__file__).parent / "tools-config.yaml"
+    # Check installed location first, then development location
+    config_paths = [
+        Path("/usr/share/nubifer/tools-config.yaml"),  # Installed location
+        Path(__file__).parent / "tools-config.yaml",    # Development location
+    ]
     
-    if not config_path.exists():
+    config_path = None
+    for path in config_paths:
+        if path.exists():
+            config_path = path
+            break
+    
+    if not config_path:
         print(f"{RED}Error: tools-config.yaml not found{RESET}")
+        print(f"Searched: {', '.join(str(p) for p in config_paths)}")
         sys.exit(1)
     
     # Simple YAML parser (avoid external dependency)
