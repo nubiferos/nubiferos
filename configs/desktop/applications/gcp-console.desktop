@@ -1,0 +1,9 @@
+[Desktop Entry]
+Name=Google Cloud Console
+Comment=Open Google Cloud Platform Console in browser
+Exec=xdg-open https://console.cloud.google.com/
+Icon=google-cloud
+Terminal=false
+Type=Application
+Categories=CloudProvider;GCP;Network;
+Keywords=google;gcp;cloud;compute;storage;

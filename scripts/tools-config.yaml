@@ -136,3 +136,26 @@ tools:
     latest_type: "skip"
     latest_source: null
     installer: "installers/install-vscode.sh"
+
+  # GUI Tools
+  lens:
+    name: "Lens (Kubernetes IDE)"
+    check_cmd: "lens --version 2>/dev/null | head -1"
+    latest_type: "skip"
+    latest_source: null
+    installer: "installers/install-lens.sh"
+
+  podman-desktop:
+    name: "Podman Desktop"
+    check_cmd: "podman-desktop --version 2>/dev/null | head -1"
+    latest_type: "github"
+    latest_source: "containers/podman-desktop"
+    installer: "installers/install-podman-desktop.sh"
+
+  # Cloud Query Tools
+  steampipe:
+    name: "Steampipe (SQL for Cloud)"
+    check_cmd: "steampipe --version 2>/dev/null | awk '{print $2}'"
+    latest_type: "github"
+    latest_source: "turbot/steampipe"
+    installer: "installers/install-steampipe.sh"

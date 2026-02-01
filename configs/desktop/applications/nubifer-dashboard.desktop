@@ -1,0 +1,9 @@
+[Desktop Entry]
+Name=Security Dashboard
+Comment=NubiferOS Security Dashboard - View system security status
+Exec=/usr/local/bin/nubifer-dashboard
+Icon=security-high
+Terminal=false
+Type=Application
+Categories=NubiferOS;Security;System;
+Keywords=security;dashboard;vulnerabilities;compliance;

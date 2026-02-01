@@ -1,0 +1,9 @@
+[Desktop Entry]
+Name=Oracle Cloud Console
+Comment=Open Oracle Cloud Infrastructure Console in browser
+Exec=xdg-open https://cloud.oracle.com/
+Icon=oracle
+Terminal=false
+Type=Application
+Categories=CloudProvider;OracleCloud;Network;
+Keywords=oracle;oci;cloud;compute;

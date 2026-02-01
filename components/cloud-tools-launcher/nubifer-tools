@@ -1,0 +1,393 @@
+#!/usr/bin/env python3
+"""
+NubiferOS Cloud Tools Launcher
+A categorized launcher for all cloud engineering tools
+"""
+
+import gi
+gi.require_version('Gtk', '3.0')
+from gi.repository import Gtk, GLib, Gdk, Pango, Gio
+import subprocess
+import os
+import shutil
+from pathlib import Path
+
+
+class ToolsLauncher(Gtk.Window):
+    """Main launcher window showing tools organized by category."""
+    
+    # Tool definitions organized by category
+    CATEGORIES = {
+        "Cloud Providers": {
+            "icon": "cloud",
+            "tools": [
+                {"name": "AWS Console", "cmd": "xdg-open https://console.aws.amazon.com/", "icon": "aws", "type": "web"},
+                {"name": "Azure Portal", "cmd": "xdg-open https://portal.azure.com/", "icon": "azure", "type": "web"},
+                {"name": "GCP Console", "cmd": "xdg-open https://console.cloud.google.com/", "icon": "google-cloud", "type": "web"},
+                {"name": "Oracle Cloud", "cmd": "xdg-open https://cloud.oracle.com/", "icon": "oracle", "type": "web"},
+                {"name": "AWS CLI", "cmd": "aws", "icon": "terminal", "type": "cli", "terminal": True},
+                {"name": "Azure CLI", "cmd": "az", "icon": "terminal", "type": "cli", "terminal": True},
+                {"name": "gcloud CLI", "cmd": "gcloud", "icon": "terminal", "type": "cli", "terminal": True},
+            ]
+        },
+        "Kubernetes": {
+            "icon": "kubernetes",
+            "tools": [
+                {"name": "k9s", "cmd": "k9s", "icon": "kubernetes", "type": "tui", "terminal": True},
+                {"name": "Lens", "cmd": "lens", "icon": "lens", "type": "gui"},
+                {"name": "kubectl", "cmd": "kubectl", "icon": "terminal", "type": "cli", "terminal": True},
+                {"name": "Helm", "cmd": "helm", "icon": "helm", "type": "cli", "terminal": True},
+                {"name": "eksctl", "cmd": "eksctl", "icon": "aws", "type": "cli", "terminal": True},
+            ]
+        },
+        "Containers": {
+            "icon": "docker",
+            "tools": [
+                {"name": "Podman Desktop", "cmd": "podman-desktop", "icon": "podman", "type": "gui"},
+                {"name": "Docker", "cmd": "docker", "icon": "docker", "type": "cli", "terminal": True},
+                {"name": "Podman", "cmd": "podman", "icon": "podman", "type": "cli", "terminal": True},
+                {"name": "Docker Compose", "cmd": "docker-compose", "icon": "docker", "type": "cli", "terminal": True},
+            ]
+        },
+        "Infrastructure": {
+            "icon": "network-server",
+            "tools": [
+                {"name": "Terraform", "cmd": "terraform", "icon": "terraform", "type": "cli", "terminal": True},
+                {"name": "OpenTofu", "cmd": "tofu", "icon": "terraform", "type": "cli", "terminal": True},
+                {"name": "Ansible", "cmd": "ansible", "icon": "ansible", "type": "cli", "terminal": True},
+                {"name": "Pulumi", "cmd": "pulumi", "icon": "pulumi", "type": "cli", "terminal": True},
+                {"name": "Steampipe", "cmd": "steampipe query", "icon": "database", "type": "tui", "terminal": True},
+                {"name": "Terraform Registry", "cmd": "xdg-open https://registry.terraform.io/", "icon": "web-browser", "type": "web"},
+            ]
+        },
+        "Security": {
+            "icon": "security-high",
+            "tools": [
+                {"name": "Security Dashboard", "cmd": "nubifer-dashboard", "icon": "security-high", "type": "gui"},
+                {"name": "Security Scan", "cmd": "nubifer-security-scan --full", "icon": "security-medium", "type": "cli", "terminal": True},
+                {"name": "Trivy", "cmd": "trivy", "icon": "security-medium", "type": "cli", "terminal": True},
+                {"name": "Lynis Audit", "cmd": "sudo lynis audit system", "icon": "security-high", "type": "cli", "terminal": True},
+                {"name": "Pass (Secrets)", "cmd": "pass", "icon": "dialog-password", "type": "cli", "terminal": True},
+            ]
+        },
+        "Development": {
+            "icon": "applications-development",
+            "tools": [
+                {"name": "VS Code", "cmd": "code", "icon": "visual-studio-code", "type": "gui"},
+                {"name": "Git", "cmd": "git", "icon": "git", "type": "cli", "terminal": True},
+                {"name": "GitHub CLI", "cmd": "gh", "icon": "github", "type": "cli", "terminal": True},
+                {"name": "jq (JSON)", "cmd": "jq", "icon": "text-x-script", "type": "cli", "terminal": True},
+                {"name": "yq (YAML)", "cmd": "yq", "icon": "text-x-script", "type": "cli", "terminal": True},
+            ]
+        },
+        "NubiferOS": {
+            "icon": "nubiferos",
+            "tools": [
+                {"name": "Workspace Manager", "cmd": "nubifer-workspace", "icon": "preferences-system", "type": "cli", "terminal": True},
+                {"name": "Credential Manager", "cmd": "nubifer-creds", "icon": "dialog-password", "type": "cli", "terminal": True},
+                {"name": "Check Updates", "cmd": "nubifer-check-updates", "icon": "software-update-available", "type": "cli", "terminal": True},
+                {"name": "Welcome Wizard", "cmd": "nubifer-welcome", "icon": "help-about", "type": "gui"},
+            ]
+        },
+    }
+    
+    def __init__(self):
+        super().__init__(title="NubiferOS Cloud Tools")
+        self.set_default_size(900, 650)
+        self.set_border_width(0)
+        
+        self._apply_css()
+        
+        # Main container
+        main_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+        self.add(main_box)
+        
+        # Header
+        header = self._create_header()
+        main_box.pack_start(header, False, False, 0)
+        
+        # Search bar
+        search_box = self._create_search_bar()
+        main_box.pack_start(search_box, False, False, 0)
+        
+        # Scrollable content
+        scrolled = Gtk.ScrolledWindow()
+        scrolled.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+        main_box.pack_start(scrolled, True, True, 0)
+        
+        # Content area with categories
+        self.content_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=16)
+        self.content_box.set_margin_start(24)
+        self.content_box.set_margin_end(24)
+        self.content_box.set_margin_top(16)
+        self.content_box.set_margin_bottom(24)
+        scrolled.add(self.content_box)
+        
+        # Build category sections
+        self._build_categories()
+        
+        self.show_all()
+    
+    def _apply_css(self):
+        css = b"""
+        window {
+            background-color: #1a1a2e;
+        }
+        .header-bar {
+            background: linear-gradient(to right, #16213e, #1a1a2e);
+            padding: 16px 24px;
+        }
+        .header-title {
+            color: #00d4ff;
+            font-size: 20px;
+            font-weight: bold;
+        }
+        .search-box {
+            background-color: #252540;
+            border-radius: 8px;
+            padding: 8px 16px;
+            margin: 0 24px 16px 24px;
+        }
+        .search-entry {
+            background-color: #1a1a2e;
+            border: 1px solid #3a3a5a;
+            border-radius: 6px;
+            padding: 8px 12px;
+            color: #ffffff;
+        }
+        .category-title {
+            color: #00d4ff;
+            font-size: 16px;
+            font-weight: bold;
+        }
+        .tool-button {
+            background-color: #252540;
+            border: 1px solid #3a3a5a;
+            border-radius: 8px;
+            padding: 12px;
+            min-width: 120px;
+            min-height: 80px;
+        }
+        .tool-button:hover {
+            background-color: #2a2a4a;
+            border-color: #00d4ff;
+        }
+        .tool-name {
+            color: #ffffff;
+            font-size: 12px;
+            font-weight: 500;
+        }
+        .tool-type {
+            color: #888;
+            font-size: 10px;
+        }
+        .tool-installed {
+            color: #00ff88;
+        }
+        .tool-missing {
+            color: #ff4444;
+        }
+        .status-dot {
+            font-size: 8px;
+        }
+        """
+        provider = Gtk.CssProvider()
+        provider.load_from_data(css)
+        Gtk.StyleContext.add_provider_for_screen(
+            Gdk.Screen.get_default(),
+            provider,
+            Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
+        )
+    
+    def _create_header(self):
+        header = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
+        header.get_style_context().add_class("header-bar")
+        
+        title = Gtk.Label(label="🛠️ NubiferOS Cloud Tools")
+        title.get_style_context().add_class("header-title")
+        header.pack_start(title, False, False, 0)
+        
+        # Refresh button
+        refresh_btn = Gtk.Button(label="↻ Refresh")
+        refresh_btn.connect("clicked", self._on_refresh)
+        header.pack_end(refresh_btn, False, False, 0)
+        
+        return header
+    
+    def _create_search_bar(self):
+        box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
+        box.get_style_context().add_class("search-box")
+        
+        self.search_entry = Gtk.Entry()
+        self.search_entry.set_placeholder_text("Search tools...")
+        self.search_entry.get_style_context().add_class("search-entry")
+        self.search_entry.connect("changed", self._on_search_changed)
+        self.search_entry.set_hexpand(True)
+        box.pack_start(self.search_entry, True, True, 0)
+        
+        return box
+    
+    def _build_categories(self):
+        """Build all category sections."""
+        for category_name, category_data in self.CATEGORIES.items():
+            section = self._create_category_section(category_name, category_data)
+            self.content_box.pack_start(section, False, False, 0)
+    
+    def _create_category_section(self, name, data):
+        """Create a category section with tool buttons."""
+        section = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
+        
+        # Category header
+        header = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        
+        # Try to load icon
+        icon = Gtk.Image.new_from_icon_name(data.get("icon", "applications-other"), Gtk.IconSize.LARGE_TOOLBAR)
+        header.pack_start(icon, False, False, 0)
+        
+        title = Gtk.Label(label=name)
+        title.get_style_context().add_class("category-title")
+        title.set_halign(Gtk.Align.START)
+        header.pack_start(title, False, False, 0)
+        
+        section.pack_start(header, False, False, 0)
+        
+        # Tool buttons in a flow box
+        flowbox = Gtk.FlowBox()
+        flowbox.set_valign(Gtk.Align.START)
+        flowbox.set_max_children_per_line(6)
+        flowbox.set_min_children_per_line(3)
+        flowbox.set_selection_mode(Gtk.SelectionMode.NONE)
+        flowbox.set_homogeneous(True)
+        flowbox.set_column_spacing(12)
+        flowbox.set_row_spacing(12)
+        
+        for tool in data.get("tools", []):
+            button = self._create_tool_button(tool)
+            flowbox.add(button)
+        
+        section.pack_start(flowbox, False, False, 0)
+        
+        return section
+    
+    def _create_tool_button(self, tool):
+        """Create a button for a tool."""
+        button = Gtk.Button()
+        button.get_style_context().add_class("tool-button")
+        button.set_tooltip_text(f"Launch {tool['name']}\nType: {tool['type']}\nCommand: {tool['cmd']}")
+        
+        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+        box.set_halign(Gtk.Align.CENTER)
+        box.set_valign(Gtk.Align.CENTER)
+        
+        # Icon
+        icon_name = tool.get("icon", "application-x-executable")
+        icon = Gtk.Image.new_from_icon_name(icon_name, Gtk.IconSize.DIALOG)
+        box.pack_start(icon, False, False, 0)
+        
+        # Name
+        name_label = Gtk.Label(label=tool["name"])
+        name_label.get_style_context().add_class("tool-name")
+        name_label.set_line_wrap(True)
+        name_label.set_max_width_chars(15)
+        name_label.set_justify(Gtk.Justification.CENTER)
+        box.pack_start(name_label, False, False, 0)
+        
+        # Type and status
+        status_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=4)
+        status_box.set_halign(Gtk.Align.CENTER)
+        
+        type_label = Gtk.Label(label=tool["type"].upper())
+        type_label.get_style_context().add_class("tool-type")
+        status_box.pack_start(type_label, False, False, 0)
+        
+        # Check if installed (for CLI tools)
+        if tool["type"] in ["cli", "tui", "gui"]:
+            cmd_name = tool["cmd"].split()[0]
+            is_installed = shutil.which(cmd_name) is not None
+            
+            status_dot = Gtk.Label(label=" ●")
+            status_dot.get_style_context().add_class("status-dot")
+            if is_installed:
+                status_dot.get_style_context().add_class("tool-installed")
+                status_dot.set_tooltip_text("Installed")
+            else:
+                status_dot.get_style_context().add_class("tool-missing")
+                status_dot.set_tooltip_text("Not installed")
+            status_box.pack_start(status_dot, False, False, 0)
+        
+        box.pack_start(status_box, False, False, 0)
+        
+        button.add(box)
+        button.connect("clicked", self._on_tool_clicked, tool)
+        
+        return button
+    
+    def _on_tool_clicked(self, button, tool):
+        """Handle tool button click."""
+        cmd = tool["cmd"]
+        
+        if tool.get("terminal", False):
+            # Launch in terminal
+            subprocess.Popen(
+                ["gnome-terminal", "--", "bash", "-c", f"{cmd}; read -p 'Press Enter to close...'"],
+                start_new_session=True
+            )
+        elif tool["type"] == "web":
+            # Open in browser
+            subprocess.Popen(cmd.split(), start_new_session=True)
+        else:
+            # Launch GUI app
+            try:
+                subprocess.Popen(cmd.split(), start_new_session=True)
+            except FileNotFoundError:
+                dialog = Gtk.MessageDialog(
+                    transient_for=self,
+                    flags=0,
+                    message_type=Gtk.MessageType.ERROR,
+                    buttons=Gtk.ButtonsType.OK,
+                    text=f"{tool['name']} not found"
+                )
+                dialog.format_secondary_text(f"The command '{cmd}' was not found. Please install it first.")
+                dialog.run()
+                dialog.destroy()
+    
+    def _on_search_changed(self, entry):
+        """Filter tools based on search text."""
+        search_text = entry.get_text().lower()
+        
+        # Rebuild categories with filtered tools
+        for child in self.content_box.get_children():
+            self.content_box.remove(child)
+        
+        for category_name, category_data in self.CATEGORIES.items():
+            if search_text:
+                # Filter tools
+                filtered_tools = [
+                    t for t in category_data["tools"]
+                    if search_text in t["name"].lower() or search_text in t.get("cmd", "").lower()
+                ]
+                if not filtered_tools:
+                    continue
+                filtered_data = {**category_data, "tools": filtered_tools}
+            else:
+                filtered_data = category_data
+            
+            section = self._create_category_section(category_name, filtered_data)
+            self.content_box.pack_start(section, False, False, 0)
+        
+        self.content_box.show_all()
+    
+    def _on_refresh(self, button):
+        """Refresh the tool list."""
+        self.search_entry.set_text("")
+        self._on_search_changed(self.search_entry)
+
+
+def main():
+    app = ToolsLauncher()
+    app.connect("destroy", Gtk.main_quit)
+    Gtk.main()
+
+
+if __name__ == "__main__":
+    main()

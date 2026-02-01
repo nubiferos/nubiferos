@@ -1,0 +1,5 @@
+[Desktop Entry]
+Name=Containers
+Comment=Docker, Podman, and container tools
+Icon=docker
+Type=Directory

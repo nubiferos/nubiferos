@@ -1,0 +1,5 @@
+[Desktop Entry]
+Name=Cloud Providers
+Comment=AWS, Azure, GCP, and Oracle Cloud consoles and CLIs
+Icon=cloud
+Type=Directory

@@ -458,6 +458,54 @@ EOF
     done
     log "INFO" "  ✓ Software Center installed"
     
+    # Install Cloud Tools Launcher
+    log "INFO" "Installing Cloud Tools Launcher..."
+    cp "${PROJECT_ROOT}/components/cloud-tools-launcher/nubifer-tools" "${CHROOT_DIR}/usr/local/bin/"
+    chmod +x "${CHROOT_DIR}/usr/local/bin/nubifer-tools"
+    cp "${PROJECT_ROOT}/components/cloud-tools-launcher/nubifer-tools.desktop" "${CHROOT_DIR}/usr/share/applications/"
+    log "INFO" "  ✓ Cloud Tools Launcher installed"
+    
+    # Install desktop integration (menu categories, cloud console launchers)
+    log "INFO" "Installing desktop integration..."
+    
+    # Create directories
+    mkdir -p "${CHROOT_DIR}/usr/share/desktop-directories"
+    mkdir -p "${CHROOT_DIR}/etc/xdg/menus/applications-merged"
+    mkdir -p "${CHROOT_DIR}/usr/share/icons/hicolor/scalable/apps"
+    
+    # Install menu category directories
+    for dir_file in "${PROJECT_ROOT}/configs/desktop/applications/"*.directory; do
+        if [ -f "$dir_file" ]; then
+            cp "$dir_file" "${CHROOT_DIR}/usr/share/desktop-directories/"
+        fi
+    done
+    
+    # Install menu configuration
+    if [ -f "${PROJECT_ROOT}/configs/desktop/menus/nubiferos-applications.menu" ]; then
+        cp "${PROJECT_ROOT}/configs/desktop/menus/nubiferos-applications.menu" \
+           "${CHROOT_DIR}/etc/xdg/menus/applications-merged/"
+    fi
+    
+    # Install cloud console desktop launchers
+    for desktop_file in "${PROJECT_ROOT}/configs/desktop/applications/"*.desktop; do
+        if [ -f "$desktop_file" ]; then
+            cp "$desktop_file" "${CHROOT_DIR}/usr/share/applications/"
+        fi
+    done
+    
+    # Install custom icons (cloud providers, tools)
+    for icon_file in "${PROJECT_ROOT}/brand/icons/"*.svg; do
+        if [ -f "$icon_file" ]; then
+            cp "$icon_file" "${CHROOT_DIR}/usr/share/icons/hicolor/scalable/apps/"
+        fi
+    done
+    
+    # Update icon cache and desktop database
+    chroot_exec "gtk-update-icon-cache -f /usr/share/icons/hicolor 2>/dev/null || true"
+    chroot_exec "update-desktop-database /usr/share/applications 2>/dev/null || true"
+    
+    log "INFO" "  ✓ Desktop integration installed (menu categories, cloud consoles)"
+    
     # Copy test scripts if test mode enabled
     if [ "$ENABLE_TESTS" = true ]; then
         mkdir -p "${CHROOT_DIR}/usr/share/nubifer/tests"

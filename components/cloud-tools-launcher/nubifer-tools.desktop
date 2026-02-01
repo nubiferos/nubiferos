@@ -1,0 +1,10 @@
+[Desktop Entry]
+Name=Cloud Tools
+Comment=NubiferOS Cloud Tools Launcher - All your cloud engineering tools in one place
+Exec=/usr/local/bin/nubifer-tools
+Icon=applications-utilities
+Terminal=false
+Type=Application
+Categories=NubiferOS;Development;System;
+Keywords=cloud;tools;aws;azure;gcp;kubernetes;terraform;
+StartupNotify=true

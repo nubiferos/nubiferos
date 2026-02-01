@@ -1,0 +1,85 @@
+<!DOCTYPE Menu PUBLIC "-//freedesktop//DTD Menu 1.0//EN"
+ "http://www.freedesktop.org/standards/menu-spec/1.0/menu.dtd">
+<Menu>
+  <Name>Applications</Name>
+  
+  <!-- NubiferOS Tools -->
+  <Menu>
+    <Name>NubiferOS</Name>
+    <Directory>nubiferos-nubiferos.directory</Directory>
+    <Include>
+      <Category>NubiferOS</Category>
+    </Include>
+  </Menu>
+  
+  <!-- Cloud Providers -->
+  <Menu>
+    <Name>Cloud Providers</Name>
+    <Directory>nubiferos-cloud-providers.directory</Directory>
+    <Include>
+      <Or>
+        <Category>CloudProvider</Category>
+        <Category>AWS</Category>
+        <Category>Azure</Category>
+        <Category>GCP</Category>
+        <Category>OracleCloud</Category>
+      </Or>
+    </Include>
+  </Menu>
+  
+  <!-- Kubernetes -->
+  <Menu>
+    <Name>Kubernetes</Name>
+    <Directory>nubiferos-kubernetes.directory</Directory>
+    <Include>
+      <Category>Kubernetes</Category>
+    </Include>
+  </Menu>
+  
+  <!-- Containers -->
+  <Menu>
+    <Name>Containers</Name>
+    <Directory>nubiferos-containers.directory</Directory>
+    <Include>
+      <Category>Containers</Category>
+    </Include>
+  </Menu>
+  
+  <!-- Infrastructure -->
+  <Menu>
+    <Name>Infrastructure</Name>
+    <Directory>nubiferos-infrastructure.directory</Directory>
+    <Include>
+      <Or>
+        <Category>Infrastructure</Category>
+        <Category>IaC</Category>
+      </Or>
+    </Include>
+  </Menu>
+  
+  <!-- Security & Compliance -->
+  <Menu>
+    <Name>Security</Name>
+    <Directory>nubiferos-security.directory</Directory>
+    <Include>
+      <Or>
+        <Category>Security</Category>
+        <Category>Compliance</Category>
+      </Or>
+    </Include>
+  </Menu>
+  
+  <!-- Development -->
+  <Menu>
+    <Name>Development</Name>
+    <Directory>nubiferos-development.directory</Directory>
+    <Include>
+      <Or>
+        <Category>Development</Category>
+        <Category>IDE</Category>
+        <Category>TextEditor</Category>
+      </Or>
+    </Include>
+  </Menu>
+  
+</Menu>

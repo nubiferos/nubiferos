@@ -1,0 +1,9 @@
+[Desktop Entry]
+Name=Terraform Registry
+Comment=Open Terraform Registry and documentation
+Exec=xdg-open https://registry.terraform.io/
+Icon=terraform
+Terminal=false
+Type=Application
+Categories=Infrastructure;IaC;Development;
+Keywords=terraform;hashicorp;iac;infrastructure;
