@@ -122,7 +122,7 @@ class CloudSetupPage(Gtk.Box):
             False
         )
         self.k8s_check = self._create_provider_row(
-            "Kubernetes Only",
+            "Kubernetes",
             "kubectl, helm, k9s",
             False
         )
@@ -390,7 +390,7 @@ class WorkspacePage(Gtk.Box):
         code_frame.add_css_class("card")
         code_frame.set_margin_top(8)
 
-        code_label = Gtk.Label(label="nubifer-workspace create --name my-project --provider aws --account-id 123456789012")
+        code_label = Gtk.Label(label="nw create -n my-project -p aws -a 123456789012 -r us-east-1")
         code_label.set_selectable(True)
         code_label.set_margin_top(12)
         code_label.set_margin_bottom(12)
@@ -399,6 +399,13 @@ class WorkspacePage(Gtk.Box):
         code_label.add_css_class("monospace")
         code_frame.set_child(code_label)
         example_box.append(code_frame)
+        
+        # Alias note
+        alias_label = Gtk.Label(label="nw is an alias for nubifer-workspace")
+        alias_label.add_css_class("dim-label")
+        alias_label.add_css_class("caption")
+        alias_label.set_margin_top(4)
+        example_box.append(alias_label)
 
         self.append(example_box)
 
@@ -469,7 +476,7 @@ class CompletePage(Gtk.Box):
 
         steps = [
             ("1.", "Open Terminal and run:", "nubifer-setup-wizard"),
-            ("2.", "Create your first workspace:", "nubifer-workspace create --name my-project --provider aws --account-id YOUR_ACCOUNT_ID"),
+            ("2.", "Create your first workspace:", "nw create -n my-project -p aws -a YOUR_ACCOUNT_ID -r us-east-1"),
             ("3.", "Add cloud credentials:", "nubifer-creds add --type aws --name my-project"),
         ]
 
@@ -495,6 +502,13 @@ class CompletePage(Gtk.Box):
             steps_box.append(row)
 
         self.append(steps_box)
+        
+        # Alias note
+        alias_note = Gtk.Label(label="Tip: nw is an alias for nubifer-workspace")
+        alias_note.add_css_class("dim-label")
+        alias_note.add_css_class("caption")
+        alias_note.set_margin_top(12)
+        self.append(alias_note)
 
 
 class WelcomeWizard(Adw.ApplicationWindow):
@@ -607,6 +621,13 @@ class WelcomeWizard(Adw.ApplicationWindow):
         """Create default workspaces for selected cloud providers"""
         import subprocess
         
+        # Default regions per provider
+        default_regions = {
+            "aws": "us-east-1",
+            "gcp": "us-central1",
+            "azure": "eastus",
+        }
+        
         created = []
         for provider in providers:
             if provider == "k8s":
@@ -618,10 +639,12 @@ class WelcomeWizard(Adw.ApplicationWindow):
             else:
                 # Cloud provider workspace
                 workspace_name = f"{provider}-default"
+                region = default_regions.get(provider, "us-east-1")
                 cmd = ["nubifer-workspace", "create",
                        "--name", workspace_name,
                        "--provider", provider,
-                       "--account-id", "not-configured"]
+                       "--account-id", "not-configured",
+                       "--region", region]
             
             try:
                 result = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
