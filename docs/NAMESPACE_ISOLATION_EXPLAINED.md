@@ -351,33 +351,45 @@ noroot
 **Scenario 1: Malicious Browser Extension**
 
 ```
-❌ Without namespaces:
-Firefox extension → reads ~/.aws/credentials → steals ALL credentials
+❌ Traditional setup (NOT NubiferOS):
+Firefox extension → reads ~/.aws/credentials → steals plaintext credentials
 
-✅ With namespaces:
-Firefox extension → reads ~/.aws/credentials → only sees current workspace
+✅ NubiferOS approach:
+Firefox extension → tries to read ~/.aws/credentials → file doesn't exist
+Credentials are in GPG-encrypted pass store, requiring unlock to access
 ```
 
 **Scenario 2: Compromised CLI Tool**
 
 ```
-❌ Without namespaces:
-Malicious aws-cli → scans ~/.aws/ → finds all workspaces → exfiltrates all
+❌ Traditional setup (NOT NubiferOS):
+Malicious aws-cli → scans ~/.aws/ → finds plaintext credentials → exfiltrates
 
-✅ With namespaces:
-Malicious aws-cli → scans ~/.aws/ → only sees current workspace → limited damage
+✅ NubiferOS approach:
+Malicious aws-cli → scans ~/.aws/ → only finds config with credential_process
+Actual credentials are in GPG-encrypted pass store under workspace-specific paths
+Even if pass is accessed, Firejail namespace limits visibility to current workspace
 ```
 
 **Scenario 3: Accidental Credential Exposure**
 
 ```
-❌ Without namespaces:
+❌ Traditional setup (NOT NubiferOS):
 User runs: cat ~/.aws/credentials
-Output: Shows ALL credentials from ALL workspaces
+Output: Shows plaintext credentials visible to any process
 
-✅ With namespaces:
-User runs: cat ~/.aws/credentials  
-Output: Shows ONLY current workspace credentials
+✅ NubiferOS approach:
+User runs: cat ~/.aws/credentials
+Output: File doesn't exist - credentials stored in GPG-encrypted pass store
+
+# Credentials are stored encrypted in pass, organized by workspace:
+pass show nubifer/<workspace-id>/cloud/aws/<profile>/access-key-id
+# Requires GPG unlock, and only shows the specific credential requested
+
+# AWS CLI uses credential_process to fetch on-demand:
+# ~/.aws/config contains:
+# [profile myprofile]
+# credential_process = /usr/local/bin/nubifer-aws-credential-helper myprofile
 ```
 
 ## Comparison to Other Isolation Technologies

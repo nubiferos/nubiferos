@@ -1,0 +1,9 @@
+[Desktop Entry]
+Name=Azure Portal
+Comment=Open Microsoft Azure Portal in browser
+Exec=xdg-open https://portal.azure.com/
+Icon=azure
+Terminal=false
+Type=Application
+Categories=CloudProvider;Azure;Network;
+Keywords=microsoft;azure;cloud;vm;storage;

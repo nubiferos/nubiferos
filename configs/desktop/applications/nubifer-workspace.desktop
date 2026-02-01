@@ -1,0 +1,9 @@
+[Desktop Entry]
+Name=Workspace Manager
+Comment=Manage NubiferOS cloud workspaces
+Exec=gnome-terminal -- nubifer-workspace
+Icon=preferences-system
+Terminal=false
+Type=Application
+Categories=NubiferOS;System;
+Keywords=workspace;cloud;credentials;isolation;

@@ -1,0 +1,9 @@
+[Desktop Entry]
+Name=AWS Console
+Comment=Open AWS Management Console in browser
+Exec=xdg-open https://console.aws.amazon.com/
+Icon=aws
+Terminal=false
+Type=Application
+Categories=CloudProvider;AWS;Network;
+Keywords=amazon;aws;cloud;ec2;s3;lambda;
