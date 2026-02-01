@@ -200,7 +200,7 @@ The terminal prompt shows your current mode with high visibility:
 
 ### Creating Read-Only Workspaces
 
-Create workspaces in read-only mode by default:
+Create workspaces with read-only mode enabled for production safety:
 
 ```bash
 nubifer-workspace create \
@@ -211,12 +211,12 @@ nubifer-workspace create \
   --read-only              # Start in read-only mode
 ```
 
-### Best Practice: Default to Read-Only
+### Best Practice: Enable Read-Only for Production
 
-For production accounts, create workspaces with `--read-only` and only enable writes when needed:
+For production accounts, create workspaces with `--read-only` to prevent accidental destructive commands:
 
 ```bash
-# Create production workspace (read-only by default)
+# Create production workspace with read-only enabled
 nubifer-workspace create --name "Prod" --provider aws \
   --account-id 123456789012 --region us-east-1 --read-only
 

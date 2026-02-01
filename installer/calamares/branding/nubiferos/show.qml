@@ -261,7 +261,7 @@ Presentation
                 width: parent.width * 0.85
 
                 Text {
-                    text: "Read-only mode enforcement at the CLI wrapper level."
+                    text: "Read-only mode blocks destructive commands at the CLI wrapper level."
                     font.pixelSize: 26
                     font.bold: true
                     color: "#e74c3c"
@@ -271,7 +271,7 @@ Presentation
                 }
 
                 Text {
-                    text: "Commands like `terraform destroy`, `aws ec2 terminate-instances`, `az vm delete` return errors unless workspace.read_only=false."
+                    text: "When enabled, commands like `terraform destroy`, `aws ec2 terminate-instances`, `az vm delete` return errors until you explicitly disable it."
                     font.pixelSize: 16
                     color: "#ecf0f1"
                     width: parent.width
@@ -290,7 +290,7 @@ Presentation
                 }
 
                 Text {
-                    text: "Destructive commands are blocked by default in production workspaces. You have to explicitly enable write operations first."
+                    text: "Enable read-only mode for production workspaces to block destructive commands. One toggle protects against accidental `terraform destroy` or `aws s3 rm`."
                     font.pixelSize: 15
                     color: "#bdc3c7"
                     width: parent.width
