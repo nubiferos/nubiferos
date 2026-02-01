@@ -308,7 +308,7 @@ EOF
     mkdir -p "${CHROOT_DIR}/etc/firefox-esr/policies"
     
     # Convert bookmarks JSON to Firefox ManagedBookmarks policy format
-    python3 << 'PYTHON_SCRIPT'
+    CHROOT_DIR="${CHROOT_DIR}" python3 << 'PYTHON_SCRIPT'
 import json
 import os
 
