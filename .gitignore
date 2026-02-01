@@ -36,3 +36,6 @@ security/scan-results/
 *.asc
 gpg-private-key-backup.asc
 .git-backup/
+
+# Website content export (temporary)
+website/

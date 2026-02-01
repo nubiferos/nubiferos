@@ -106,6 +106,62 @@ This document defines the security boundaries, threat mitigations, and explicit 
 - Cold boot attacks
 - Hardware tampering
 
+## Build & Release Security
+
+NubiferOS implements comprehensive supply chain security measures to ensure the integrity of every release.
+
+### Software Bill of Materials (SBOM)
+
+Every release includes a complete inventory of all software components:
+- **CycloneDX format** - Machine-readable component list
+- **SPDX format** - Industry-standard software package data
+- **Custom component detection** - NubiferOS-specific tools and scripts included
+- **Dependency tracking** - Full dependency tree for all packages
+
+**Why it matters**: You can verify exactly what's in your OS. No hidden components.
+
+### Automated Vulnerability Scanning
+
+Every build is scanned for known vulnerabilities:
+- **Grype scanner** - Checks all packages against CVE databases
+- **Severity thresholds** - Critical vulnerabilities block releases
+- **Allowlist management** - Documented exceptions with justification
+- **Continuous monitoring** - Scans run on every commit and PR
+
+**Why it matters**: Known vulnerabilities are caught before they reach your system.
+
+### Cryptographic Signing
+
+All releases are cryptographically signed:
+- **GPG signatures** - Detached signatures for ISO verification
+- **Public key distribution** - Verification key available on website and GitHub
+- **Tamper detection** - Modified ISOs fail verification
+- **Chain of custody** - Signatures prove release authenticity
+
+**Why it matters**: You can verify the ISO hasn't been tampered with.
+
+### Hardening Compliance
+
+Every build is audited for security hardening:
+- **Lynis audits** - Industry-standard security scanner
+- **Minimum score enforcement** - Builds must meet hardening baseline
+- **Configuration validation** - Security settings verified automatically
+- **Regression prevention** - Security can't accidentally degrade
+
+**Why it matters**: Security hardening is verified, not assumed.
+
+### Secret & Code Scanning
+
+Source code is continuously scanned:
+- **Gitleaks** - Detects accidentally committed secrets
+- **ShellCheck** - Static analysis of all shell scripts
+- **Pre-commit hooks** - Catches issues before they're committed
+- **CI enforcement** - Scans run on every PR
+
+**Why it matters**: Credentials and code quality issues are caught early.
+
+---
+
 ## Trust Boundaries
 
 ### Pre-Install Trust Boundary
@@ -258,30 +314,60 @@ This document defines the security boundaries, threat mitigations, and explicit 
 
 ## Attack Scenarios Addressed
 
-### Scenario 1: Malware Credential Theft
+### Scenario 1: Supply Chain Attack
+**Attack**: Attacker compromises build pipeline or injects malicious code
+**Mitigation**: SBOM tracking + GPG signing + vulnerability scanning + secret scanning
+**Result**: Tampered releases detected via signature verification; malicious dependencies flagged by vulnerability scanner; leaked secrets caught by gitleaks
+
+### Scenario 2: Malware Credential Theft
 **Attack**: Malware attempts to steal cloud credentials
 **Mitigation**: GPG encryption + Wayland isolation + AppArmor profiles
 **Result**: Credentials at rest remain encrypted; runtime theft risk reduced via isolation and confinement. A fully compromised user session can still expose credentials during active use.
 
-### Scenario 2: Cross-Account Credential Confusion
+### Scenario 2: Malware Credential Theft
+**Attack**: Malware attempts to steal cloud credentials
+**Mitigation**: GPG encryption + Wayland isolation + AppArmor profiles
+**Result**: Credentials at rest remain encrypted; runtime theft risk reduced via isolation and confinement. A fully compromised user session can still expose credentials during active use.
+
+### Scenario 3: Cross-Account Credential Confusion
 **Attack**: User accidentally uses wrong cloud account credentials
 **Mitigation**: Firejail workspace isolation
 **Result**: Blast radius limited to single workspace; accidental cross-account operations prevented through isolation
 
-### Scenario 3: Physical Device Theft
+### Scenario 3: Cross-Account Credential Confusion
+**Attack**: User accidentally uses wrong cloud account credentials
+**Mitigation**: Firejail workspace isolation
+**Result**: Blast radius limited to single workspace; accidental cross-account operations prevented through isolation
+
+### Scenario 4: Physical Device Theft
 **Attack**: Laptop stolen with sensitive data
 **Mitigation**: LUKS full disk encryption
 **Result**: Data at rest remains encrypted and inaccessible without passphrase; running system memory may still contain sensitive data
 
-### Scenario 4: Keylogger Attack
+### Scenario 4: Physical Device Theft
+**Attack**: Laptop stolen with sensitive data
+**Mitigation**: LUKS full disk encryption
+**Result**: Data at rest remains encrypted and inaccessible without passphrase; running system memory may still contain sensitive data
+
+### Scenario 5: Keylogger Attack
 **Attack**: Malicious application attempts to capture keystrokes
 **Mitigation**: Wayland display server isolation
 **Result**: Risk reduced through application isolation; kernel-level keyloggers or compromised display server may still succeed
 
-### Scenario 5: Privilege Escalation
+### Scenario 5: Keylogger Attack
+**Attack**: Malicious application attempts to capture keystrokes
+**Mitigation**: Wayland display server isolation
+**Result**: Risk reduced through application isolation; kernel-level keyloggers or compromised display server may still succeed
+
+### Scenario 6: Privilege Escalation
 **Attack**: Compromised application attempts to gain root access
 **Mitigation**: AppArmor mandatory access control
 **Result**: Blast radius limited by security profiles; kernel exploits or misconfigurations may still allow escalation
+
+### Scenario 7: Compromised ISO Download
+**Attack**: User downloads tampered ISO from compromised mirror or MITM attack
+**Mitigation**: GPG signature verification + SHA256 checksums
+**Result**: Tampered ISO fails signature verification; user alerted before installation
 
 ## Risk Assessment
 
@@ -290,6 +376,7 @@ This document defines the security boundaries, threat mitigations, and explicit 
 - Cross-account operational mistakes
 - Physical device compromise
 - Application-level attacks
+- Supply chain attacks (SBOM + signing + scanning)
 
 ### Medium Risk (Partially Mitigated)
 - Network-based attacks (firewall protection)
@@ -321,6 +408,6 @@ This document defines the security boundaries, threat mitigations, and explicit 
 
 ---
 
-**Version**: 1.0 (Nimbus)  
-**Last Updated**: December 26, 2025  
+**Version**: 1.1 (Nimbus)  
+**Last Updated**: January 31, 2026  
 **Scope**: Cloud engineer workstation security

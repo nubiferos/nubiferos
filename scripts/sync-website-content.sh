@@ -53,6 +53,7 @@ cp "${PROJECT_ROOT}/docs/SECURITY_SUMMARY.md" "${WEBSITE_PROJECT}/docs/"
 cp "${PROJECT_ROOT}/docs/THREAT_MODEL.md" "${WEBSITE_PROJECT}/docs/"
 cp "${PROJECT_ROOT}/docs/CREDENTIAL_SECURITY.md" "${WEBSITE_PROJECT}/docs/"
 cp "${PROJECT_ROOT}/docs/QUICKSTART.md" "${WEBSITE_PROJECT}/docs/"
+cp "${PROJECT_ROOT}/docs/WHY_NUBIFEROS.md" "${WEBSITE_PROJECT}/docs/"
 cp "${PROJECT_ROOT}/docs/DASHBOARD_DESIGN.md" "${WEBSITE_PROJECT}/docs/" 2>/dev/null || true
 cp "${PROJECT_ROOT}/docs/SECURITY_SCANNING.md" "${WEBSITE_PROJECT}/docs/" 2>/dev/null || true
 
@@ -89,11 +90,13 @@ Run `scripts/sync-website-content.sh` in the CloudLinux project to update.
 
 ### Documentation (`docs/`)
 - `README.md` - Documentation overview
+- `WHY_NUBIFEROS.md` - Why choose NubiferOS (comparison with alternatives)
+- `THREAT_MODEL.md` - What we protect against (and what we don't)
 - `DESIGN_DECISIONS.md` - Why we made key choices
 - `SECURITY_SUMMARY.md` - Security features overview
-- `THREAT_MODEL.md` - What we protect against
 - `CREDENTIAL_SECURITY.md` - Credential management
 - `QUICKSTART.md` - Getting started
+- `SECURITY_SCANNING.md` - Vulnerability scanning and verification
 - `COMPONENTS.md` - Component overview
 - `guides/` - User guides
 
