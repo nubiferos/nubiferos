@@ -468,6 +468,17 @@ install_additional_tools() {
         apt-get install -y trivy"
     log "INFO" "  ✓ Trivy installed"
     
+    # Grype - CVE vulnerability scanner (used by security dashboard)
+    log "INFO" "Installing Grype..."
+    chroot_exec "cd /tmp && \
+        curl -sSfL https://raw.githubusercontent.com/anchore/grype/main/install.sh | sh -s -- -b /usr/local/bin"
+    log "INFO" "  ✓ Grype installed"
+    
+    # Lynis - Security auditing tool (used by security dashboard)
+    log "INFO" "Installing Lynis..."
+    chroot_exec "DEBIAN_FRONTEND=noninteractive apt-get install -y lynis"
+    log "INFO" "  ✓ Lynis installed"
+    
     # httpie - Better HTTP client
     install_package "httpie"
     log "INFO" "  ✓ httpie installed"
