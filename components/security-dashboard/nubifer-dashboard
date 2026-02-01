@@ -850,10 +850,16 @@ class SecurityDashboard(Gtk.Window):
         box.pack_start(subtitle, False, False, 0)
         
         if not vuln_data or "error" in vuln_data:
-            no_data = Gtk.Label(label="No scan results. Click 'Run Scan' to check for vulnerabilities.")
+            error_msg = vuln_data.get("error", "") if vuln_data else ""
+            if "grype" in error_msg.lower():
+                msg = "grype not installed. Install with:\ncurl -sSfL https://raw.githubusercontent.com/anchore/grype/main/install.sh | sudo sh -s -- -b /usr/local/bin"
+            else:
+                msg = "No scan results. Click 'Run Scan' to check for vulnerabilities.\nRequires: grype (CVE scanner)"
+            no_data = Gtk.Label(label=msg)
             no_data.get_style_context().add_class("no-data")
             no_data.set_line_wrap(True)
             no_data.set_halign(Gtk.Align.START)
+            no_data.set_selectable(True)
             box.pack_start(no_data, False, False, 0)
             return box
         
@@ -903,10 +909,16 @@ class SecurityDashboard(Gtk.Window):
         box.pack_start(subtitle, False, False, 0)
         
         if not compliance_data or "error" in compliance_data:
-            no_data = Gtk.Label(label="No audit results. Click 'Run Scan' to check system hardening.")
+            error_msg = compliance_data.get("error", "") if compliance_data else ""
+            if "lynis" in error_msg.lower():
+                msg = "lynis not installed. Install with:\nsudo apt-get install lynis"
+            else:
+                msg = "No audit results. Click 'Run Scan' to check system hardening.\nRequires: lynis (security auditor)"
+            no_data = Gtk.Label(label=msg)
             no_data.get_style_context().add_class("no-data")
             no_data.set_line_wrap(True)
             no_data.set_halign(Gtk.Align.START)
+            no_data.set_selectable(True)
             box.pack_start(no_data, False, False, 0)
             return box
         
@@ -1113,18 +1125,41 @@ class SecurityDashboard(Gtk.Window):
     def _run_scan_thread(self, button):
         """Background thread to run security scans."""
         try:
-            # Run the security scan script
+            # Check if scan script exists
+            scan_script = "/usr/local/bin/nubifer-security-scan"
+            if not os.path.exists(scan_script):
+                # Try local path
+                scan_script = str(Path(__file__).parent.parent / "scripts" / "nubifer-security-scan")
+                if not os.path.exists(scan_script):
+                    GLib.idle_add(self._scan_complete, button, False, "Scan script not found")
+                    return
+            
+            # Run the security scan script (without --quiet so we can see errors)
             result = subprocess.run(
-                ["nubifer-security-scan", "--full", "--quiet"],
+                [scan_script, "--full"],
                 capture_output=True,
                 text=True,
                 timeout=600  # 10 minute timeout
             )
             
             success = result.returncode == 0
+            error_msg = None
+            
+            if not success:
+                # Check for common issues
+                if "grype" in result.stderr.lower() or "not found" in result.stderr.lower():
+                    error_msg = "grype not installed"
+                elif "lynis" in result.stderr.lower():
+                    error_msg = "lynis not installed"
+                elif result.stderr:
+                    error_msg = result.stderr[:100]
+                else:
+                    error_msg = f"Exit code {result.returncode}"
             
             # Update UI on main thread
-            GLib.idle_add(self._scan_complete, button, success)
+            GLib.idle_add(self._scan_complete, button, success, error_msg)
+        except subprocess.TimeoutExpired:
+            GLib.idle_add(self._scan_complete, button, False, "Scan timed out")
         except Exception as e:
             GLib.idle_add(self._scan_complete, button, False, str(e))
     
@@ -1140,7 +1175,13 @@ class SecurityDashboard(Gtk.Window):
             GLib.timeout_add(1000, self._delayed_refresh)
         else:
             if self._scan_status_label:
-                self._scan_status_label.set_text("✗ Scan failed")
+                if error:
+                    # Show truncated error
+                    err_text = error[:30] + "..." if len(error) > 30 else error
+                    self._scan_status_label.set_text(f"✗ {err_text}")
+                    self._scan_status_label.set_tooltip_text(f"Scan failed: {error}")
+                else:
+                    self._scan_status_label.set_text("✗ Scan failed")
         
         return False
     
