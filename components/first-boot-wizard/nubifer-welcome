@@ -477,7 +477,7 @@ class CompletePage(Gtk.Box):
         steps = [
             ("1.", "Open Terminal and run:", "nubifer-setup-wizard"),
             ("2.", "Create your first workspace:", "nw create -n my-project -p aws -a YOUR_ACCOUNT_ID -r us-east-1"),
-            ("3.", "Add cloud credentials:", "nubifer-creds add --type aws --name my-project"),
+            ("3.", "Add cloud credentials:", "nc add --type aws --name my-project"),
         ]
 
         for num, desc, cmd in steps:
@@ -504,7 +504,7 @@ class CompletePage(Gtk.Box):
         self.append(steps_box)
         
         # Alias note
-        alias_note = Gtk.Label(label="Tip: nw is an alias for nubifer-workspace")
+        alias_note = Gtk.Label(label="Tip: nw = nubifer-workspace, nc = nubifer-creds")
         alias_note.add_css_class("dim-label")
         alias_note.add_css_class("caption")
         alias_note.set_margin_top(12)
