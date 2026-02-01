@@ -63,6 +63,7 @@ cp "${PROJECT_ROOT}/docs/guides/INCLUDED_TOOLS.md" "${WEBSITE_PROJECT}/docs/guid
 cp "${PROJECT_ROOT}/docs/guides/BROWSER_CONFIGURATION.md" "${WEBSITE_PROJECT}/docs/guides/" 2>/dev/null || true
 cp "${PROJECT_ROOT}/docs/guides/IDE_PLUGINS.md" "${WEBSITE_PROJECT}/docs/guides/" 2>/dev/null || true
 cp "${PROJECT_ROOT}/docs/guides/QUICK_REFERENCE.md" "${WEBSITE_PROJECT}/docs/guides/" 2>/dev/null || true
+cp "${PROJECT_ROOT}/docs/guides/TOOL_CATEGORIES.md" "${WEBSITE_PROJECT}/docs/guides/" 2>/dev/null || true
 
 # Sync components overview
 cp "${PROJECT_ROOT}/components/README.md" "${WEBSITE_PROJECT}/docs/COMPONENTS.md"
