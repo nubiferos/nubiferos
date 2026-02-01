@@ -328,6 +328,10 @@ When user clicks through from "Most Risky Workspace":
 ## Future Enhancements
 
 ### Phase 2 Features
+- **Tab-based UI refactor** - Convert single-page layout to tabbed interface:
+  - **Overview tab**: Security score, components, system status
+  - **Scans tab**: Vulnerability scan, compliance check, scan history, CVE browser
+  - **Audit tab**: Security logs, credential access history, file integrity changes
 - **Custom risk scoring** rules and weights
 - **Compliance framework** integration (CIS, NIST)
 - **Export capabilities** for external analysis
