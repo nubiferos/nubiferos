@@ -303,6 +303,81 @@ EOF
     cp "${PROJECT_ROOT}/configs/browser/firefox-bookmarks.json" "${CHROOT_DIR}/usr/share/nubifer/browser/"
     cp "${PROJECT_ROOT}/configs/browser/firefox-hardening.js" "${CHROOT_DIR}/usr/share/nubifer/browser/"
     
+    # Create Firefox ESR policy with bookmarks
+    log "INFO" "Creating Firefox ESR policy with bookmarks..."
+    mkdir -p "${CHROOT_DIR}/etc/firefox-esr/policies"
+    
+    # Convert bookmarks JSON to Firefox ManagedBookmarks policy format
+    python3 << 'PYTHON_SCRIPT'
+import json
+import os
+
+chroot_dir = os.environ.get('CHROOT_DIR', '')
+
+# Read our bookmarks
+bookmarks_file = f"{chroot_dir}/usr/share/nubifer/browser/firefox-bookmarks.json"
+with open(bookmarks_file) as f:
+    bookmarks = json.load(f)
+
+def convert_children(children):
+    """Convert child items to Firefox format"""
+    result = []
+    for item in children:
+        if 'children' in item:
+            result.append({
+                "name": item['title'],
+                "children": convert_children(item['children'])
+            })
+        elif 'url' in item:
+            result.append({
+                "name": item['title'],
+                "url": item['url']
+            })
+    return result
+
+# Build managed bookmarks array
+managed = []
+for folder in bookmarks.get('children', []):
+    if 'children' in folder:
+        managed.append({
+            "toplevel_name": folder['title'],
+            "children": convert_children(folder['children'])
+        })
+
+# Create Firefox policy
+policy = {
+    "policies": {
+        "DisableTelemetry": True,
+        "DisableFirefoxStudies": True,
+        "DisablePocket": True,
+        "DontCheckDefaultBrowser": True,
+        "EnableTrackingProtection": {
+            "Value": True,
+            "Cryptomining": True,
+            "Fingerprinting": True
+        },
+        "FirefoxHome": {
+            "Pocket": False,
+            "Snippets": False
+        },
+        "ManagedBookmarks": managed,
+        "NoDefaultBookmarks": False,
+        "SearchEngines": {
+            "Default": "DuckDuckGo"
+        }
+    }
+}
+
+# Write policy file
+policy_file = f"{chroot_dir}/etc/firefox-esr/policies/policies.json"
+with open(policy_file, 'w') as f:
+    json.dump(policy, f, indent=2)
+
+print(f"Created Firefox policy with {len(managed)} bookmark folders")
+PYTHON_SCRIPT
+    
+    log "INFO" "✓ Firefox ESR policy created with cloud bookmarks"
+    
     # Install Workspace Manager
     log "INFO" "Installing Workspace Manager..."
     
