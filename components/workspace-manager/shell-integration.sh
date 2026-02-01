@@ -185,6 +185,7 @@ alias nw='nubifer-workspace'
 alias nw-switch='nubifer_switch'
 alias nw-context='nubifer_context'
 alias nw-activate='nubifer_activate'
+alias nc='nubifer-creds'
 
 # Initialize last workspace tracker
 _NUBIFER_LAST_WORKSPACE="$NUBIFER_WORKSPACE_ID"
@@ -196,4 +197,4 @@ nubifer_update_prompt
 PROMPT_COMMAND="_nubifer_check_workspace_change${PROMPT_COMMAND:+; $PROMPT_COMMAND}"
 
 echo "NubiferOS Workspace Integration loaded"
-echo "Commands: nw (workspace manager), nw-switch (quick switch), nw-context (show current)"
+echo "Commands: nw (workspace), nc (credentials), nw-switch, nw-context"
