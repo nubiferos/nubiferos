@@ -111,7 +111,7 @@ When testing the new ISO:
 
 ## Notes
 
-- The "live" user (password: "live") is only for the live environment
+- The "live" user is only for the installer environment (see `docs/guides/LIVE_USER_EXPLANATION.md`)
 - After installation, the user creates their own account
 - Encryption password is set during installation
 - Package selection allows customization while keeping ISO size small

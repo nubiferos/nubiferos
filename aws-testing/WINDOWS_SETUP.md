@@ -73,8 +73,8 @@ aws iam create-role `
         "s3:ListBucket"
       ],
       "Resource": [
-        "arn:aws:s3:::nubiferos-iso",
-        "arn:aws:s3:::nubiferos-iso/*"
+        "arn:aws:s3:::<your-bucket-name>",
+        "arn:aws:s3:::<your-bucket-name>/*"
       ]
     },
     {
@@ -123,7 +123,7 @@ aws codebuild create-project `
 ```powershell
 aws codebuild update-project `
   --name nubiferos-test-iso `
-  --environment "type=LINUX_CONTAINER,image=aws/codebuild/standard:7.0,computeType=BUILD_GENERAL1_LARGE,environmentVariables=[{name=ISO_BUCKET,value=nubiferos-iso,type=PLAINTEXT},{name=ISO_KEY,value=1.0/NubiferOS-1.0-amd64.iso,type=PLAINTEXT}]"
+  --environment "type=LINUX_CONTAINER,image=aws/codebuild/standard:7.0,computeType=BUILD_GENERAL1_LARGE,environmentVariables=[{name=ISO_BUCKET,value=<your-bucket-name>,type=PLAINTEXT},{name=ISO_KEY,value=1.0/NubiferOS-1.0-amd64.iso,type=PLAINTEXT}]"
 ```
 
 ### Step 5: Test the Build

@@ -61,7 +61,7 @@ After deployment completes:
 ```bash
 # From project root
 aws s3 cp output/nubiferos-1.0-amd64.iso \
-    s3://nubiferos-iso-builds/nubiferos-latest.iso
+    s3://<your-bucket-name>/nubiferos-latest.iso
 ```
 
 ### 7. Monitor Pipeline
@@ -88,7 +88,7 @@ INSTANCE_IP=$(aws ec2 describe-instances \
 
 echo "Connect to: https://${INSTANCE_IP}:8443"
 echo "Username: live"
-echo "Password: live"
+echo "Password: (see docs/guides/LIVE_USER_EXPLANATION.md)"
 ```
 
 ## Estimated Costs

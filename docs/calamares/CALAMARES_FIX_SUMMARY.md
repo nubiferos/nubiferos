@@ -83,7 +83,7 @@ sudo ./build-nubiferos.sh
 
 The live ISO creates:
 - **Username:** `live`
-- **Password:** `live`
+- **Password:** See `docs/guides/LIVE_USER_EXPLANATION.md`
 - **Auto-login:** Enabled
 - **Sudo access:** Yes
 

@@ -12,7 +12,7 @@ This guide will help you set up automated ISO builds using GitHub Actions with S
 
 1. Go to AWS Console → S3
 2. Click "Create bucket"
-3. **Bucket name**: `nubiferos-releases` (or your preferred name)
+3. **Bucket name**: `<your-bucket-name>` (or your preferred name)
 4. **Region**: Choose closest to you (e.g., `us-east-1`)
 5. **Block Public Access**: Keep all blocked (we'll use presigned URLs)
 6. Click "Create bucket"
@@ -55,8 +55,8 @@ Click "Create policy" and use this JSON (replace YOUR_GITHUB_ORG and YOUR_REPO):
         "s3:ListBucket"
       ],
       "Resource": [
-        "arn:aws:s3:::nubiferos-releases",
-        "arn:aws:s3:::nubiferos-releases/*"
+        "arn:aws:s3:::<your-bucket-name>",
+        "arn:aws:s3:::<your-bucket-name>/*"
       ]
     }
   ]
@@ -157,7 +157,7 @@ Edit `.github/workflows/build-iso.yml` if needed:
 
 ```yaml
 env:
-  ISO_BUCKET: nubiferos-releases  # Change to your bucket name
+  ISO_BUCKET: <your-bucket-name>  # Change to your bucket name
   AWS_REGION: us-east-1  # Change to your region
 ```
 
@@ -200,13 +200,13 @@ After build completes:
 ### Method 2: From S3 directly (if you have AWS CLI)
 ```bash
 # List available versions
-aws s3 ls s3://nubiferos-releases/
+aws s3 ls s3://<your-bucket-name>/
 
 # Download specific version
-aws s3 cp s3://nubiferos-releases/0.1.0-alpha/nubiferos-*.iso ./
+aws s3 cp s3://<your-bucket-name>/0.1.0-alpha/nubiferos-*.iso ./
 
 # Download checksums
-aws s3 cp s3://nubiferos-releases/0.1.0-alpha/SHA256SUMS ./
+aws s3 cp s3://<your-bucket-name>/0.1.0-alpha/SHA256SUMS ./
 ```
 
 ### Method 3: From GitHub Artifacts (backup, 7 days only)
@@ -247,7 +247,7 @@ sha256sum nubiferos-*.iso
 ### Reduce Storage Costs
 1. Delete old ISOs:
    ```bash
-   aws s3 rm s3://nubiferos-releases/0.1.0-alpha/ --recursive
+   aws s3 rm s3://<your-bucket-name>/0.1.0-alpha/ --recursive
    ```
 
 2. Use S3 Lifecycle rules:
@@ -288,7 +288,7 @@ sha256sum nubiferos-*.iso
 - Presigned URLs expire after 7 days
 - Generate new one:
   ```bash
-  aws s3 presign s3://nubiferos-releases/0.1.0-alpha/nubiferos-*.iso --expires-in 604800
+  aws s3 presign s3://<your-bucket-name>/0.1.0-alpha/nubiferos-*.iso --expires-in 604800
   ```
 
 ### Build takes too long

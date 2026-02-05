@@ -99,7 +99,7 @@ Users can verify ISO signatures:
 
 ```bash
 # Download the public key
-curl -O https://nubiferos-iso.s3.amazonaws.com/nubiferos-signing-key.pub
+curl -O https://<your-bucket-name>.s3.amazonaws.com/nubiferos-signing-key.pub
 
 # Import the public key
 gpg --import nubiferos-signing-key.pub

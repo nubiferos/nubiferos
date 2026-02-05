@@ -223,7 +223,7 @@ A: Yes, but CodeBuild is better for this (has more resources, cheaper for long-r
 
 ### Troubleshooting
 1. Check CloudWatch logs: `aws logs tail /aws/codebuild/nubiferos-test-iso --follow`
-2. Verify ISO in S3: `aws s3 ls s3://nubiferos-iso/1.0/`
+2. Verify ISO in S3: `aws s3 ls s3://<your-bucket-name>/1.0/`
 3. Check IAM permissions
 4. Test ISO locally first
 

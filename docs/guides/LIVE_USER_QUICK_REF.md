@@ -6,7 +6,7 @@ You're seeing two users because:
 - **live** - Created by our build scripts (use this one)
 - **installer** - Created by Debian's live-boot system
 
-Both should work, but **use "live"** with password **"live"**.
+Both should work, but **use "live"**. See `LIVE_USER_EXPLANATION.md` for credentials.
 
 ## Quick Fixes
 
