@@ -8,7 +8,7 @@ on:
 
 permissions:
   id-token: write
-  contents: read
+  contents: write  # Required for creating GitHub Releases
 
 env:
   ISO_BUCKET: nubiferos-iso
@@ -385,6 +385,76 @@ jobs:
         
         ✅ This build is now live on the website!
         EOF
+
+    - name: Download ISO from S3 for release
+      if: startsWith(github.ref, 'refs/tags/v')
+      run: |
+        VERSION="${{ needs.build-iso.outputs.version }}"
+        mkdir -p release-assets
+        aws s3 cp s3://${{ env.ISO_BUCKET }}/prod/$VERSION/ release-assets/ --recursive \
+          --exclude "*" \
+          --include "*.iso" \
+          --include "SHA256SUMS" \
+          --include "*.iso.asc" \
+          --include "nubiferos-signing-key.pub"
+        ls -la release-assets/
+
+    - name: Create GitHub Release
+      if: startsWith(github.ref, 'refs/tags/v')
+      uses: softprops/action-gh-release@v1
+      with:
+        name: "NubiferOS ${{ needs.build-iso.outputs.version }}"
+        body: |
+          ## NubiferOS ${{ needs.build-iso.outputs.version }}
+          
+          A security-focused Linux distribution for cloud engineers.
+          
+          ### Download
+          
+          Download the ISO and verify the checksum:
+          
+          ```bash
+          # Download
+          wget https://github.com/nubiferos/nubiferos/releases/download/${{ github.ref_name }}/nubiferos-*.iso
+          
+          # Verify checksum
+          sha256sum -c SHA256SUMS
+          ```
+          
+          ### Verify Signature (optional)
+          
+          ```bash
+          # Import signing key
+          gpg --import nubiferos-signing-key.pub
+          
+          # Verify signature
+          gpg --verify *.iso.asc *.iso
+          ```
+          
+          ### What's Included
+          
+          - Pre-configured cloud CLI tools (AWS, Azure, GCP)
+          - Workspace isolation with Firejail
+          - Credential management via pass
+          - Security hardening out of the box
+          
+          ### Checksums
+          
+          See `SHA256SUMS` file attached to this release.
+          
+          ---
+          
+          **Commit:** ${{ needs.build-iso.outputs.commit_sha }}
+          **Build:** [#${{ github.run_number }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
+        files: |
+          release-assets/*.iso
+          release-assets/SHA256SUMS
+          release-assets/*.iso.asc
+          release-assets/nubiferos-signing-key.pub
+        draft: false
+        prerelease: ${{ contains(needs.build-iso.outputs.version, 'alpha') || contains(needs.build-iso.outputs.version, 'beta') }}
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   # ============================================
   # OPTIONAL: Trigger AMI creation on release tags
