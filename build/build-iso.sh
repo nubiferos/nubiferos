@@ -159,9 +159,10 @@ build_iso() {
             openbox \
             calamares"
     else
-        # Use kiosk mode (minimal X + Calamares only, no GNOME)
-        log "INFO" "Step 4/7: Installing kiosk mode packages (minimal X, no GNOME)..."
-        "${SCRIPT_DIR}/install-kiosk-packages.sh"
+        # Use the original working desktop installer
+        # Kiosk mode is applied AFTER via configure-kiosk-session.sh
+        log "INFO" "Step 4/7: Installing desktop environment..."
+        "${SCRIPT_DIR}/install-desktop-installer.sh"
     fi
     
     # Step 5: Apply security hardening
