@@ -134,14 +134,19 @@ class TestISOBasics:
         print(f"[PASS] ISO file exists")
         
     def test_iso_size(self, iso_path):
-        """Test that ISO is reasonable size (between 1GB and 10GB)"""
+        """Test that ISO is reasonable size (between 0.5GB and 10GB)
+        
+        Note: Kiosk mode ISOs are smaller (~0.6GB) since they don't include GNOME.
+        Full desktop ISOs are larger (~2-4GB).
+        """
         print(f"\n[TEST] Checking ISO size")
         size_bytes = os.path.getsize(iso_path)
         size_gb = size_bytes / (1024**3)
         print(f"[INFO] ISO size: {size_gb:.2f} GB ({size_bytes:,} bytes)")
         
-        assert 1.0 <= size_gb <= 10.0, \
-            f"ISO size {size_gb:.2f}GB is outside expected range (1-10GB)"
+        # Minimum 0.5GB (kiosk mode), maximum 10GB
+        assert 0.5 <= size_gb <= 10.0, \
+            f"ISO size {size_gb:.2f}GB is outside expected range (0.5-10GB)"
         print(f"[PASS] ISO size is within expected range")
             
     def test_iso_format(self, iso_path):
