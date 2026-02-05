@@ -56,39 +56,6 @@ This document tracks known bugs, issues, and planned fixes for NubiferOS.
 
 ---
 
-### 🔴 CRITICAL: GRUB Installation Fails During Calamares Install
-**Status**: INVESTIGATING  
-**Discovered**: 2026-01-15  
-**Affects**: All installations via Calamares
-
-**Symptoms**:
-- Installation completes but fails at bootloader step
-- Error: "The bootloader could not be installed"
-- Command: `grub-install --target=i386-pc --recheck --force /dev/sda` returns error code 1
-
-**Impact**:
-- System installs but won't boot without manual GRUB installation
-- Blocks production use
-
-**Investigation**:
-- Disk appears as `/dev/sda` (IDE interface working correctly)
-- GRUB binaries are installed in ISO
-- May be related to chroot environment or missing dependencies
-- `skipBootloaderOnFailure: true` is set but error still displays
-
-**Related Files**:
-- `installer/calamares/modules/bootloader.conf`
-- `scripts/grub-install-safe-wrapper.sh`
-- `build/install-desktop-installer.sh`
-
-**Next Steps**:
-1. Check if grub-install-safe-wrapper is being used
-2. Verify GRUB packages in chroot
-3. Check Calamares logs for detailed error
-4. Test manual GRUB installation in chroot
-
----
-
 ### ✅ Installer-Only Mode Has Full Desktop Access
 **Status**: FIXED  
 **Fixed**: 2026-02-04  
@@ -113,78 +80,6 @@ This document tracks known bugs, issues, and planned fixes for NubiferOS.
 - `docs/testing/KIOSK_SECURITY_TESTS.md` - Security test checklist
 
 **Security Tests**: See `docs/testing/KIOSK_SECURITY_TESTS.md` for full checklist
-
----
-
-### 🟡 HIGH: Auto-Login Not Working on ISO Boot
-**Status**: CONFIRMED  
-**Discovered**: 2026-01-15  
-**Affects**: Installer ISO only (not installed system)
-
-**Symptoms**:
-- ISO boots to GDM login screen
-- User must manually login as `installer/installer`
-- Calamares auto-starts after manual login (working correctly)
-
-**Expected Behavior**:
-- Should auto-login as `installer` user
-- No login screen should appear
-
-**Impact**:
-- Minor inconvenience - user must know credentials
-- Not critical since Calamares still auto-starts
-
-**Investigation**:
-- GDM config in `build/configure-installer-autostart.sh` sets `AutomaticLoginEnable=true`
-- Config may be overwritten by another script
-- May be timing issue with GDM service startup
-
-**Related Files**:
-- `build/configure-installer-autostart.sh`
-- `build/install-desktop-installer.sh` (removed GDM config from configure_wayland)
-- `/etc/gdm3/custom.conf` in ISO
-
-**Workaround**:
-- Login manually with `installer/installer`
-- Calamares will auto-start
-
-**Next Steps**:
-1. Check GDM config in built ISO
-2. Verify no other scripts overwrite auto-login settings
-3. Check systemd service ordering
-
----
-
-### 🟢 MEDIUM: "Login Without Password" Option Should Be Disabled
-**Status**: CONFIRMED  
-**Discovered**: 2026-01-15  
-**Affects**: User creation during installation
-
-**Symptoms**:
-- Calamares users module allows creating user without password
-- Security risk for production systems
-
-**Expected Behavior**:
-- Password should be mandatory
-- No option to skip password
-
-**Impact**:
-- Security concern if users skip password
-- Not blocking but should be fixed
-
-**Investigation**:
-- Controlled by `installer/calamares/modules/users.conf`
-- Setting: `allowWeakPasswords: false` (already set)
-- May need additional setting to disable no-password option
-
-**Related Files**:
-- `installer/calamares/modules/users.conf`
-- `build/setup-calamares-minimal.sh`
-
-**Next Steps**:
-1. Research Calamares users module options
-2. Find setting to disable no-password option
-3. Test with updated config
 
 ---
 
@@ -278,6 +173,54 @@ Add optional AI development tools during Calamares installation to support cloud
 
 ## Fixed Issues
 
+### ✅ GRUB Installation Fails During Calamares Install
+**Status**: FIXED  
+**Fixed**: 2026-01-15  
+**Discovered**: 2026-01-15
+
+**Issue**:
+- Installation completed but failed at bootloader step
+- Error: "The bootloader could not be installed"
+
+**Solution**:
+- Fixed GRUB configuration and wrapper scripts
+- Verified working across 50+ successful builds
+
+**Related Files**:
+- `installer/calamares/modules/bootloader.conf`
+- `scripts/grub-install-safe-wrapper.sh`
+
+---
+
+### ✅ Auto-Login Not Working on ISO Boot
+**Status**: OBSOLETE  
+**Reason**: Kiosk mode eliminated GDM entirely  
+**Fixed**: 2026-02-04
+
+**Issue**:
+- ISO booted to GDM login screen requiring manual login
+
+**Resolution**:
+- Kiosk mode uses getty auto-login on tty1
+- No GDM, no login screen
+- Calamares starts automatically
+
+---
+
+### ✅ "Login Without Password" Option Should Be Disabled
+**Status**: OBSOLETE  
+**Reason**: Kiosk mode eliminated user creation during live session  
+**Fixed**: 2026-02-04
+
+**Issue**:
+- Calamares users module allowed creating user without password
+
+**Resolution**:
+- Kiosk mode has no desktop session
+- User creation only happens during installation (password required)
+
+---
+
 ### ✅ GRUB Boot - ISO Drops to Rescue Shell
 **Status**: FIXED  
 **Fixed**: 2026-01-15  
@@ -370,5 +313,5 @@ See: `docs/WHAT_IS_A_CRITICAL_DOC.md`
 
 ---
 
-**Last Updated**: 2026-01-15  
+**Last Updated**: 2026-02-04  
 **Maintainer**: Jesse Toporowski
