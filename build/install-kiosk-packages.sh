@@ -1,15 +1,19 @@
 #!/bin/bash
-# Install minimal packages for kiosk mode installer
+# Install packages for kiosk mode installer
 # Part of NubiferOS build system - Kiosk Mode Implementation
 #
-# This script replaces install-desktop-installer.sh for kiosk mode builds.
-# It installs ONLY the minimal packages needed to run Calamares:
+# This script installs the FULL system that will be copied to the installed system,
+# but the LIVE session runs in kiosk mode (minimal X + Calamares only).
+#
+# The installed system gets:
+# - GNOME desktop environment
+# - Cloud tools and development packages
+# - Security hardening tools
+#
+# The live ISO session gets:
 # - Minimal X11 (xorg, xinit, video drivers)
 # - Calamares installer
-# - NO desktop environment (no GNOME, no GDM)
-# - NO terminal emulators
-# - NO file managers
-# - NO web browsers
+# - NO desktop environment access (kiosk mode)
 
 set -e
 
@@ -20,7 +24,7 @@ source "${SCRIPT_DIR}/config.sh"
 init_config
 
 log "INFO" "=========================================="
-log "INFO" "Installing Kiosk Mode Packages (Minimal)"
+log "INFO" "Installing Kiosk Mode Packages"
 log "INFO" "=========================================="
 
 # Check if running as root
@@ -47,7 +51,7 @@ chroot_exec() {
 # Install Linux kernel with live-boot support
 install_kernel() {
     log "INFO" "=========================================="
-    log "INFO" "Installing Linux Kernel (Kiosk Mode)"
+    log "INFO" "Installing Linux Kernel"
     log "INFO" "=========================================="
     
     # Install live-boot packages FIRST (before kernel generates initramfs)
@@ -78,13 +82,42 @@ install_kernel() {
     log "INFO" "✓ Kernel installed with live-boot for ISO boot"
 }
 
-# Install minimal X11 packages (NO desktop environment)
-install_minimal_x11() {
+# Install GNOME desktop (for installed system)
+install_gnome_desktop() {
     log "INFO" "=========================================="
-    log "INFO" "Installing Minimal X11 (NO Desktop Environment)"
+    log "INFO" "Installing GNOME Desktop (for installed system)"
     log "INFO" "=========================================="
     
-    # Install ONLY essential X11 packages
+    # Install GNOME core
+    log "INFO" "Installing GNOME core packages..."
+    chroot_exec "DEBIAN_FRONTEND=noninteractive apt-get install -y \
+        gnome-core \
+        gnome-shell \
+        gnome-session \
+        gnome-terminal \
+        gnome-control-center \
+        nautilus \
+        gdm3 \
+        wmctrl \
+        gnome-tweaks \
+        gnome-shell-extensions \
+        dconf-editor \
+        gnome-shell-extension-desktop-icons-ng"
+    
+    # Install Firefox
+    log "INFO" "Installing Firefox..."
+    chroot_exec "DEBIAN_FRONTEND=noninteractive apt-get install -y firefox-esr"
+    
+    log "INFO" "✓ GNOME desktop installed (for installed system)"
+}
+
+# Install minimal X11 packages for kiosk live session
+install_minimal_x11() {
+    log "INFO" "=========================================="
+    log "INFO" "Installing X11 (includes kiosk session support)"
+    log "INFO" "=========================================="
+    
+    # Install X11 packages (needed for both kiosk and installed system)
     log "INFO" "Installing X11 core packages..."
     chroot_exec "DEBIAN_FRONTEND=noninteractive apt-get install -y \
         xserver-xorg-core \
@@ -98,22 +131,14 @@ install_minimal_x11() {
         x11-xserver-utils \
         x11-utils"
     
-    # Install fonts (required for Calamares UI)
-    log "INFO" "Installing essential fonts..."
+    # Install fonts (required for Calamares UI and installed system)
+    log "INFO" "Installing fonts..."
     chroot_exec "DEBIAN_FRONTEND=noninteractive apt-get install -y \
         fonts-dejavu-core \
         fonts-liberation2 \
         fonts-noto-core"
     
-    # NOTE: We do NOT install:
-    # - gnome-core, gnome-shell, gnome-session (desktop environment)
-    # - gdm3, lightdm (display managers)
-    # - gnome-terminal, xterm (terminal emulators)
-    # - nautilus, thunar (file managers)
-    # - firefox-esr, chromium (web browsers)
-    # - gedit, nano (text editors beyond what Calamares needs)
-    
-    log "INFO" "✓ Minimal X11 installed (NO desktop environment)"
+    log "INFO" "✓ X11 installed"
 }
 
 # Install Calamares and its dependencies
@@ -149,7 +174,7 @@ install_calamares() {
 # Install essential system utilities
 install_system_utilities() {
     log "INFO" "=========================================="
-    log "INFO" "Installing Essential System Utilities"
+    log "INFO" "Installing System Utilities"
     log "INFO" "=========================================="
     
     chroot_exec "DEBIAN_FRONTEND=noninteractive apt-get install -y \
@@ -160,25 +185,68 @@ install_system_utilities() {
         network-manager \
         wpasupplicant \
         iproute2 \
-        kbd"
+        kbd \
+        vim \
+        curl \
+        wget \
+        git \
+        htop \
+        tmux \
+        net-tools \
+        jq \
+        unzip \
+        ca-certificates"
     
     log "INFO" "✓ System utilities installed"
+}
+
+# Install development tools (for installed system)
+install_development_tools() {
+    log "INFO" "=========================================="
+    log "INFO" "Installing Development Tools"
+    log "INFO" "=========================================="
+    
+    chroot_exec "DEBIAN_FRONTEND=noninteractive apt-get install -y \
+        python3 \
+        python3-pip \
+        python3-venv \
+        python3-dev \
+        nodejs \
+        npm \
+        build-essential \
+        gcc \
+        g++ \
+        make"
+    
+    log "INFO" "✓ Development tools installed"
+}
+
+# Install security tools (for installed system)
+install_security_tools() {
+    log "INFO" "=========================================="
+    log "INFO" "Installing Security Tools"
+    log "INFO" "=========================================="
+    
+    chroot_exec "DEBIAN_FRONTEND=noninteractive apt-get install -y \
+        firejail \
+        apparmor \
+        apparmor-utils \
+        fail2ban \
+        ufw \
+        aide \
+        rkhunter \
+        lynis \
+        pass \
+        gnupg"
+    
+    log "INFO" "✓ Security tools installed"
 }
 
 # Cleanup unnecessary packages and locales
 cleanup_packages() {
     log "INFO" "=========================================="
-    log "INFO" "Cleaning Up Unnecessary Packages"
+    log "INFO" "Cleaning Up"
     log "INFO" "=========================================="
-    
-    # Remove any accidentally installed desktop packages
-    log "INFO" "Ensuring no desktop packages are installed..."
-    chroot_exec "DEBIAN_FRONTEND=noninteractive apt-get purge -y \
-        gnome-core gnome-shell gnome-session gdm3 \
-        gnome-terminal xterm \
-        nautilus thunar \
-        firefox-esr chromium \
-        gedit 2>/dev/null || true"
     
     # Clean up
     chroot_exec "apt-get autoremove -y"
@@ -192,64 +260,30 @@ cleanup_packages() {
     log "INFO" "✓ Cleanup complete"
 }
 
-# Verify no forbidden packages are installed
-verify_package_exclusions() {
-    log "INFO" "=========================================="
-    log "INFO" "Verifying Package Exclusions"
-    log "INFO" "=========================================="
-    
-    local forbidden_packages=(
-        "gnome-shell"
-        "gnome-session"
-        "gdm3"
-        "lightdm"
-        "gnome-terminal"
-        "xterm"
-        "nautilus"
-        "thunar"
-        "firefox-esr"
-        "chromium"
-    )
-    
-    local found_forbidden=false
-    
-    for pkg in "${forbidden_packages[@]}"; do
-        if chroot_exec "dpkg -l | grep -q '^ii  ${pkg} '"; then
-            log "ERROR" "Forbidden package installed: ${pkg}"
-            found_forbidden=true
-        fi
-    done
-    
-    if [ "$found_forbidden" = true ]; then
-        log "ERROR" "Kiosk mode requires these packages to NOT be installed!"
-        exit 1
-    fi
-    
-    log "INFO" "✓ No forbidden packages found"
-}
-
 # Main execution
 main() {
     log "INFO" "=========================================="
     log "INFO" "Kiosk Mode Package Installation"
     log "INFO" "=========================================="
     log "INFO" "Target: ${CHROOT_DIR}"
-    log "INFO" "Type: Minimal kiosk installer ISO"
-    log "INFO" "Security: Maximum lockdown, minimal attack surface"
+    log "INFO" "Live session: Kiosk mode (minimal X + Calamares)"
+    log "INFO" "Installed system: Full GNOME desktop"
     log "INFO" "=========================================="
     
     install_kernel
+    install_gnome_desktop
     install_minimal_x11
     install_calamares
     install_system_utilities
+    install_development_tools
+    install_security_tools
     cleanup_packages
-    verify_package_exclusions
     
     log "INFO" "=========================================="
-    log "INFO" "Kiosk mode package installation complete!"
+    log "INFO" "Package installation complete!"
     log "INFO" "=========================================="
-    log "INFO" "Installed: Minimal X11, Calamares"
-    log "INFO" "NOT installed: GNOME, GDM, terminals, browsers"
+    log "INFO" "Installed: GNOME, X11, Calamares, dev tools, security tools"
+    log "INFO" "Live session will run in kiosk mode (configure-kiosk-session.sh)"
     log "INFO" "=========================================="
     log "INFO" "Next step: Run configure-kiosk-session.sh"
 }
