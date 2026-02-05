@@ -1,11 +1,58 @@
 #!/bin/bash
 # Post-install cleanup for NubiferOS
-# Removes live/installer user and other temporary files
+# Removes live/installer user, kiosk mode configs, and other temporary files
 
 echo "=========================================="
 echo "NubiferOS Post-Install Cleanup"
 echo "=========================================="
 
+# ==========================================
+# Remove kiosk mode configurations
+# ==========================================
+echo "Removing kiosk mode configurations..."
+
+# Remove kiosk-specific getty autologin
+rm -rf /etc/systemd/system/getty@tty1.service.d 2>/dev/null || true
+echo "  Removed getty autologin override"
+
+# Remove kiosk X11 lockdown config
+rm -f /etc/X11/xorg.conf.d/10-no-vt-switch.conf 2>/dev/null || true
+echo "  Removed X11 VT lockdown"
+
+# Remove kiosk sysctl lockdown (re-enable SysRq for debugging)
+rm -f /etc/sysctl.d/99-kiosk-lockdown.conf 2>/dev/null || true
+echo "  Removed sysctl lockdown"
+
+# Remove kiosk sudoers file
+rm -f /etc/sudoers.d/installer-kiosk 2>/dev/null || true
+echo "  Removed kiosk sudoers"
+
+# Unmask getty services for tty2-6 (restore normal VT access)
+for tty in tty2 tty3 tty4 tty5 tty6; do
+    systemctl unmask getty@${tty}.service 2>/dev/null || true
+done
+echo "  Unmasked getty services for tty2-6"
+
+# Unmask ctrl-alt-del.target
+systemctl unmask ctrl-alt-del.target 2>/dev/null || true
+echo "  Unmasked ctrl-alt-del.target"
+
+# ==========================================
+# Enable graphical desktop for installed system
+# ==========================================
+echo "Configuring graphical desktop..."
+
+# Enable GDM3
+systemctl enable gdm3.service 2>/dev/null || true
+echo "  Enabled gdm3.service"
+
+# Set graphical.target as default
+systemctl set-default graphical.target 2>/dev/null || true
+echo "  Set default target to graphical.target"
+
+# ==========================================
+# Remove installer user
+# ==========================================
 # Remove installer user if it exists
 if id "installer" &>/dev/null; then
     echo "Removing installer user..."
