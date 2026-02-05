@@ -1,209 +1,501 @@
 ---
+# NubiferOS Package Selection
 # Package groups for netinstall module
-# Debian repo packages + external tools (installed via shellprocess)
+#
+# Legend:
+#   📦 = Included in ISO (offline install)
+#   🌐 = Requires internet connection
+#   🔒 = Required (cannot be deselected)
 
-- name: "Cloud Development Tools"
-  description: "Docker, Python cloud SDKs, and AWS CLI"
-  selected: true
-  critical: false
-  expanded: true
-  subgroups:
-    - name: "docker.io"
-      description: "Container runtime engine"
-      selected: true
-      packages:
-        - docker.io
-    - name: "docker-compose"
-      description: "Multi-container Docker applications"
-      selected: true
-      packages:
-        - docker-compose
-    - name: "python3-boto3"
-      description: "AWS SDK for Python"
-      selected: true
-      packages:
-        - python3-boto3
-    - name: "python3-azure"
-      description: "Azure SDK for Python"
-      selected: true
-      packages:
-        - python3-azure
-    - name: "awscli"
-      description: "AWS Command Line Interface"
-      selected: true
-      packages:
-        - awscli
-
-- name: "Kubernetes Tools"
-  description: "kubectl, Helm, k9s, and eksctl (installed from official sources)"
-  selected: true
-  critical: false
-  expanded: true
-  subgroups:
-    - name: "kubectl"
-      description: "Kubernetes command-line tool"
-      selected: true
-      packages: []
-    - name: "Helm"
-      description: "Kubernetes package manager"
-      selected: true
-      packages: []
-    - name: "k9s"
-      description: "Terminal UI for Kubernetes"
-      selected: true
-      packages: []
-    - name: "eksctl"
-      description: "Amazon EKS cluster management"
-      selected: true
-      packages: []
-
-- name: "Infrastructure as Code"
-  description: "Terraform and Ansible for infrastructure management"
-  selected: true
-  critical: false
-  expanded: true
-  subgroups:
-    - name: "Terraform"
-      description: "Infrastructure provisioning by HashiCorp"
-      selected: true
-      packages: []
-    - name: "Ansible"
-      description: "Configuration management and automation"
-      selected: true
-      packages:
-        - ansible
-
-- name: "Development Tools"
-  description: "Git, build tools, and development utilities"
-  selected: true
-  critical: false
-  expanded: true
-  subgroups:
-    - name: "git"
-      description: "Distributed version control system"
-      selected: true
-      packages:
-        - git
-    - name: "build-essential"
-      description: "C/C++ compiler and build tools"
-      selected: true
-      packages:
-        - build-essential
-    - name: "python3-dev"
-      description: "Python development headers"
-      selected: true
-      packages:
-        - python3-dev
-    - name: "python3-pip"
-      description: "Python package installer"
-      selected: true
-      packages:
-        - python3-pip
-    - name: "python3-venv"
-      description: "Python virtual environments"
-      selected: true
-      packages:
-        - python3-venv
-    - name: "nodejs"
-      description: "JavaScript runtime"
-      selected: true
-      packages:
-        - nodejs
-    - name: "npm"
-      description: "Node.js package manager"
-      selected: true
-      packages:
-        - npm
-    - name: "curl"
-      description: "Command-line HTTP client"
-      selected: true
-      packages:
-        - curl
-    - name: "wget"
-      description: "Network file downloader"
-      selected: true
-      packages:
-        - wget
-    - name: "jq"
-      description: "JSON processor for command line"
-      selected: true
-      packages:
-        - jq
-
-- name: "Terminal Editors"
-  description: "Vim, Neovim, Emacs"
-  selected: true
-  critical: false
-  expanded: true
-  subgroups:
-    - name: "vim"
-      description: "Vi IMproved text editor"
-      selected: true
-      packages:
-        - vim
-    - name: "neovim"
-      description: "Modern Vim fork with Lua support"
-      selected: true
-      packages:
-        - neovim
-    - name: "emacs-nox"
-      description: "GNU Emacs (terminal version)"
-      selected: true
-      packages:
-        - emacs-nox
-
-- name: "Security & Hardening"
-  description: "Firejail, AppArmor, and security tools (REQUIRED)"
+# ============================================
+# SECURITY & HARDENING (Required)
+# ============================================
+- name: "🔒 Security & Hardening (Required)"
+  description: "Core security tools - these cannot be deselected"
   selected: true
   critical: true
   immutable: true
-  expanded: true
+  expanded: false
   subgroups:
-    - name: "firejail"
-      description: "Sandbox for application isolation"
+    - name: "📦 firejail"
+      description: "Application sandboxing for CLI isolation"
       selected: true
       immutable: true
       packages:
         - firejail
-    - name: "apparmor"
+    - name: "📦 apparmor"
       description: "Mandatory access control system"
       selected: true
       immutable: true
       packages:
         - apparmor
-    - name: "apparmor-utils"
-      description: "AppArmor profile management tools"
-      selected: true
-      immutable: true
-      packages:
         - apparmor-utils
-    - name: "fail2ban"
+    - name: "📦 fail2ban"
       description: "Intrusion prevention (bans failed logins)"
       selected: true
       immutable: true
       packages:
         - fail2ban
-    - name: "ufw"
+    - name: "📦 ufw"
       description: "Uncomplicated Firewall"
       selected: true
       immutable: true
       packages:
         - ufw
-    - name: "aide"
+    - name: "📦 aide"
       description: "File integrity checker"
       selected: true
       immutable: true
       packages:
         - aide
-    - name: "rkhunter"
+    - name: "📦 rkhunter"
       description: "Rootkit detection scanner"
       selected: true
       immutable: true
       packages:
         - rkhunter
-    - name: "lynis"
+    - name: "📦 lynis"
       description: "Security auditing tool"
       selected: true
       immutable: true
       packages:
         - lynis
+    - name: "📦 pass"
+      description: "Password manager (GPG-encrypted)"
+      selected: true
+      immutable: true
+      packages:
+        - pass
+        - gnupg
+
+# ============================================
+# CLOUD CLI TOOLS
+# ============================================
+- name: "☁️ Cloud CLI Tools"
+  description: "Command-line interfaces for cloud providers"
+  selected: true
+  critical: false
+  expanded: true
+  subgroups:
+    - name: "📦 AWS CLI"
+      description: "Amazon Web Services command-line interface"
+      selected: true
+      packages:
+        - awscli
+    - name: "📦 Python boto3"
+      description: "AWS SDK for Python"
+      selected: true
+      packages:
+        - python3-boto3
+    - name: "📦 Azure CLI"
+      description: "Microsoft Azure command-line interface (via pip)"
+      selected: true
+      packages:
+        - python3-azure
+    - name: "🌐 Google Cloud SDK"
+      description: "GCP gcloud, gsutil, bq (downloads ~150MB)"
+      selected: true
+      packages: []
+    - name: "🌐 Oracle Cloud CLI"
+      description: "OCI command-line interface (downloads ~50MB)"
+      selected: false
+      packages: []
+
+# ============================================
+# KUBERNETES & CONTAINERS
+# ============================================
+- name: "🐳 Containers & Kubernetes"
+  description: "Container runtime and orchestration tools"
+  selected: true
+  critical: false
+  expanded: true
+  subgroups:
+    - name: "📦 Docker"
+      description: "Container runtime engine"
+      selected: true
+      packages:
+        - docker.io
+        - docker-compose
+    - name: "📦 Podman"
+      description: "Daemonless container engine (Docker alternative)"
+      selected: false
+      packages:
+        - podman
+    - name: "🌐 kubectl"
+      description: "Kubernetes command-line tool (downloads ~50MB)"
+      selected: true
+      packages: []
+    - name: "🌐 Helm"
+      description: "Kubernetes package manager (downloads ~15MB)"
+      selected: true
+      packages: []
+    - name: "🌐 k9s"
+      description: "Terminal UI for Kubernetes (downloads ~30MB)"
+      selected: true
+      packages: []
+    - name: "🌐 eksctl"
+      description: "Amazon EKS cluster management (downloads ~50MB)"
+      selected: false
+      packages: []
+    - name: "🌐 minikube"
+      description: "Local Kubernetes cluster (downloads ~80MB)"
+      selected: false
+      packages: []
+    - name: "🌐 kind"
+      description: "Kubernetes in Docker (downloads ~10MB)"
+      selected: false
+      packages: []
+
+# ============================================
+# INFRASTRUCTURE AS CODE
+# ============================================
+- name: "🏗️ Infrastructure as Code"
+  description: "Tools for managing infrastructure declaratively"
+  selected: true
+  critical: false
+  expanded: true
+  subgroups:
+    - name: "🌐 Terraform"
+      description: "Multi-cloud infrastructure provisioning (downloads ~100MB)"
+      selected: true
+      packages: []
+    - name: "📦 Ansible"
+      description: "Configuration management and automation"
+      selected: true
+      packages:
+        - ansible
+    - name: "🌐 Pulumi"
+      description: "Modern IaC with real programming languages (downloads ~200MB)"
+      selected: false
+      packages: []
+    - name: "🌐 OpenTofu"
+      description: "Open-source Terraform fork (downloads ~100MB)"
+      selected: false
+      packages: []
+
+# ============================================
+# CI/CD & GITOPS
+# ============================================
+- name: "🔄 CI/CD & GitOps"
+  description: "Continuous integration and deployment tools"
+  selected: false
+  critical: false
+  expanded: false
+  subgroups:
+    - name: "🌐 GitHub CLI"
+      description: "GitHub command-line interface (downloads ~20MB)"
+      selected: true
+      packages: []
+    - name: "🌐 GitLab CLI"
+      description: "GitLab command-line interface (downloads ~15MB)"
+      selected: false
+      packages: []
+    - name: "🌐 ArgoCD CLI"
+      description: "GitOps continuous delivery for Kubernetes (downloads ~100MB)"
+      selected: false
+      packages: []
+    - name: "🌐 Flux CLI"
+      description: "GitOps toolkit for Kubernetes (downloads ~30MB)"
+      selected: false
+      packages: []
+    - name: "🌐 Tekton CLI"
+      description: "Cloud-native CI/CD pipelines (downloads ~20MB)"
+      selected: false
+      packages: []
+
+# ============================================
+# MONITORING & OBSERVABILITY
+# ============================================
+- name: "📊 Monitoring & Observability"
+  description: "Tools for monitoring and debugging"
+  selected: false
+  critical: false
+  expanded: false
+  subgroups:
+    - name: "🌐 Prometheus (promtool)"
+      description: "Metrics validation tool (downloads ~50MB)"
+      selected: false
+      packages: []
+    - name: "🌐 Grafana"
+      description: "Visualization and dashboards (downloads ~100MB)"
+      selected: false
+      packages: []
+    - name: "🌐 Loki (logcli)"
+      description: "Log aggregation CLI (downloads ~30MB)"
+      selected: false
+      packages: []
+    - name: "🌐 Stern"
+      description: "Multi-pod log tailing for Kubernetes (downloads ~10MB)"
+      selected: false
+      packages: []
+
+# ============================================
+# SECURITY SCANNING
+# ============================================
+- name: "🔍 Security Scanning"
+  description: "Vulnerability and security scanning tools"
+  selected: true
+  critical: false
+  expanded: false
+  subgroups:
+    - name: "🌐 Trivy"
+      description: "Container and IaC vulnerability scanner (downloads ~50MB)"
+      selected: true
+      packages: []
+    - name: "🌐 Grype"
+      description: "Vulnerability scanner for containers (downloads ~30MB)"
+      selected: true
+      packages: []
+    - name: "🌐 Syft"
+      description: "SBOM generator for containers (downloads ~30MB)"
+      selected: false
+      packages: []
+    - name: "🌐 Checkov"
+      description: "IaC security scanner (downloads via pip)"
+      selected: false
+      packages: []
+    - name: "🌐 tfsec"
+      description: "Terraform security scanner (downloads ~20MB)"
+      selected: false
+      packages: []
+
+# ============================================
+# DATABASE CLIENTS
+# ============================================
+- name: "🗄️ Database Clients"
+  description: "Command-line clients for databases"
+  selected: false
+  critical: false
+  expanded: false
+  subgroups:
+    - name: "📦 PostgreSQL client"
+      description: "psql command-line client"
+      selected: true
+      packages:
+        - postgresql-client
+    - name: "📦 MySQL client"
+      description: "mysql command-line client"
+      selected: true
+      packages:
+        - default-mysql-client
+    - name: "🌐 MongoDB Shell"
+      description: "mongosh modern MongoDB client (downloads ~50MB)"
+      selected: false
+      packages: []
+    - name: "📦 Redis client"
+      description: "redis-cli command-line client"
+      selected: false
+      packages:
+        - redis-tools
+    - name: "📦 SQLite"
+      description: "SQLite database and CLI"
+      selected: true
+      packages:
+        - sqlite3
+
+# ============================================
+# DEVELOPMENT TOOLS
+# ============================================
+- name: "🛠️ Development Tools"
+  description: "Programming languages and build tools"
+  selected: true
+  critical: false
+  expanded: true
+  subgroups:
+    - name: "📦 Python 3"
+      description: "Python interpreter with pip and venv"
+      selected: true
+      packages:
+        - python3
+        - python3-pip
+        - python3-venv
+        - python3-dev
+    - name: "📦 Node.js"
+      description: "JavaScript runtime with npm"
+      selected: true
+      packages:
+        - nodejs
+        - npm
+    - name: "📦 Build essentials"
+      description: "GCC, G++, Make for compiling"
+      selected: true
+      packages:
+        - build-essential
+        - gcc
+        - g++
+        - make
+    - name: "📦 Git"
+      description: "Distributed version control"
+      selected: true
+      packages:
+        - git
+        - git-lfs
+    - name: "🌐 Go"
+      description: "Go programming language (downloads ~150MB)"
+      selected: false
+      packages: []
+    - name: "🌐 Rust"
+      description: "Rust programming language (downloads ~300MB)"
+      selected: false
+      packages: []
+
+# ============================================
+# TERMINAL EDITORS
+# ============================================
+- name: "📝 Terminal Editors"
+  description: "Text editors for the terminal"
+  selected: true
+  critical: false
+  expanded: false
+  subgroups:
+    - name: "📦 Vim"
+      description: "Vi IMproved text editor"
+      selected: true
+      packages:
+        - vim
+    - name: "📦 Neovim"
+      description: "Modern Vim fork with Lua support"
+      selected: true
+      packages:
+        - neovim
+    - name: "📦 GNU Emacs"
+      description: "Extensible text editor (terminal version)"
+      selected: false
+      packages:
+        - emacs-nox
+    - name: "📦 nano"
+      description: "Simple terminal text editor"
+      selected: true
+      packages:
+        - nano
+
+# ============================================
+# GRAPHICAL IDES (Optional)
+# ============================================
+- name: "💻 Graphical IDEs (Optional)"
+  description: "Full-featured development environments - large downloads"
+  selected: false
+  critical: false
+  expanded: false
+  subgroups:
+    - name: "🌐 Visual Studio Code"
+      description: "Popular code editor by Microsoft (downloads ~100MB)"
+      selected: false
+      packages: []
+    - name: "🌐 VSCodium"
+      description: "VS Code without telemetry (downloads ~100MB)"
+      selected: false
+      packages: []
+    - name: "🌐 IntelliJ IDEA CE"
+      description: "Java/Kotlin IDE by JetBrains (downloads ~800MB)"
+      selected: false
+      packages: []
+    - name: "🌐 PyCharm CE"
+      description: "Python IDE by JetBrains (downloads ~600MB)"
+      selected: false
+      packages: []
+
+# ============================================
+# UTILITIES
+# ============================================
+- name: "🔧 Utilities"
+  description: "Helpful command-line utilities"
+  selected: true
+  critical: false
+  expanded: false
+  subgroups:
+    - name: "📦 jq"
+      description: "JSON processor for command line"
+      selected: true
+      packages:
+        - jq
+    - name: "🌐 yq"
+      description: "YAML processor (like jq for YAML)"
+      selected: true
+      packages: []
+    - name: "📦 curl & wget"
+      description: "HTTP clients and file downloaders"
+      selected: true
+      packages:
+        - curl
+        - wget
+    - name: "📦 htop"
+      description: "Interactive process viewer"
+      selected: true
+      packages:
+        - htop
+    - name: "📦 tmux"
+      description: "Terminal multiplexer"
+      selected: true
+      packages:
+        - tmux
+    - name: "🌐 httpie"
+      description: "User-friendly HTTP client (downloads via pip)"
+      selected: false
+      packages: []
+    - name: "🌐 bat"
+      description: "Cat clone with syntax highlighting"
+      selected: false
+      packages: []
+    - name: "🌐 ripgrep"
+      description: "Fast recursive grep alternative"
+      selected: false
+      packages: []
+    - name: "🌐 fd"
+      description: "Fast find alternative"
+      selected: false
+      packages: []
+    - name: "🌐 fzf"
+      description: "Fuzzy finder for command line"
+      selected: false
+      packages: []
+
+# ============================================
+# SECRETS MANAGEMENT
+# ============================================
+- name: "🔐 Secrets Management"
+  description: "Tools for managing secrets and encryption"
+  selected: false
+  critical: false
+  expanded: false
+  subgroups:
+    - name: "🌐 HashiCorp Vault"
+      description: "Secrets management platform (downloads ~100MB)"
+      selected: false
+      packages: []
+    - name: "🌐 SOPS"
+      description: "Encrypted secrets in Git (downloads ~10MB)"
+      selected: false
+      packages: []
+    - name: "🌐 age"
+      description: "Modern file encryption tool (downloads ~5MB)"
+      selected: false
+      packages: []
+    - name: "🌐 AWS Vault"
+      description: "Secure AWS credential storage (downloads ~10MB)"
+      selected: false
+      packages: []
+
+# ============================================
+# TESTING TOOLS
+# ============================================
+- name: "🧪 Testing Tools"
+  description: "Load testing and quality assurance"
+  selected: false
+  critical: false
+  expanded: false
+  subgroups:
+    - name: "🌐 k6"
+      description: "Modern load testing tool (downloads ~30MB)"
+      selected: false
+      packages: []
+    - name: "📦 pytest"
+      description: "Python testing framework"
+      selected: false
+      packages:
+        - python3-pytest
+    - name: "🌐 Postman/Newman"
+      description: "API testing CLI (downloads ~50MB)"
+      selected: false
+      packages: []
+
