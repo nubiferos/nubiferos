@@ -177,9 +177,9 @@ build_iso() {
     log "INFO" "Step 6.5/7: Fixing Calamares Debian issues..."
     "${SCRIPT_DIR}/fix-calamares-debian-issues.sh"
     
-    # Step 6.6: Configure kiosk session (auto-login, VT lockdown, session files)
-    log "INFO" "Step 6.6/8: Configuring kiosk session..."
-    "${SCRIPT_DIR}/configure-kiosk-session.sh"
+    # Step 6.6: Lockdown is now handled by install-desktop-installer.sh
+    # (No separate kiosk session script needed)
+    log "INFO" "Step 6.6/8: Lockdown already configured by desktop installer"
 
     # Step 6.7: Configure NubiferOS branding
     log "INFO" "Step 6.7/8: Configuring system branding..."
