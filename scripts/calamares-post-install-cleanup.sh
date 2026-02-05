@@ -65,17 +65,17 @@ fi
 ln -sf /lib/systemd/system/graphical.target /etc/systemd/system/default.target
 echo "  Set default target to graphical.target"
 
-# Also try systemctl as backup (may work on some systemd versions in chroot)
-systemctl enable gdm3.service 2>/dev/null || systemctl enable gdm.service 2>/dev/null || true
-systemctl set-default graphical.target 2>/dev/null || true
+# NOTE: Do NOT use systemctl here - even in a chroot, it can talk to the
+# live system's systemd via D-Bus and kill the running X session.
+# The direct symlinks above are sufficient.
 
 # ==========================================
 # Remove installer user
 # ==========================================
 if id "installer" &>/dev/null; then
     echo "Removing installer user..."
-    # Kill any processes owned by installer (shouldn't be any in chroot, but be safe)
-    pkill -u installer 2>/dev/null || true
+    # NOTE: Do NOT pkill here - /proc is bind-mounted from the live system
+    # and pkill would kill the running Calamares/X session
     userdel -r installer 2>/dev/null || userdel installer 2>/dev/null || true
     rm -rf /home/installer 2>/dev/null || true
     echo "  Installer user removed"
