@@ -196,5 +196,9 @@ nubifer_update_prompt
 # Check for workspace changes on each prompt (enables GNOME UI switching)
 PROMPT_COMMAND="_nubifer_check_workspace_change${PROMPT_COMMAND:+; $PROMPT_COMMAND}"
 
-echo "NubiferOS Workspace Integration loaded"
-echo "Commands: nw (workspace), nc (credentials), nw-switch, nw-context"
+# Show welcome message only for interactive shells (not installer/kiosk)
+if [ -n "$PS1" ] && [ "$(whoami)" != "installer" ] && [ ! -f /tmp/.nubifer-shell-init-done ]; then
+    echo "NubiferOS Workspace Integration loaded"
+    echo "Commands: nw (workspace), nc (credentials), nw-switch, nw-context"
+    touch /tmp/.nubifer-shell-init-done
+fi
