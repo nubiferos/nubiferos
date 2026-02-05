@@ -1,6 +1,10 @@
 #!/bin/bash
 # Post-install cleanup for NubiferOS
-# Removes live/installer user, kiosk mode configs, and other temporary files
+# Removes installer/kiosk configs and prepares the installed system for normal use
+#
+# IMPORTANT: This runs inside a Calamares chroot (dontChroot: false).
+# systemctl commands may not work reliably in a chroot, so we use
+# direct symlink manipulation for critical operations.
 
 echo "=========================================="
 echo "NubiferOS Post-Install Cleanup"
@@ -27,40 +31,56 @@ echo "  Removed sysctl lockdown"
 rm -f /etc/sudoers.d/installer-kiosk 2>/dev/null || true
 echo "  Removed kiosk sudoers"
 
-# Unmask getty services for tty2-6 (restore normal VT access)
+# Unmask getty services for tty2-6 (direct symlink removal - works in chroot)
 for tty in tty2 tty3 tty4 tty5 tty6; do
-    systemctl unmask getty@${tty}.service 2>/dev/null || true
+    rm -f /etc/systemd/system/getty@${tty}.service 2>/dev/null || true
 done
 echo "  Unmasked getty services for tty2-6"
 
-# Unmask ctrl-alt-del.target
-systemctl unmask ctrl-alt-del.target 2>/dev/null || true
+# Unmask ctrl-alt-del.target (remove the /dev/null symlink)
+rm -f /etc/systemd/system/ctrl-alt-del.target 2>/dev/null || true
 echo "  Unmasked ctrl-alt-del.target"
 
 # ==========================================
 # Enable graphical desktop for installed system
+# (Direct symlink manipulation - reliable in chroot)
 # ==========================================
 echo "Configuring graphical desktop..."
 
-# Enable GDM3
-systemctl enable gdm3.service 2>/dev/null || true
-echo "  Enabled gdm3.service"
+# Enable GDM3 - create the symlink directly
+# On Debian bookworm, gdm3 unit is at /lib/systemd/system/gdm.service
+mkdir -p /etc/systemd/system/display-manager.service.d 2>/dev/null || true
+if [ -f /lib/systemd/system/gdm.service ]; then
+    ln -sf /lib/systemd/system/gdm.service /etc/systemd/system/display-manager.service
+    echo "  Enabled gdm.service via display-manager.service symlink"
+elif [ -f /lib/systemd/system/gdm3.service ]; then
+    ln -sf /lib/systemd/system/gdm3.service /etc/systemd/system/display-manager.service
+    echo "  Enabled gdm3.service via display-manager.service symlink"
+else
+    echo "  WARNING: Could not find gdm service file!"
+    ls /lib/systemd/system/gdm* 2>/dev/null || echo "  No gdm* files found in /lib/systemd/system/"
+fi
 
-# Set graphical.target as default
-systemctl set-default graphical.target 2>/dev/null || true
+# Set graphical.target as default (direct symlink - works in chroot)
+ln -sf /lib/systemd/system/graphical.target /etc/systemd/system/default.target
 echo "  Set default target to graphical.target"
+
+# Also try systemctl as backup (may work on some systemd versions in chroot)
+systemctl enable gdm3.service 2>/dev/null || systemctl enable gdm.service 2>/dev/null || true
+systemctl set-default graphical.target 2>/dev/null || true
 
 # ==========================================
 # Remove installer user
 # ==========================================
-# Remove installer user if it exists
 if id "installer" &>/dev/null; then
     echo "Removing installer user..."
+    # Kill any processes owned by installer (shouldn't be any in chroot, but be safe)
+    pkill -u installer 2>/dev/null || true
     userdel -r installer 2>/dev/null || userdel installer 2>/dev/null || true
     rm -rf /home/installer 2>/dev/null || true
-    echo "Installer user removed"
+    echo "  Installer user removed"
 else
-    echo "No installer user found (good)"
+    echo "  No installer user found (good)"
 fi
 
 # Remove live user if it exists
@@ -68,25 +88,38 @@ if id "live" &>/dev/null; then
     echo "Removing live user..."
     userdel -r live 2>/dev/null || userdel live 2>/dev/null || true
     rm -rf /home/live 2>/dev/null || true
-    echo "Live user removed"
+    echo "  Live user removed"
 fi
 
-# Remove installer-specific sudoers files
+# ==========================================
+# Remove installer artifacts
+# ==========================================
+echo "Removing installer artifacts..."
+
+# Remove installer-specific sudoers files (all variants)
 rm -f /etc/sudoers.d/installer 2>/dev/null || true
+rm -f /etc/sudoers.d/installer-restricted 2>/dev/null || true
+rm -f /etc/sudoers.d/installer-kiosk 2>/dev/null || true
 rm -f /etc/sudoers.d/live-user 2>/dev/null || true
 
 # Remove Calamares autostart entries
 rm -f /etc/xdg/autostart/calamares.desktop 2>/dev/null || true
 rm -f /etc/skel/.config/autostart/calamares.desktop 2>/dev/null || true
 
+# Remove Calamares autostart service
+rm -f /etc/systemd/system/calamares-autostart.service 2>/dev/null || true
+
+# Remove Calamares helper scripts
+rm -f /usr/local/bin/calamares-exit-handler 2>/dev/null || true
+rm -f /usr/local/bin/install-nubiferos 2>/dev/null || true
+
 # Remove live-boot specific files (not needed on installed system)
 rm -f /etc/live/boot.conf 2>/dev/null || true
 rm -rf /etc/live 2>/dev/null || true
 
-# Remove Calamares configuration (not needed on installed system)
-# This prevents the first-boot wizard from thinking it's still in live mode
+# Remove Calamares configuration (prevents first-boot wizard from thinking it's in live mode)
 rm -rf /etc/calamares 2>/dev/null || true
-echo "Removed /etc/calamares"
+echo "  Removed /etc/calamares"
 
 # Remove installer desktop shortcut from skel
 rm -f /etc/skel/Desktop/Install*.desktop 2>/dev/null || true
@@ -95,9 +128,11 @@ rm -f /etc/skel/Desktop/Install*.desktop 2>/dev/null || true
 rm -f /tmp/nubiferos-* 2>/dev/null || true
 rm -f /tmp/calamares-* 2>/dev/null || true
 
-# Remove GDM auto-login config (installed system should require login)
+# ==========================================
+# Configure GDM for normal login (no auto-login)
+# ==========================================
 if [ -f /etc/gdm3/daemon.conf ]; then
-    echo "Removing auto-login configuration..."
+    echo "Configuring GDM for normal login..."
     cat > /etc/gdm3/daemon.conf << 'EOF'
 [daemon]
 WaylandEnable=true
@@ -113,7 +148,6 @@ WaylandEnable=true
 EOF
 fi
 
-# Same for custom.conf
 if [ -f /etc/gdm3/custom.conf ]; then
     cat > /etc/gdm3/custom.conf << 'EOF'
 [daemon]
@@ -132,6 +166,15 @@ fi
 echo "=========================================="
 echo "Post-install cleanup complete"
 echo "=========================================="
+
+# ==========================================
+# Verification - log what we ended up with
+# ==========================================
+echo "Verification:"
+echo "  default.target -> $(readlink -f /etc/systemd/system/default.target 2>/dev/null || echo 'NOT SET')"
+echo "  display-manager -> $(readlink -f /etc/systemd/system/display-manager.service 2>/dev/null || echo 'NOT SET')"
+echo "  installer user: $(id installer 2>/dev/null && echo 'STILL EXISTS (BAD)' || echo 'removed (good)')"
+echo "  getty@tty1 override: $(ls /etc/systemd/system/getty@tty1.service.d/ 2>/dev/null && echo 'STILL EXISTS (BAD)' || echo 'removed (good)')"
 
 # Enable CLI wrappers by default (Firejail isolation)
 echo "Enabling CLI wrappers..."
