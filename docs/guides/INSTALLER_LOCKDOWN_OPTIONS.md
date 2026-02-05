@@ -1,7 +1,7 @@
 # Installer Lockdown Options
 
-**Status**: NOT IMPLEMENTED - Waiting for bootloader installation to work first  
-**Date**: 2026-01-20  
+**Status**: IMPLEMENTED - Option 3 (Minimal) deployed  
+**Date**: 2026-02-04  
 **Purpose**: Prevent users from accessing live environment, force installer-only usage
 
 ---
@@ -14,6 +14,11 @@ The live CD environment is a security vulnerability because:
 - Violates the security model requiring full disk encryption
 
 **Solution**: Lock down the live environment so users can ONLY run the installer.
+
+**Implementation**: Option 3 (Direct Boot to Calamares) was implemented. See:
+- `build/install-kiosk-packages.sh` - Minimal package installation
+- `build/configure-kiosk-session.sh` - Session configuration
+- `docs/testing/KIOSK_SECURITY_TESTS.md` - Security test checklist
 
 ---
 
@@ -233,7 +238,7 @@ Before considering it secure:
 
 ---
 
-**Status**: Documented, awaiting bootloader fix before implementation  
-**Next Step**: Get installation to complete successfully first  
-**Priority**: HIGH (security requirement for Alpha release)
+**Status**: IMPLEMENTED  
+**Next Step**: Run security tests from `docs/testing/KIOSK_SECURITY_TESTS.md`  
+**Priority**: COMPLETE
 
