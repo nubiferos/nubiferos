@@ -89,51 +89,30 @@ This document tracks known bugs, issues, and planned fixes for NubiferOS.
 
 ---
 
-### 🟡 HIGH: Installer-Only Mode Has Full Desktop Access
-**Status**: DESIGN ISSUE  
-**Discovered**: 2026-01-15  
-**Affects**: Installer ISO security posture
+### ✅ Installer-Only Mode Has Full Desktop Access
+**Status**: FIXED  
+**Fixed**: 2026-02-04  
+**Commit**: feature/installer-kiosk-mode branch
 
-**Symptoms**:
-- Calamares runs as a window on top of GNOME desktop
-- User can access Firefox, Terminal, Files, and other apps during installation
-- Full desktop environment is available
+**Issue**:
+- Calamares ran as a window on top of GNOME desktop
+- User could access Firefox, Terminal, Files, and other apps during installation
+- Full desktop environment was available
 
-**Expected Behavior** (Installer-Only Mode):
-- Calamares should run fullscreen, no desktop visible
-- No access to other applications during installation
-- Minimal attack surface
-- Locked down environment
+**Solution**: Implemented "Option 3: Direct Boot to Calamares (Minimal)"
+- Removed GNOME Shell, GDM, and all desktop packages
+- Boot directly to minimal X session running only Calamares
+- Getty auto-login on tty1, masked tty2-6
+- X server configured with DontVTSwitch and DontZap
+- System reboots automatically when Calamares exits
 
-**Current Behavior** (More Like Live ISO):
-- Full GNOME desktop available
-- Can browse web, open terminal, access files
-- Calamares is just another window
+**Implementation Files**:
+- `build/install-kiosk-packages.sh` - Minimal package installation
+- `build/configure-kiosk-session.sh` - Session configuration
+- `build/validate-kiosk-config.sh` - Configuration validation
+- `docs/testing/KIOSK_SECURITY_TESTS.md` - Security test checklist
 
-**Impact**:
-- Security: Larger attack surface during installation
-- User confusion: Looks like a live environment
-- Not truly "installer-only"
-
-**Decision**:
-- **Short-term**: Keep desktop access for debugging
-- **Requirement**: Lock down to Calamares fullscreen (Option A) before production
-
-**Related Files**:
-- `build/install-desktop-installer.sh`
-- `build/configure-installer-autostart.sh`
-- Calamares launch configuration
-
-**Options to Lock Down**:
-1. Launch Calamares with `--fullscreen` flag
-2. Disable desktop environment, run Calamares in kiosk mode
-3. Use a minimal window manager instead of GNOME
-4. Block access to other applications via policy
-
-**Next Steps**:
-1. Decide on desired behavior
-2. Research Calamares fullscreen/kiosk mode
-3. Consider separate build modes: installer-only vs live-installer
+**Security Tests**: See `docs/testing/KIOSK_SECURITY_TESTS.md` for full checklist
 
 ---
 

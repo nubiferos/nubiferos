@@ -159,8 +159,9 @@ build_iso() {
             openbox \
             calamares"
     else
-        log "INFO" "Step 4/7: Installing GNOME desktop (installer-only)..."
-        "${SCRIPT_DIR}/install-desktop-installer.sh"
+        # Use kiosk mode (minimal X + Calamares only, no GNOME)
+        log "INFO" "Step 4/7: Installing kiosk mode packages (minimal X, no GNOME)..."
+        "${SCRIPT_DIR}/install-kiosk-packages.sh"
     fi
     
     # Step 5: Apply security hardening
@@ -175,9 +176,9 @@ build_iso() {
     log "INFO" "Step 6.5/7: Fixing Calamares Debian issues..."
     "${SCRIPT_DIR}/fix-calamares-debian-issues.sh"
     
-    # Step 6.6: Configure auto-login and Calamares auto-launch
-    log "INFO" "Step 6.6/8: Configuring installer auto-start..."
-    "${SCRIPT_DIR}/configure-installer-autostart.sh"
+    # Step 6.6: Configure kiosk session (auto-login, VT lockdown, session files)
+    log "INFO" "Step 6.6/8: Configuring kiosk session..."
+    "${SCRIPT_DIR}/configure-kiosk-session.sh"
 
     # Step 6.7: Configure NubiferOS branding
     log "INFO" "Step 6.7/8: Configuring system branding..."
