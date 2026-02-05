@@ -45,10 +45,10 @@ chroot_exec() {
 # Create installer user (if not exists)
 create_installer_user() {
     log "INFO" "=========================================="
-    log "INFO" "Creating Installer User"
+    log "INFO" "Configuring Installer User for Kiosk Mode"
     log "INFO" "=========================================="
     
-    # Check if user already exists
+    # Check if user already exists (created by install-desktop-installer.sh)
     if chroot_exec "id installer" &>/dev/null; then
         log "INFO" "Installer user already exists"
     else
@@ -58,11 +58,12 @@ create_installer_user() {
     fi
     
     # Add to minimal groups (audio, video for Calamares)
-    # NOTE: We do NOT add to sudo group - only specific commands allowed
     chroot_exec "usermod -aG audio,video,plugdev,netdev installer"
     
-    # Configure passwordless sudo ONLY for systemctl reboot
-    log "INFO" "Configuring restricted sudo access..."
+    # Replace the full sudo access with restricted kiosk sudo
+    # (install-desktop-installer.sh gives full sudo, we restrict it for kiosk)
+    log "INFO" "Configuring restricted sudo access for kiosk mode..."
+    rm -f "${CHROOT_DIR}/etc/sudoers.d/installer" 2>/dev/null || true
     cat > "${CHROOT_DIR}/etc/sudoers.d/installer-kiosk" << 'EOF'
 # Installer user can ONLY run these specific commands without password
 # This is for kiosk mode - reboot when Calamares exits
@@ -73,7 +74,7 @@ installer ALL=(ALL) NOPASSWD: /usr/bin/calamares
 EOF
     chmod 0440 "${CHROOT_DIR}/etc/sudoers.d/installer-kiosk"
     
-    log "INFO" "✓ Installer user created with restricted sudo"
+    log "INFO" "✓ Installer user configured for kiosk mode"
 }
 
 # Configure getty auto-login on tty1
