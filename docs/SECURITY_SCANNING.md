@@ -102,11 +102,11 @@ Always verify ISOs before installation:
 
 ```bash
 # Download the ISO and signature
-wget https://nubiferos-iso.s3.amazonaws.com/nubiferos-latest.iso
-wget https://nubiferos-iso.s3.amazonaws.com/nubiferos-latest.iso.asc
+wget https://<your-bucket-name>.s3.amazonaws.com/nubiferos-latest.iso
+wget https://<your-bucket-name>.s3.amazonaws.com/nubiferos-latest.iso.asc
 
 # Download and import the public key
-wget https://nubiferos-iso.s3.amazonaws.com/nubiferos-signing-key.pub
+wget https://<your-bucket-name>.s3.amazonaws.com/nubiferos-signing-key.pub
 gpg --import nubiferos-signing-key.pub
 
 # Verify the signature

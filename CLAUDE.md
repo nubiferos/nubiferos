@@ -154,7 +154,7 @@ sudo calamares -d  # Shows debug output
 
 ## Links
 
-- GitHub: https://github.com/jessetop/nubiferOS
+- GitHub: https://github.com/nubiferos/nubiferOS
 - Kiro Specs: `.kiro/specs/custom-linux-distro/`
 - Known Issues Doc: `docs/KNOWN_ISSUES.md`
 - Fix Documentation: `docs/fixes/`

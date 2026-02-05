@@ -51,7 +51,7 @@ The script will:
 
 ### Before (cluttered)
 ```
-s3://nubiferos-iso/
+s3://<your-bucket-name>/
 ├── 1.0/
 │   ├── nubiferos-1.0-20241121-123456-abc1234-amd64.iso
 │   ├── SHA256SUMS-abc1234
@@ -64,7 +64,7 @@ s3://nubiferos-iso/
 
 ### After (clean)
 ```
-s3://nubiferos-iso/
+s3://<your-bucket-name>/
 ├── 1.0/
 │   ├── nubiferos-1.0-20241121-123456-abc1234-amd64.iso
 │   ├── SHA256SUMS
@@ -87,7 +87,7 @@ After running the cleanup, verify the bucket structure:
 
 ```bash
 # List all checksum files
-aws s3 ls s3://nubiferos-iso/ --recursive | grep -E '(SHA256SUMS|MD5SUMS)'
+aws s3 ls s3://<your-bucket-name>/ --recursive | grep -E '(SHA256SUMS|MD5SUMS)'
 
 # Should only show:
 # - One SHA256SUMS per version directory

@@ -31,6 +31,7 @@ components/workspace-manager/awscliv2.zip
 # BFG Repo Cleaner
 bfg-*.jar
 bfg-report/
+..bfg-report/
 security/scan-results/
 # GPG key backups should never be in repo
 *.asc

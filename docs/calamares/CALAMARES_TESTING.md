@@ -10,7 +10,7 @@ This guide explains how to test and troubleshoot the Calamares installer in Nubi
 
 The live ISO creates a **live** user (not "installer"):
 - Username: `live`
-- Password: `live`
+- Password: See `docs/guides/LIVE_USER_EXPLANATION.md`
 - Auto-login: Enabled
 - Sudo access: Yes
 
@@ -219,7 +219,7 @@ sudo fdisk -l  # Look for boot flag
 
 **Solution:** You may see both "live" and "installer" users at the login screen. Both should work, but use "live":
 - Username: `live`
-- Password: `live`
+- Password: See `docs/guides/LIVE_USER_EXPLANATION.md`
 
 The "installer" user may be created automatically by the live-boot system. The boot parameters now explicitly set `username=live` to ensure the correct user is used.
 

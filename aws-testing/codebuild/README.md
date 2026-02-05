@@ -25,7 +25,7 @@ The testing pipeline:
 ```bash
 aws codebuild create-project \
   --name nubiferos-test-iso \
-  --source type=S3,location=nubiferos-iso/buildspec.zip \
+  --source type=S3,location=<your-bucket-name>/buildspec.zip \
   --artifacts type=NO_ARTIFACTS \
   --environment type=LINUX_CONTAINER,image=aws/codebuild/standard:7.0,computeType=BUILD_GENERAL1_LARGE \
   --service-role arn:aws:iam::ACCOUNT:role/CodeBuildServiceRole \
@@ -77,7 +77,7 @@ aws logs tail /aws/codebuild/nubiferos-test-iso --follow
 - Timeout: 15 minutes
 
 **Environment Variables:**
-- `ISO_BUCKET` - S3 bucket name (default: nubiferos-iso)
+- `ISO_BUCKET` - S3 bucket name (set to your bucket)
 - `ISO_KEY` - S3 key path (default: 1.0/NubiferOS-1.0-amd64.iso)
 
 **Artifacts:**
@@ -114,7 +114,7 @@ env:
 
 Recommended structure:
 ```
-s3://nubiferos-iso/
+s3://<your-bucket-name>/
 ├── 1.0/
 │   ├── NubiferOS-1.0-amd64.iso
 │   └── NubiferOS-1.0-amd64.iso.sha256
@@ -139,8 +139,8 @@ CodeBuild service role needs:
         "s3:ListBucket"
       ],
       "Resource": [
-        "arn:aws:s3:::nubiferos-iso",
-        "arn:aws:s3:::nubiferos-iso/*"
+        "arn:aws:s3:::<your-bucket-name>",
+        "arn:aws:s3:::<your-bucket-name>/*"
       ]
     },
     {
@@ -182,7 +182,7 @@ jobs:
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         run: |
           aws s3 cp output/NubiferOS-1.0-amd64.iso \
-            s3://nubiferos-iso/1.0/NubiferOS-1.0-amd64.iso
+            s3://<your-bucket-name>/1.0/NubiferOS-1.0-amd64.iso
           
       - name: Trigger CodeBuild Test
         env:

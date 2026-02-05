@@ -26,8 +26,8 @@ Run Tests (2-3 min)
   └─ Boot test with QEMU/KVM ✅
   ↓
 Upload to S3 (only if tests pass)
-  ├─ Versioned: s3://nubiferos-iso/1.0/nubiferos-1.0-20250119-abc123.iso
-  └─ Latest: s3://nubiferos-iso/nubiferos-latest.iso
+  ├─ Versioned: s3://<your-bucket-name>/1.0/nubiferos-1.0-20250119-abc123.iso
+  └─ Latest: s3://<your-bucket-name>/nubiferos-latest.iso
   ↓
 Trigger CodeBuild (on release tags only)
 ```
@@ -74,7 +74,7 @@ Create AMI with Packer (optional)
 ## S3 Structure
 
 ```
-s3://nubiferos-iso/
+s3://<your-bucket-name>/
 ├── nubiferos-latest.iso              ← Always points to newest build
 ├── nubiferos-latest.iso.sha256       ← Checksum for latest
 ├── latest-version.txt                ← Version number of latest
@@ -129,10 +129,10 @@ git push origin v1.0
 
 ```bash
 # Download latest ISO
-aws s3 cp s3://nubiferos-iso/nubiferos-latest.iso .
+aws s3 cp s3://<your-bucket-name>/nubiferos-latest.iso .
 
 # Verify checksum
-aws s3 cp s3://nubiferos-iso/nubiferos-latest.iso.sha256 .
+aws s3 cp s3://<your-bucket-name>/nubiferos-latest.iso.sha256 .
 sha256sum -c nubiferos-latest.iso.sha256
 
 # Test locally
@@ -143,10 +143,10 @@ qemu-system-x86_64 -cdrom nubiferos-latest.iso -m 4096 -enable-kvm
 
 ```bash
 # List available versions
-aws s3 ls s3://nubiferos-iso/ --recursive | grep .iso
+aws s3 ls s3://<your-bucket-name>/ --recursive | grep .iso
 
 # Download specific version
-aws s3 cp s3://nubiferos-iso/1.0/nubiferos-1.0-20250119-abc123.iso .
+aws s3 cp s3://<your-bucket-name>/1.0/nubiferos-1.0-20250119-abc123.iso .
 ```
 
 ## Testing Strategy
@@ -199,7 +199,7 @@ If GitHub Actions tests pass, the ISO is good. CodeBuild just confirms it surviv
 - Set up SNS notifications for build status
 
 ### S3
-- View files: AWS Console → S3 → nubiferos-iso
+- View files: AWS Console → S3 → your-bucket-name
 - Check access logs
 - Monitor download metrics
 

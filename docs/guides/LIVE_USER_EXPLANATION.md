@@ -25,6 +25,8 @@ This creates:
 - Home: `/home/live`
 - Sudo access: Yes
 
+> **Note:** This user exists only during the installation process. It is automatically removed by the post-install cleanup after installation completes.
+
 ### Debian live-boot System
 
 The `live-boot` package (installed for live CD functionality) may also create users based on:
@@ -54,7 +56,7 @@ If you see an "installer" user, it could be because:
 ## Which User Should You Use?
 
 **Use the "live" user** - This is the intended user with:
-- Known password (`live`)
+- Known password (see above)
 - Proper sudo access
 - Autostart configuration for Calamares
 - All NubiferOS customizations

@@ -34,8 +34,8 @@ Therefore, content inspection tests (checking for GRUB files, kernel files, etc.
 2. Runs basic validation (format, size)
 3. Runs boot test with QEMU (KVM-accelerated)
 4. Uploads to S3 in two locations:
-   - `s3://nubiferos-iso/VERSION/nubiferos-VERSION-TIMESTAMP-COMMIT.iso` (permanent)
-   - `s3://nubiferos-iso/nubiferos-latest.iso` (always points to newest)
+   - `s3://<your-bucket-name>/VERSION/nubiferos-VERSION-TIMESTAMP-COMMIT.iso` (permanent)
+   - `s3://<your-bucket-name>/nubiferos-latest.iso` (always points to newest)
 5. Triggers CodeBuild for AMI creation (on release tags)
 
 **Benefits**:
