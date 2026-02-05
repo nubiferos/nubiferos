@@ -1,8 +1,28 @@
 # NubiferOS
 
+[![Build Status](https://github.com/nubiferos/nubiferos/actions/workflows/build-iso.yml/badge.svg)](https://github.com/nubiferos/nubiferos/actions/workflows/build-iso.yml)
+[![Security Scan](https://github.com/nubiferos/nubiferos/actions/workflows/security-scan.yml/badge.svg)](https://github.com/nubiferos/nubiferos/actions/workflows/security-scan.yml)
+[![License: GPL-3.0](https://img.shields.io/badge/License-GPL%203.0-blue.svg)](LICENSE)
+[![Version](https://img.shields.io/badge/version-1.0--alpha-orange.svg)](https://github.com/nubiferos/nubiferos/releases)
+
 **Multi-Cloud, Unified Control**
 
-A specialized Linux distribution designed for cloud infrastructure management and development.
+A security-focused Linux distribution for cloud engineers managing AWS, Azure, and GCP infrastructure.
+
+[Download](https://github.com/nubiferos/nubiferos/releases) · [Documentation](https://nubiferos.org/docs) · [Report Bug](https://github.com/nubiferos/nubiferos/issues) · [Request Feature](https://github.com/nubiferos/nubiferos/issues)
+
+---
+
+## Why NubiferOS?
+
+Cloud engineers juggle multiple accounts, credentials, and environments daily. One wrong command in the wrong terminal can cause production outages. NubiferOS solves this with:
+
+- **Workspace Isolation** - Each cloud account runs in its own sandbox
+- **Credential Protection** - GPG-encrypted storage, never in environment variables
+- **Visual Context** - Always know which account you're working in
+- **Read-Only Mode** - Browse production safely without risk of changes
+
+See [Why NubiferOS?](docs/WHY_NUBIFEROS.md) for the full story.
 
 ## Overview
 
@@ -188,14 +208,39 @@ See [Browser Configuration](docs/guides/BROWSER_CONFIGURATION.md) for the comple
 
 ## Security
 
-NubiferOS implements multiple layers of security:
+NubiferOS is built with security as a core principle, not an afterthought.
 
-- **Full Disk Encryption**: Mandatory LUKS encryption during installation
-- **Credential Protection**: Triple-layer encryption (keyring + AES-256-GCM + LUKS)
-- **System Hardening**: AppArmor profiles, firewall, disabled unnecessary services
-- **Automatic Updates**: Security patches applied automatically
-- **Workspace Isolation**: Credentials and environment isolated per workspace
-- **Audit Logging**: Comprehensive logging of all cloud operations
+### Build Security
+- **SBOM** - Every release includes a Software Bill of Materials
+- **Vulnerability Scanning** - Automated CVE detection with Grype
+- **GPG Signing** - All releases are cryptographically signed
+- **Secret Scanning** - Gitleaks prevents credential leaks in source
+
+### Runtime Security
+- **Full Disk Encryption** - LUKS mandatory during installation
+- **Credential Protection** - Triple-layer encryption (GPG + AES-256-GCM + LUKS)
+- **Workspace Isolation** - Firejail sandboxing per cloud account
+- **System Hardening** - AppArmor, firewall, Wayland isolation
+- **Automatic Updates** - Security patches applied automatically
+
+### Security Documentation
+- [Threat Model](docs/THREAT_MODEL.md) - What we protect against (and don't)
+- [Security Summary](docs/SECURITY_SUMMARY.md) - Complete security overview
+- [Credential Security](docs/CREDENTIAL_SECURITY.md) - How credentials are protected
+- [Security Policy](SECURITY.md) - Vulnerability reporting
+
+### Verifying Downloads
+
+```bash
+# Import signing key
+gpg --import nubiferos-signing-key.pub
+
+# Verify signature
+gpg --verify nubiferos-*.iso.asc nubiferos-*.iso
+
+# Verify checksum
+sha256sum -c SHA256SUMS
+```
 
 ## Documentation
 
@@ -238,7 +283,11 @@ Test installation in VM:
 
 ## Contributing
 
-Contributions are welcome! Please read our contributing guidelines before submitting pull requests.
+Contributions are welcome! Please read:
+
+- [Contributing Guidelines](CONTRIBUTING.md) - How to contribute
+- [Code of Conduct](CODE_OF_CONDUCT.md) - Community standards
+- [Security Policy](SECURITY.md) - Reporting vulnerabilities
 
 ## License
 
@@ -246,12 +295,11 @@ NubiferOS is open source software licensed under GPL-3.0. See LICENSE file for d
 
 ## Support
 
-- Website: https://nubiferos.org
-- Documentation: https://docs.nubiferos.org
-- Repository: https://github.com/nubiferos/nubiferos
-- Issues: GitHub Issues
-- Discussions: GitHub Discussions
-- Discord: https://discord.gg/nubiferos
+- **Website**: https://nubiferos.org
+- **Documentation**: https://nubiferos.org/docs
+- **Issues**: [GitHub Issues](https://github.com/nubiferos/nubiferos/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/nubiferos/nubiferos/discussions)
+- **Security**: security@nubiferos.org
 
 ## Roadmap
 
