@@ -330,6 +330,23 @@ validate_kiosk_config() {
     log "INFO" "✓ All kiosk configuration files validated"
 }
 
+# Install X11 packages needed for kiosk startx session
+# (install-desktop-installer.sh installs GNOME/GDM but not xinit)
+install_kiosk_x11() {
+    log "INFO" "=========================================="
+    log "INFO" "Installing X11 Packages for Kiosk Session"
+    log "INFO" "=========================================="
+
+    chroot_exec "DEBIAN_FRONTEND=noninteractive apt-get install -y \
+        xinit \
+        x11-xserver-utils \
+        x11-utils \
+        xserver-xorg-video-fbdev \
+        xserver-xorg-video-vesa"
+
+    log "INFO" "✓ X11 kiosk packages installed (xinit/startx)"
+}
+
 # Main execution
 main() {
     log "INFO" "=========================================="
@@ -337,7 +354,8 @@ main() {
     log "INFO" "=========================================="
     log "INFO" "Target: ${CHROOT_DIR}"
     log "INFO" "=========================================="
-    
+
+    install_kiosk_x11
     create_installer_user
     configure_getty_autologin
     mask_getty_services
