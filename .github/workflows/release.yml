@@ -1,0 +1,138 @@
+name: Create Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_type:
+        description: 'Release type'
+        required: true
+        default: 'patch'
+        type: choice
+        options:
+          - patch   # 1.0.0 -> 1.0.1
+          - minor   # 1.0.x -> 1.1.0
+          - major   # 1.x.x -> 2.0.0
+      commit_sha:
+        description: 'Commit SHA to tag (leave empty for latest trunk)'
+        required: false
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  create-release:
+    runs-on: ubuntu-latest
+    outputs:
+      new_version: ${{ steps.version.outputs.new_version }}
+      new_tag: ${{ steps.version.outputs.new_tag }}
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0  # Need full history for tags
+
+    - name: Calculate next version
+      id: version
+      run: |
+        # Get the latest version tag
+        LATEST_TAG=$(git tag -l 'v*' --sort=-v:refname | head -1)
+
+        if [ -z "$LATEST_TAG" ]; then
+          # No tags exist, start at v1.0.0
+          NEW_VERSION="1.0.0"
+        else
+          # Parse current version (remove 'v' prefix)
+          CURRENT="${LATEST_TAG#v}"
+
+          # Split into major.minor.patch
+          IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT"
+
+          # Handle versions like "1.0" (no patch)
+          PATCH=${PATCH:-0}
+
+          case "${{ inputs.release_type }}" in
+            major)
+              MAJOR=$((MAJOR + 1))
+              MINOR=0
+              PATCH=0
+              ;;
+            minor)
+              MINOR=$((MINOR + 1))
+              PATCH=0
+              ;;
+            patch)
+              PATCH=$((PATCH + 1))
+              ;;
+          esac
+
+          NEW_VERSION="${MAJOR}.${MINOR}.${PATCH}"
+        fi
+
+        NEW_TAG="v${NEW_VERSION}"
+
+        echo "Latest tag: $LATEST_TAG"
+        echo "Release type: ${{ inputs.release_type }}"
+        echo "New version: $NEW_VERSION"
+        echo "New tag: $NEW_TAG"
+
+        echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
+        echo "new_tag=$NEW_TAG" >> $GITHUB_OUTPUT
+
+    - name: Determine commit to tag
+      id: commit
+      run: |
+        if [ -n "${{ inputs.commit_sha }}" ]; then
+          COMMIT="${{ inputs.commit_sha }}"
+          # Verify commit exists
+          if ! git cat-file -e "$COMMIT" 2>/dev/null; then
+            echo "Error: Commit $COMMIT not found"
+            exit 1
+          fi
+        else
+          # Use latest commit on trunk
+          COMMIT=$(git rev-parse origin/trunk)
+        fi
+
+        echo "Tagging commit: $COMMIT"
+        echo "commit=$COMMIT" >> $GITHUB_OUTPUT
+
+        # Show commit info
+        git log -1 --oneline "$COMMIT"
+
+    - name: Create and push tag
+      run: |
+        NEW_TAG="${{ steps.version.outputs.new_tag }}"
+        COMMIT="${{ steps.commit.outputs.commit }}"
+
+        # Create annotated tag
+        git tag -a "$NEW_TAG" "$COMMIT" -m "Release $NEW_TAG
+
+Created via workflow_dispatch
+Release type: ${{ inputs.release_type }}
+Commit: $COMMIT"
+
+        # Push tag
+        git push origin "$NEW_TAG"
+
+        echo "✓ Created and pushed tag: $NEW_TAG"
+
+    - name: Summary
+      run: |
+        cat >> $GITHUB_STEP_SUMMARY << EOF
+        # 🏷️ Release Tag Created
+
+        - **New Tag**: \`${{ steps.version.outputs.new_tag }}\`
+        - **Version**: \`${{ steps.version.outputs.new_version }}\`
+        - **Release Type**: ${{ inputs.release_type }}
+        - **Commit**: \`${{ steps.commit.outputs.commit }}\`
+
+        ## Next Steps
+
+        The [Build ISO workflow](../../actions/workflows/build-iso.yml) will automatically trigger for this tag.
+
+        Once the build completes:
+        1. Approve the "promote-to-production" step
+        2. ISO and release assets will be uploaded to the GitHub Release
+        EOF
