@@ -778,7 +778,20 @@ class SecurityDashboard(Gtk.Window):
                     pass
         
         return vulns
-    
+
+    def _check_scan_tool(self, tool):
+        """Check if a security scan tool is installed."""
+        try:
+            result = subprocess.run(
+                ["which", tool],
+                capture_output=True,
+                text=True,
+                timeout=5
+            )
+            return result.returncode == 0
+        except:
+            return False
+
     # ==================== Security Scans Section ====================
     
     def _create_security_scans_card(self):
@@ -843,18 +856,31 @@ class SecurityDashboard(Gtk.Window):
     def _create_vuln_summary_box(self, vuln_data):
         """Create vulnerability summary display."""
         box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
-        
+
+        # Subtitle row with tool status
+        subtitle_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
         subtitle = Gtk.Label(label="Vulnerability Scan")
         subtitle.get_style_context().add_class("section-subtitle")
         subtitle.set_halign(Gtk.Align.START)
-        box.pack_start(subtitle, False, False, 0)
-        
+        subtitle_row.pack_start(subtitle, True, True, 0)
+
+        # grype status indicator
+        grype_installed = self._check_scan_tool("grype")
+        if grype_installed:
+            tool_status = Gtk.Label(label="grype ✓")
+            tool_status.get_style_context().add_class("status-ok")
+        else:
+            tool_status = Gtk.Label(label="grype ✗")
+            tool_status.get_style_context().add_class("status-error")
+        tool_status.set_tooltip_text("grype CVE scanner - install with:\ncurl -sSfL https://raw.githubusercontent.com/anchore/grype/main/install.sh | sudo sh -s -- -b /usr/local/bin")
+        subtitle_row.pack_end(tool_status, False, False, 0)
+        box.pack_start(subtitle_row, False, False, 0)
+
         if not vuln_data or "error" in vuln_data:
-            error_msg = vuln_data.get("error", "") if vuln_data else ""
-            if "grype" in error_msg.lower():
-                msg = "grype not installed. Install with:\ncurl -sSfL https://raw.githubusercontent.com/anchore/grype/main/install.sh | sudo sh -s -- -b /usr/local/bin"
+            if not grype_installed:
+                msg = "No scan results. Click 'Run Scan' to check for vulnerabilities."
             else:
-                msg = "No scan results. Click 'Run Scan' to check for vulnerabilities.\nRequires: grype (CVE scanner)"
+                msg = "No scan results. Click 'Run Scan' to check for vulnerabilities."
             no_data = Gtk.Label(label=msg)
             no_data.get_style_context().add_class("no-data")
             no_data.set_line_wrap(True)
@@ -902,18 +928,31 @@ class SecurityDashboard(Gtk.Window):
     def _create_compliance_summary_box(self, compliance_data):
         """Create compliance/hardening summary display."""
         box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
-        
+
+        # Subtitle row with tool status
+        subtitle_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
         subtitle = Gtk.Label(label="Hardening Audit")
         subtitle.get_style_context().add_class("section-subtitle")
         subtitle.set_halign(Gtk.Align.START)
-        box.pack_start(subtitle, False, False, 0)
-        
+        subtitle_row.pack_start(subtitle, True, True, 0)
+
+        # lynis status indicator
+        lynis_installed = self._check_scan_tool("lynis")
+        if lynis_installed:
+            tool_status = Gtk.Label(label="lynis ✓")
+            tool_status.get_style_context().add_class("status-ok")
+        else:
+            tool_status = Gtk.Label(label="lynis ✗")
+            tool_status.get_style_context().add_class("status-error")
+        tool_status.set_tooltip_text("lynis security auditor - install with:\nsudo apt-get install lynis")
+        subtitle_row.pack_end(tool_status, False, False, 0)
+        box.pack_start(subtitle_row, False, False, 0)
+
         if not compliance_data or "error" in compliance_data:
-            error_msg = compliance_data.get("error", "") if compliance_data else ""
-            if "lynis" in error_msg.lower():
-                msg = "lynis not installed. Install with:\nsudo apt-get install lynis"
+            if not lynis_installed:
+                msg = "No audit results. Click 'Run Scan' to check system hardening."
             else:
-                msg = "No audit results. Click 'Run Scan' to check system hardening.\nRequires: lynis (security auditor)"
+                msg = "No audit results. Click 'Run Scan' to check system hardening."
             no_data = Gtk.Label(label=msg)
             no_data.get_style_context().add_class("no-data")
             no_data.set_line_wrap(True)
@@ -1142,9 +1181,11 @@ class SecurityDashboard(Gtk.Window):
                 timeout=600  # 10 minute timeout
             )
             
-            success = result.returncode == 0
+            # Exit code 0 = success, exit code 2 = critical vulns found (still success)
+            success = result.returncode in (0, 2)
             error_msg = None
-            
+            critical_found = result.returncode == 2
+
             if not success:
                 # Check for common issues
                 if "grype" in result.stderr.lower() or "not found" in result.stderr.lower():
@@ -1157,20 +1198,23 @@ class SecurityDashboard(Gtk.Window):
                     error_msg = f"Exit code {result.returncode}"
             
             # Update UI on main thread
-            GLib.idle_add(self._scan_complete, button, success, error_msg)
+            GLib.idle_add(self._scan_complete, button, success, error_msg, critical_found)
         except subprocess.TimeoutExpired:
-            GLib.idle_add(self._scan_complete, button, False, "Scan timed out")
+            GLib.idle_add(self._scan_complete, button, False, "Scan timed out", False)
         except Exception as e:
-            GLib.idle_add(self._scan_complete, button, False, str(e))
+            GLib.idle_add(self._scan_complete, button, False, str(e), False)
     
-    def _scan_complete(self, button, success, error=None):
+    def _scan_complete(self, button, success, error=None, critical_found=False):
         """Called when scan completes - update UI."""
         self._scan_running = False
         button.set_sensitive(True)
-        
+
         if success:
             if self._scan_status_label:
-                self._scan_status_label.set_text("✓ Scan complete")
+                if critical_found:
+                    self._scan_status_label.set_text("⚠ Critical vulns found")
+                else:
+                    self._scan_status_label.set_text("✓ Scan complete")
             # Refresh the window to show new results
             GLib.timeout_add(1000, self._delayed_refresh)
         else:
