@@ -11,3 +11,8 @@ click>=8.1.0
 
 # Validation
 pydantic>=2.0.0
+
+# STS Token Support
+boto3>=1.35.0           # AWS STS API
+keyring>=24.0.0         # OS keyring access (libsecret/GNOME Keyring)
+cryptography>=42.0.0    # Encrypted file fallback for token cache

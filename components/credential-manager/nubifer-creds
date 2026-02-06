@@ -15,6 +15,9 @@ from pathlib import Path
 from typing import Dict, List, Optional
 from datetime import datetime
 
+# Add src directory to path for imports
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), 'src'))
+
 class PassBackend:
     """Backend using pass (password-store) with GPG encryption"""
     
@@ -310,7 +313,49 @@ def main():
     # Remove command
     remove_parser = subparsers.add_parser("remove", help="Remove credential")
     remove_parser.add_argument("path", help="Credential path (e.g., cloud/aws/profile-name)")
-    
+
+    # Token command (STS token management)
+    token_parser = subparsers.add_parser("token", help="Manage STS temporary tokens")
+    token_subparsers = token_parser.add_subparsers(dest="token_command", help="Token commands")
+
+    # token enable
+    token_enable = token_subparsers.add_parser("enable", help="Enable STS token mode for a credential")
+    token_enable.add_argument("-t", "--type", required=True, choices=["aws"],
+                              help="Credential type (only aws supported currently)")
+    token_enable.add_argument("-n", "--name", required=True, help="Credential name/profile")
+    token_enable.add_argument("-w", "--workspace", help="Workspace ID (defaults to active)")
+    token_enable.add_argument("--duration", type=int, default=3600,
+                              help="Token duration in seconds (900-43200, default: 3600)")
+
+    # token disable
+    token_disable = token_subparsers.add_parser("disable", help="Disable STS token mode")
+    token_disable.add_argument("-t", "--type", required=True, choices=["aws"],
+                               help="Credential type")
+    token_disable.add_argument("-n", "--name", required=True, help="Credential name/profile")
+    token_disable.add_argument("-w", "--workspace", help="Workspace ID (defaults to active)")
+
+    # token status
+    token_status = token_subparsers.add_parser("status", help="Show token status")
+    token_status.add_argument("-t", "--type", required=True, choices=["aws"],
+                              help="Credential type")
+    token_status.add_argument("-n", "--name", required=True, help="Credential name/profile")
+    token_status.add_argument("-w", "--workspace", help="Workspace ID (defaults to active)")
+    token_status.add_argument("--json", action="store_true", help="Output as JSON")
+
+    # token clear
+    token_clear = token_subparsers.add_parser("clear", help="Clear cached token")
+    token_clear.add_argument("-t", "--type", required=True, choices=["aws"],
+                             help="Credential type")
+    token_clear.add_argument("-n", "--name", required=True, help="Credential name/profile")
+    token_clear.add_argument("-w", "--workspace", help="Workspace ID (defaults to active)")
+
+    # token refresh
+    token_refresh = token_subparsers.add_parser("refresh", help="Force refresh cached token")
+    token_refresh.add_argument("-t", "--type", required=True, choices=["aws"],
+                               help="Credential type")
+    token_refresh.add_argument("-n", "--name", required=True, help="Credential name/profile")
+    token_refresh.add_argument("-w", "--workspace", help="Workspace ID (defaults to active)")
+
     args = parser.parse_args()
     
     if not args.command:
@@ -415,6 +460,152 @@ def main():
     
     elif args.command == "remove":
         manager.remove_credential(args.path)
+
+    elif args.command == "token":
+        handle_token_command(args)
+
+
+def handle_token_command(args):
+    """Handle token subcommands"""
+    if not args.token_command:
+        print("Usage: nubifer-creds token {enable|disable|status|clear|refresh} ...")
+        print("Run 'nubifer-creds token -h' for help")
+        sys.exit(1)
+
+    # Get workspace
+    workspace = getattr(args, 'workspace', None) or os.getenv("NUBIFER_WORKSPACE_ID", "default")
+    cred_type = args.type
+    cred_name = args.name
+
+    try:
+        from token_cache import TokenCache
+        cache = TokenCache()
+    except ImportError as e:
+        print(f"Error: Token cache module not available: {e}", file=sys.stderr)
+        print("Install required dependencies: pip install keyring cryptography boto3")
+        sys.exit(1)
+
+    if args.token_command == "enable":
+        duration = getattr(args, 'duration', 3600)
+
+        # Validate duration
+        if duration < 900:
+            print("Warning: Minimum duration is 900 seconds (15 minutes), using 900")
+            duration = 900
+        elif duration > 43200:
+            print("Warning: Maximum duration is 43200 seconds (12 hours), using 43200")
+            duration = 43200
+
+        # Check if base credentials exist
+        base_path = f"nubifer/{workspace}/cloud/{cred_type}/{cred_name}"
+        try:
+            result = subprocess.run(
+                ["pass", "show", f"{base_path}/access-key-id"],
+                capture_output=True,
+                text=True,
+                timeout=10
+            )
+            if result.returncode != 0:
+                print(f"Error: Base credentials not found for '{cred_name}' in workspace '{workspace}'")
+                print(f"Add credentials first: nubifer-creds add -t {cred_type} -n {cred_name}")
+                sys.exit(1)
+        except Exception as e:
+            print(f"Error checking credentials: {e}", file=sys.stderr)
+            sys.exit(1)
+
+        if cache.enable_token_mode(workspace, cred_type, cred_name, duration):
+            print(f"Token mode enabled: {cred_type}/{cred_name}")
+            print(f"  Workspace: {workspace}")
+            print(f"  Duration: {duration} seconds ({duration // 60} minutes)")
+            print()
+            print("STS tokens will be automatically generated and cached.")
+            print("Tokens refresh automatically when expired or within 5 minutes of expiry.")
+        else:
+            print("Failed to enable token mode", file=sys.stderr)
+            sys.exit(1)
+
+    elif args.token_command == "disable":
+        if cache.disable_token_mode(workspace, cred_type, cred_name):
+            print(f"Token mode disabled: {cred_type}/{cred_name}")
+            print("Static credentials will be used for future requests.")
+        else:
+            print("Failed to disable token mode", file=sys.stderr)
+            sys.exit(1)
+
+    elif args.token_command == "status":
+        settings = cache.get_token_settings(workspace, cred_type, cred_name)
+
+        if getattr(args, 'json', False):
+            if settings:
+                print(json.dumps(settings, indent=2))
+            else:
+                print(json.dumps({"enabled": False}))
+            return
+
+        print(f"Token Status: {cred_type}/{cred_name}")
+        print(f"  Workspace: {workspace}")
+        print("-" * 40)
+
+        if not settings:
+            print("  Token mode: disabled (never configured)")
+            return
+
+        print(f"  Token mode: {'enabled' if settings['enabled'] else 'disabled'}")
+        print(f"  Duration: {settings['duration_seconds']} seconds")
+
+        if settings.get('token_expires_at'):
+            remaining = settings.get('token_remaining_seconds', 0)
+            if remaining > 0:
+                mins = remaining // 60
+                secs = remaining % 60
+                print(f"  Cached token: valid ({mins}m {secs}s remaining)")
+                print(f"  Expires: {settings['token_expires_at']}")
+                print(f"  Storage: {settings.get('storage_type', 'unknown')}")
+            else:
+                print("  Cached token: expired")
+        else:
+            print("  Cached token: none")
+
+    elif args.token_command == "clear":
+        if cache.clear_token(workspace, cred_type, cred_name):
+            print(f"Token cache cleared: {cred_type}/{cred_name}")
+            print("A new token will be generated on next use.")
+        else:
+            print("Failed to clear token cache", file=sys.stderr)
+            sys.exit(1)
+
+    elif args.token_command == "refresh":
+        # Clear existing cache and force regeneration
+        cache.clear_token(workspace, cred_type, cred_name)
+
+        if not cache.is_token_enabled(workspace, cred_type, cred_name):
+            print(f"Error: Token mode not enabled for {cred_type}/{cred_name}")
+            print(f"Enable first: nubifer-creds token enable -t {cred_type} -n {cred_name}")
+            sys.exit(1)
+
+        try:
+            from token_generators.aws import AWSTokenGenerator, AWSTokenGeneratorError
+            generator = AWSTokenGenerator(workspace)
+            duration = cache.get_duration_seconds(workspace, cred_type, cred_name)
+
+            print(f"Generating new STS token for {cred_type}/{cred_name}...")
+            token_data, expiration = generator.get_session_token(cred_name, duration_seconds=duration)
+
+            if token_data and expiration:
+                cache.store_token(workspace, cred_type, cred_name, token_data, expiration)
+                print(f"Token refreshed successfully")
+                print(f"  Expires: {expiration.isoformat()}")
+            else:
+                print("Failed to generate token", file=sys.stderr)
+                sys.exit(1)
+
+        except AWSTokenGeneratorError as e:
+            print(f"Token generation failed: {e}", file=sys.stderr)
+            sys.exit(1)
+        except ImportError as e:
+            print(f"Error: boto3 not installed: {e}", file=sys.stderr)
+            print("Install with: pip install boto3")
+            sys.exit(1)
 
 
 if __name__ == "__main__":
