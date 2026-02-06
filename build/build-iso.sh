@@ -390,7 +390,7 @@ policy = {
             "Locked": True
         },
         "Homepage": {
-            "URL": "https://github.com/nubiferos/nubiferos",
+            "URL": "https://nubiferos.github.io/website/docs/",
             "Locked": False,
             "StartPage": "homepage"
         },
