@@ -204,81 +204,162 @@ jobs:
         export ISO_PATH=$(realpath output/*.iso)
         pytest testing/test-iso-pytest.py::TestISOBasics -v -s
         
+    - name: Generate release notes
+      id: release_notes
+      run: |
+        # Get commits since last build tag or last 10 commits
+        git fetch --tags
+        LAST_TAG=$(git tag -l 'build-*' --sort=-v:refname | head -1)
+
+        if [ -n "$LAST_TAG" ]; then
+          echo "Generating notes since $LAST_TAG"
+          NOTES=$(git log --pretty=format:"- %s" "$LAST_TAG"..HEAD | head -20)
+        else
+          echo "No previous build tag, using last 10 commits"
+          NOTES=$(git log --pretty=format:"- %s" -10)
+        fi
+
+        # Escape for JSON
+        NOTES_ESCAPED=$(echo "$NOTES" | jq -Rs .)
+        echo "notes=$NOTES_ESCAPED" >> $GITHUB_OUTPUT
+
+        # Tag this build
+        git config user.name "github-actions[bot]"
+        git config user.email "github-actions[bot]@users.noreply.github.com"
+        git tag "build-${{ env.COMMIT_SHA }}" || true
+        git push origin "build-${{ env.COMMIT_SHA }}" || true
+
     - name: Upload to staging prefix
       run: |
         ISO_FILE=$(basename output/*.iso)
+        BUILD_PATH="staging/builds/${{ env.COMMIT_SHA }}"
+
         echo "=========================================="
         echo "Uploading to STAGING"
         echo "=========================================="
         echo "ISO: $ISO_FILE"
-        echo "Destination: s3://${{ env.ISO_BUCKET }}/staging/${{ env.VERSION }}/"
+        echo "Build Path: s3://${{ env.ISO_BUCKET }}/$BUILD_PATH/"
         echo ""
-        
-        # Clean old artifacts from staging version directory
-        aws s3 rm s3://${{ env.ISO_BUCKET }}/staging/${{ env.VERSION }}/ --recursive
 
-        # Upload ISO to staging/version/
-        aws s3 cp output/*.iso s3://${{ env.ISO_BUCKET }}/staging/${{ env.VERSION }}/ \
+        # Upload to commit-specific build path
+        aws s3 cp output/*.iso s3://${{ env.ISO_BUCKET }}/$BUILD_PATH/ \
           --storage-class INTELLIGENT_TIERING \
           --metadata "version=${{ env.VERSION }},commit=${{ env.COMMIT_SHA }},github-run=${{ github.run_number }}"
-        
-        # Upload checksums
-        aws s3 cp output/SHA256SUMS s3://${{ env.ISO_BUCKET }}/staging/${{ env.VERSION }}/
-        aws s3 cp output/MD5SUMS s3://${{ env.ISO_BUCKET }}/staging/${{ env.VERSION }}/
-        
-        # Upload security artifacts
-        [ -f output/sbom-cyclonedx.json ] && aws s3 cp output/sbom-cyclonedx.json s3://${{ env.ISO_BUCKET }}/staging/${{ env.VERSION }}/
-        [ -f output/sbom-spdx.json ] && aws s3 cp output/sbom-spdx.json s3://${{ env.ISO_BUCKET }}/staging/${{ env.VERSION }}/
-        [ -f output/vuln-report.json ] && aws s3 cp output/vuln-report.json s3://${{ env.ISO_BUCKET }}/staging/${{ env.VERSION }}/
-        [ -f output/vuln-report.txt ] && aws s3 cp output/vuln-report.txt s3://${{ env.ISO_BUCKET }}/staging/${{ env.VERSION }}/
-        [ -f output/*.iso.asc ] && aws s3 cp output/*.iso.asc s3://${{ env.ISO_BUCKET }}/staging/${{ env.VERSION }}/
-        [ -f output/nubiferos-signing-key.pub ] && aws s3 cp output/nubiferos-signing-key.pub s3://${{ env.ISO_BUCKET }}/staging/${{ env.VERSION }}/
-        
+
+        # Upload checksums and artifacts
+        aws s3 cp output/SHA256SUMS s3://${{ env.ISO_BUCKET }}/$BUILD_PATH/
+        aws s3 cp output/MD5SUMS s3://${{ env.ISO_BUCKET }}/$BUILD_PATH/
+        [ -f output/sbom-cyclonedx.json ] && aws s3 cp output/sbom-cyclonedx.json s3://${{ env.ISO_BUCKET }}/$BUILD_PATH/
+        [ -f output/vuln-report.json ] && aws s3 cp output/vuln-report.json s3://${{ env.ISO_BUCKET }}/$BUILD_PATH/
+        [ -f output/*.iso.asc ] && aws s3 cp output/*.iso.asc s3://${{ env.ISO_BUCKET }}/$BUILD_PATH/
+        [ -f output/nubiferos-signing-key.pub ] && aws s3 cp output/nubiferos-signing-key.pub s3://${{ env.ISO_BUCKET }}/$BUILD_PATH/
+
+        # Also maintain legacy staging path for promote-to-production
+        aws s3 rm s3://${{ env.ISO_BUCKET }}/staging/${{ env.VERSION }}/ --recursive
+        aws s3 sync s3://${{ env.ISO_BUCKET }}/$BUILD_PATH/ s3://${{ env.ISO_BUCKET }}/staging/${{ env.VERSION }}/ \
+          --storage-class INTELLIGENT_TIERING
+
         # Update staging latest pointer
         aws s3 cp output/*.iso s3://${{ env.ISO_BUCKET }}/staging/nubiferos-latest.iso \
           --storage-class INTELLIGENT_TIERING
         aws s3 cp output/SHA256SUMS s3://${{ env.ISO_BUCKET }}/staging/nubiferos-latest.iso.sha256
-        
+
         echo "✓ Uploaded to staging"
+
+    - name: Update builds manifest
+      run: |
+        ISO_FILE=$(basename output/*.iso)
+        ISO_SIZE="${{ steps.iso_info.outputs.iso_size }}"
+        SHA256=$(cat output/SHA256SUMS | awk '{print $1}')
+        BUILD_DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+        PRESIGNED_URL=$(aws s3 presign s3://${{ env.ISO_BUCKET }}/staging/builds/${{ env.COMMIT_SHA }}/$ISO_FILE --expires-in 604800)
+
+        # Create this build's entry
+        cat > /tmp/this_build.json << EOF
+        {
+          "version": "${{ env.VERSION }}",
+          "commit": "${{ env.COMMIT_SHA }}",
+          "commit_full": "${{ github.sha }}",
+          "date": "$BUILD_DATE",
+          "iso_file": "$ISO_FILE",
+          "iso_size": "$ISO_SIZE",
+          "sha256": "$SHA256",
+          "status": "untested",
+          "download_url": "$PRESIGNED_URL",
+          "github_run": "${{ github.run_number }}",
+          "github_run_url": "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}",
+          "release_notes": ${{ steps.release_notes.outputs.notes }}
+        }
+        EOF
+
+        # Download existing manifest or create empty one
+        aws s3 cp s3://${{ env.ISO_BUCKET }}/staging/builds.json /tmp/builds.json 2>/dev/null || echo '{"builds":[]}' > /tmp/builds.json
+
+        # Merge: prepend new build, keep only last 3
+        jq --slurpfile new /tmp/this_build.json '.builds = ([$new[0]] + .builds) | .builds = .builds[:3] | .updated = now | .updated_iso = "'$BUILD_DATE'"' /tmp/builds.json > /tmp/builds_updated.json
+
+        # Upload updated manifest
+        aws s3 cp /tmp/builds_updated.json s3://${{ env.ISO_BUCKET }}/staging/builds.json \
+          --content-type "application/json" \
+          --cache-control "max-age=60"
+
+        echo "✓ Updated builds.json manifest"
+        cat /tmp/builds_updated.json | jq .
+
+    - name: Cleanup old builds
+      run: |
+        # List all build directories, keep only last 3
+        aws s3 ls s3://${{ env.ISO_BUCKET }}/staging/builds/ > /tmp/all_builds.txt || true
+
+        # Get build dirs sorted by date (newest first), skip first 3
+        BUILD_DIRS=$(cat /tmp/all_builds.txt | awk '{print $2}' | sed 's/\///' | tail -n +4)
+
+        for BUILD in $BUILD_DIRS; do
+          echo "Removing old build: $BUILD"
+          aws s3 rm s3://${{ env.ISO_BUCKET }}/staging/builds/$BUILD/ --recursive
+        done
+
+        echo "✓ Cleaned up old builds (kept last 3)"
         
     - name: Generate staging presigned URL
       id: staging_url
       run: |
         ISO_FILE=$(basename output/*.iso)
-        PRESIGNED_URL=$(aws s3 presign s3://${{ env.ISO_BUCKET }}/staging/${{ env.VERSION }}/$ISO_FILE --expires-in 604800)
+        PRESIGNED_URL=$(aws s3 presign s3://${{ env.ISO_BUCKET }}/staging/builds/${{ env.COMMIT_SHA }}/$ISO_FILE --expires-in 604800)
         echo "presigned_url=$PRESIGNED_URL" >> $GITHUB_OUTPUT
-        
+
     - name: Build summary
       run: |
         cat >> $GITHUB_STEP_SUMMARY << EOF
         # 🔨 NubiferOS ISO Build Complete (STAGING)
-        
+
         ## Build Information
         - **Version**: ${{ env.VERSION }}
         - **ISO Name**: ${{ env.ISO_NAME }}
         - **ISO Size**: ${{ steps.iso_info.outputs.iso_size }}
-        - **Commit**: ${{ github.sha }}
-        
-        ## Staging Location
-        \`\`\`
-        s3://${{ env.ISO_BUCKET }}/staging/${{ env.VERSION }}/
-        \`\`\`
-        
+        - **Commit**: \`${{ env.COMMIT_SHA }}\`
+        - **Status**: ⚠️ **UNTESTED** (alpha build)
+
         ## Download for Testing
         **Presigned URL** (valid 7 days):
         \`\`\`
         ${{ steps.staging_url.outputs.presigned_url }}
         \`\`\`
-        
+
         ## Checksums
         \`\`\`
         $(cat output/SHA256SUMS)
         \`\`\`
-        
+
+        ## Release Notes
+        $(echo ${{ steps.release_notes.outputs.notes }} | jq -r .)
+
+        ## 📦 Build Manifest
+        This build is now available in the [builds.json manifest](https://nubiferos-iso.s3.amazonaws.com/staging/builds.json).
+        The website will display the last 3 untested builds automatically.
+
         ## ⏳ Next Step
-        **Approve the "promote-to-production" job** to copy this build to prod/.
-        
-        The website downloads from \`prod/nubiferos-latest.iso\`.
+        **Approve the "promote-to-production" job** to mark this build as tested and promote to stable.
         EOF
 
   # ============================================
@@ -374,7 +455,26 @@ jobs:
         echo "  s3://${{ env.ISO_BUCKET }}/prod/nubiferos-latest.iso"
         echo "  s3://${{ env.ISO_BUCKET }}/prod/$VERSION/$ISO_FILE"
         echo ""
-        
+
+    - name: Update build manifest status
+      run: |
+        COMMIT_SHA="${{ needs.build-iso.outputs.commit_sha }}"
+
+        # Download current manifest
+        aws s3 cp s3://${{ env.ISO_BUCKET }}/staging/builds.json /tmp/builds.json
+
+        # Update status of this build to "tested"
+        jq --arg commit "$COMMIT_SHA" '
+          .builds = [.builds[] | if .commit == $commit then .status = "tested" else . end]
+        ' /tmp/builds.json > /tmp/builds_updated.json
+
+        # Upload updated manifest
+        aws s3 cp /tmp/builds_updated.json s3://${{ env.ISO_BUCKET }}/staging/builds.json \
+          --content-type "application/json" \
+          --cache-control "max-age=60"
+
+        echo "✓ Updated build status to 'tested' in manifest"
+
     - name: Generate production presigned URL
       id: prod_url
       run: |
