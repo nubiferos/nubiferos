@@ -321,8 +321,9 @@ jobs:
         
         echo "✓ Copied versioned files"
         
-        # Get ISO filename
-        ISO_FILE=$(aws s3 ls s3://${{ env.ISO_BUCKET }}/prod/$VERSION/ | grep '\.iso$' | grep -v '\.asc' | awk '{print $4}' | head -1)
+        # Get ISO filename (use temp file to avoid broken pipe)
+        aws s3 ls s3://${{ env.ISO_BUCKET }}/prod/$VERSION/ > /tmp/s3_listing.txt
+        ISO_FILE=$(grep '\.iso$' /tmp/s3_listing.txt | grep -v '\.asc' | awk '{print $4}' | head -1)
         
         # Update prod "latest" pointers
         aws s3 cp \
@@ -334,9 +335,9 @@ jobs:
           s3://${{ env.ISO_BUCKET }}/prod/$VERSION/SHA256SUMS \
           s3://${{ env.ISO_BUCKET }}/prod/nubiferos-latest.iso.sha256
         
-        # Copy signature if exists
-        if aws s3 ls "s3://${{ env.ISO_BUCKET }}/prod/$VERSION/" | grep -q '\.iso\.asc'; then
-          ASC_FILE=$(aws s3 ls s3://${{ env.ISO_BUCKET }}/prod/$VERSION/ | grep '\.iso\.asc' | awk '{print $4}' | head -1)
+        # Copy signature if exists (reuse listing from above)
+        if grep -q '\.iso\.asc' /tmp/s3_listing.txt; then
+          ASC_FILE=$(grep '\.iso\.asc' /tmp/s3_listing.txt | awk '{print $4}' | head -1)
           aws s3 cp \
             s3://${{ env.ISO_BUCKET }}/prod/$VERSION/$ASC_FILE \
             s3://${{ env.ISO_BUCKET }}/prod/nubiferos-latest.iso.asc
@@ -374,7 +375,8 @@ jobs:
       id: prod_url
       run: |
         VERSION="${{ needs.build-iso.outputs.version }}"
-        ISO_FILE=$(aws s3 ls s3://${{ env.ISO_BUCKET }}/prod/$VERSION/ | grep '\.iso$' | grep -v '\.asc' | awk '{print $4}' | head -1)
+        aws s3 ls s3://${{ env.ISO_BUCKET }}/prod/$VERSION/ > /tmp/s3_listing.txt
+        ISO_FILE=$(grep '\.iso$' /tmp/s3_listing.txt | grep -v '\.asc' | awk '{print $4}' | head -1)
         PRESIGNED_URL=$(aws s3 presign s3://${{ env.ISO_BUCKET }}/prod/$VERSION/$ISO_FILE --expires-in 604800)
         echo "presigned_url=$PRESIGNED_URL" >> $GITHUB_OUTPUT
         
@@ -553,7 +555,8 @@ jobs:
         VERSION="${{ needs.build-iso.outputs.version }}"
         
         if aws codebuild list-projects | grep -q "$PROJECT_NAME"; then
-          ISO_FILE=$(aws s3 ls s3://${{ env.ISO_BUCKET }}/prod/$VERSION/ | grep '\.iso$' | grep -v '\.asc' | awk '{print $4}' | head -1)
+          aws s3 ls s3://${{ env.ISO_BUCKET }}/prod/$VERSION/ > /tmp/s3_listing.txt
+          ISO_FILE=$(grep '\.iso$' /tmp/s3_listing.txt | grep -v '\.asc' | awk '{print $4}' | head -1)
           
           BUILD_ID=$(aws codebuild start-build \
             --project-name "$PROJECT_NAME" \
