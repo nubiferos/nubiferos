@@ -334,11 +334,13 @@ def convert_children(children):
     result = []
     for item in children:
         if 'children' in item:
+            # Subfolder
             result.append({
                 "name": item['title'],
                 "children": convert_children(item['children'])
             })
         elif 'url' in item:
+            # Bookmark
             result.append({
                 "name": item['title'],
                 "url": item['url']
@@ -346,12 +348,23 @@ def convert_children(children):
     return result
 
 # Build managed bookmarks array
-managed = []
+# Firefox format: first entry is toplevel_name, then bookmarks/folders
+managed = [
+    {"toplevel_name": "NubiferOS Cloud Bookmarks"}
+]
+
 for folder in bookmarks.get('children', []):
     if 'children' in folder:
+        # Add folder with its children
         managed.append({
-            "toplevel_name": folder['title'],
+            "name": folder['title'],
             "children": convert_children(folder['children'])
+        })
+    elif 'url' in folder:
+        # Top-level bookmark
+        managed.append({
+            "name": folder['title'],
+            "url": folder['url']
         })
 
 # Create Firefox policy
