@@ -380,8 +380,19 @@ policy = {
             "Fingerprinting": True
         },
         "FirefoxHome": {
+            "Search": True,
+            "TopSites": False,
+            "SponsoredTopSites": False,
+            "Highlights": False,
             "Pocket": False,
-            "Snippets": False
+            "SponsoredPocket": False,
+            "Snippets": False,
+            "Locked": True
+        },
+        "Homepage": {
+            "URL": "https://github.com/nubiferos/nubiferos",
+            "Locked": False,
+            "StartPage": "homepage"
         },
         "ManagedBookmarks": managed,
         "NoDefaultBookmarks": False,
