@@ -310,14 +310,22 @@ EOF
     mkdir -p "${CHROOT_DIR}/etc/firefox-esr/policies"
     
     # Convert bookmarks JSON to Firefox ManagedBookmarks policy format
-    CHROOT_DIR="${CHROOT_DIR}" python3 << 'PYTHON_SCRIPT'
+    CHROOT_DIR="${CHROOT_DIR}" python3 << 'PYTHON_SCRIPT' || log "ERROR" "Failed to create Firefox policy"
 import json
 import os
+import sys
 
 chroot_dir = os.environ.get('CHROOT_DIR', '')
+if not chroot_dir:
+    print("ERROR: CHROOT_DIR not set", file=sys.stderr)
+    sys.exit(1)
 
 # Read our bookmarks
 bookmarks_file = f"{chroot_dir}/usr/share/nubifer/browser/firefox-bookmarks.json"
+if not os.path.exists(bookmarks_file):
+    print(f"ERROR: Bookmarks file not found: {bookmarks_file}", file=sys.stderr)
+    sys.exit(1)
+
 with open(bookmarks_file) as f:
     bookmarks = json.load(f)
 
