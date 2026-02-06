@@ -1,19 +1,18 @@
 # Implementation Plan
 
-## 🔴 PRIORITY: D-Bus Services Integration (Blocking workspace/credential features)
+## ✅ Core Workspace/Credential Features - COMPLETE
 
-The following components are built but NOT functional because D-Bus services aren't installed:
-- Context Manager D-Bus service (workspace switching, context indicator)
-- Credential Manager D-Bus service (credential injection to CLI wrappers)
-- CLI wrappers (depend on D-Bus for credentials)
-- GNOME Shell context indicator (depends on D-Bus for workspace info)
+The workspace and credential system is fully functional:
+- Context Manager D-Bus service installed and auto-enabled
+- Credential Manager uses credential_process (no D-Bus needed - simpler/more secure)
+- CLI wrappers installed to /usr/local/lib/nubifer/cli-wrappers/
+- AWS credential helper works with pass store
+- GNOME Shell context indicator installed
 
-**Next steps to complete:**
-1. Install Context Manager D-Bus service and systemd unit
-2. Install Credential Manager D-Bus service and systemd unit  
-3. Enable CLI wrapper symlinks
-4. Test credential_process helper as alternative to D-Bus for AWS CLI
-5. Configure GPG agent caching and session cleanup
+**Remaining work:**
+- Resource Viewer application (Phase 2)
+- AI Assistant Framework (Phase 3)
+- Documentation and testing
 
 ---
 
@@ -86,19 +85,19 @@ The following components are built but NOT functional because D-Bus services are
     - Add interactive prompts for credential input
     - _Requirements: 3.1, 3.2_
 
-  - [ ] 3.5 Create systemd service definition
-    - Write systemd service file for credential manager
-    - Configure service to start on boot
-    - Install D-Bus service file for auto-activation
+  - [x] 3.5 Create systemd service definition
+    - ~~Write systemd service file for credential manager~~
+    - ~~Configure service to start on boot~~
+    - ~~Install D-Bus service file for auto-activation~~
     - _Requirements: 3.1_
-    - _Status: NOT DONE - D-Bus service not installed, CLI works standalone_
+    - _Status: SUPERSEDED - D-Bus service not needed. credential_process approach is simpler and more secure._
 
-  - [ ] 3.6 Implement credential_process helper for AWS CLI
+  - [x] 3.6 Implement credential_process helper for AWS CLI
     - Create nubifer-aws-credential-helper for AWS CLI credential_process
     - Integrate with pass to retrieve credentials on-demand
     - Configure GPG agent caching for performance
     - _Requirements: 3.4_
-    - _Status: Helper created, needs testing and integration_
+    - _Status: COMPLETE - Helper installed to /usr/local/bin/, CLI wrappers use it via credential_process_
 
 - [x] 4. Implement Context Manager service
   - [x] 4.1 Create workspace management backend
@@ -138,12 +137,12 @@ The following components are built but NOT functional because D-Bus services are
     - Add set-readonly command
     - _Requirements: 4.1, 4.2, 4.3_
 
-  - [ ] 4.7 Create systemd service definition
+  - [x] 4.7 Create systemd service definition
     - Write systemd service file for context manager
     - Configure service dependencies (requires credential manager)
     - Install D-Bus service file for auto-activation
     - _Requirements: 4.1_
-    - _Status: NOT DONE - D-Bus service not installed, CLI works standalone_
+    - _Status: COMPLETE - D-Bus service installed and auto-enabled in build-iso.sh_
 
 - [x] 5. Implement Context Indicator UI
   - [x] 5.1 Create GNOME Shell extension

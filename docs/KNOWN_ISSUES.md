@@ -74,9 +74,8 @@ This document tracks known bugs, issues, and planned fixes for NubiferOS.
 - System reboots automatically when Calamares exits
 
 **Implementation Files**:
-- `build/install-kiosk-packages.sh` - Minimal package installation
-- `build/configure-kiosk-session.sh` - Session configuration
-- `build/validate-kiosk-config.sh` - Configuration validation
+- `build/install-desktop-installer.sh` - Package installation + lockdown (consolidated)
+- `scripts/calamares-post-install-cleanup.sh` - Reverses lockdown for installed system
 - `docs/testing/KIOSK_SECURITY_TESTS.md` - Security test checklist
 
 **Security Tests**: See `docs/testing/KIOSK_SECURITY_TESTS.md` for full checklist
@@ -168,6 +167,46 @@ Add optional AI development tools during Calamares installation to support cloud
 3. Survey popular AI tools and SDKs
 4. Create documentation structure
 5. Design workspace templates
+
+---
+
+### 🔵 LOW: STS Temporary Credentials for AWS Workspaces
+**Status**: PLANNED
+**Priority**: Phase 2 (after alpha stabilization)
+**Discovered**: 2026-02-04
+
+**Current State**:
+- CLI wrappers inject long-lived AWS access keys into the subprocess environment
+- Keys are GPG-encrypted at rest (pass) and isolated per workspace (Firejail)
+- If a key leaks, it's valid until manually rotated
+
+**Desired State**:
+- CLI wrapper uses long-lived key to call `aws sts assume-role` automatically
+- Passes temporary credentials (1-hour expiry) to the subprocess instead
+- Long-lived key never leaves the wrapper process
+- Even if temporary token leaks, it expires quickly
+
+**Design**:
+- Add STS assume-role step inside the AWS CLI wrapper
+- Use stored access key to generate short-lived session token
+- Pass session token + temporary key to subprocess via env vars
+- Auto-refresh before expiry on long-running commands
+- Fallback to direct key injection if STS call fails (offline/no IAM role)
+
+**Benefits**:
+- Matches aws-vault security model (temporary credentials)
+- Combined with existing Firejail isolation = best of both approaches
+- Long-lived keys never exposed to child processes
+- Leaked credentials expire automatically
+
+**Related Files**:
+- `components/credential-manager/nubifer-creds`
+- `components/_LEGACY_cli-wrappers/aws-wrapper.py`
+- `docs/specs/cli-wrapper-security.md`
+
+**Dependencies**:
+- Phase 1 complete (installer working)
+- CLI wrapper system functional
 
 ---
 

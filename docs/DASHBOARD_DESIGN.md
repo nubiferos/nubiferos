@@ -327,15 +327,75 @@ When user clicks through from "Most Risky Workspace":
 
 ## Future Enhancements
 
-### Phase 2 Features
-- **Tab-based UI refactor** - Convert single-page layout to tabbed interface:
-  - **Overview tab**: Security score, components, system status
-  - **Scans tab**: Vulnerability scan, compliance check, scan history, CVE browser
-  - **Audit tab**: Security logs, credential access history, file integrity changes
+### Phase 2 Features: Tab-Based UI Refactor
+
+**Current State**: Single scrollable page with all sections visible. Works well for current feature set.
+
+**Trigger for Refactor**: When adding the next major feature (detailed CVE browser, audit logs, or network security), convert to tabbed interface using `Gtk.Notebook`.
+
+#### Planned Tab Structure
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  NubiferOS Security Dashboard                    [_][□][×]  │
+├─────────────────────────────────────────────────────────────┤
+│  [ Overview ]  [ Scans ]  [ Audit ]                         │
+├─────────────────────────────────────────────────────────────┤
+│                                                             │
+│  (Tab content here)                                         │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**Tab 1: Overview** (current content minus scans section)
+- Security score with breakdown
+- NubiferOS components status
+- Workspaces & credentials summary
+- System security (LUKS, firewall, AppArmor, auto-updates)
+- CPU vulnerability mitigations
+
+**Tab 2: Scans**
+- Vulnerability scan results with expandable CVE list
+- Compliance/hardening check results
+- Scan history with timestamps
+- Run scan buttons and scheduling options
+
+**Tab 3: Audit** (future)
+- Security event logs
+- Credential access audit trail
+- File integrity monitoring (AIDE integration)
+- Network connection history
+
+#### Implementation Notes
+
+```python
+# Refactor approach - wrap existing content in Gtk.Notebook
+notebook = Gtk.Notebook()
+
+# Overview tab
+overview_page = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+# Move: score_section, components_card, workspace_card, 
+#       system_card, cpu_card to overview_page
+notebook.append_page(overview_page, Gtk.Label(label="Overview"))
+
+# Scans tab  
+scans_page = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+# Move: scans_card to scans_page
+# Add: CVE browser, scan history
+notebook.append_page(scans_page, Gtk.Label(label="Scans"))
+
+# Audit tab (future)
+audit_page = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+notebook.append_page(audit_page, Gtk.Label(label="Audit"))
+```
+
+### Phase 2 Features: Additional Capabilities
+- **Detailed CVE browser** - Expandable vulnerability list with filtering
+- **Network security view** - Open ports, active connections, firewall rules
+- **File integrity monitor** - AIDE integration for change detection
 - **Custom risk scoring** rules and weights
 - **Compliance framework** integration (CIS, NIST)
 - **Export capabilities** for external analysis
-- **Advanced filtering** and search functionality
 
 ### Phase 3 Features
 - **Multi-system dashboard** (manage multiple NubiferOS installations)
@@ -346,5 +406,5 @@ When user clicks through from "Most Risky Workspace":
 ---
 
 **Version**: 1.0 (Nimbus)  
-**Last Updated**: December 26, 2025  
+**Last Updated**: February 1, 2026  
 **Status**: Design Phase
