@@ -170,47 +170,34 @@ Add optional AI development tools during Calamares installation to support cloud
 
 ---
 
-### 🔵 LOW: STS Temporary Credentials for AWS Workspaces
-**Status**: PLANNED
-**Priority**: Phase 2 (after alpha stabilization)
+## Fixed Issues
+
+### ✅ STS Temporary Credentials for AWS Workspaces
+**Status**: COMPLETE
+**Fixed**: 2026-02-05
 **Discovered**: 2026-02-04
 
-**Current State**:
-- CLI wrappers inject long-lived AWS access keys into the subprocess environment
-- Keys are GPG-encrypted at rest (pass) and isolated per workspace (Firejail)
-- If a key leaks, it's valid until manually rotated
+**Implementation**:
+- STS token mode now enabled by default when adding AWS credentials
+- `nubifer-creds add -t aws` automatically enables STS token generation
+- Base credentials stay in pass, only temporary tokens are used by AWS CLI
+- Tokens cached with auto-refresh (5-minute buffer before expiry)
+- Token duration configurable (default: 1 hour, range: 15 min - 12 hours)
 
-**Desired State**:
-- CLI wrapper uses long-lived key to call `aws sts assume-role` automatically
-- Passes temporary credentials (1-hour expiry) to the subprocess instead
-- Long-lived key never leaves the wrapper process
-- Even if temporary token leaks, it expires quickly
-
-**Design**:
-- Add STS assume-role step inside the AWS CLI wrapper
-- Use stored access key to generate short-lived session token
-- Pass session token + temporary key to subprocess via env vars
-- Auto-refresh before expiry on long-running commands
-- Fallback to direct key injection if STS call fails (offline/no IAM role)
-
-**Benefits**:
-- Matches aws-vault security model (temporary credentials)
-- Combined with existing Firejail isolation = best of both approaches
-- Long-lived keys never exposed to child processes
-- Leaked credentials expire automatically
+**Commands**:
+- `nubifer-creds add -t aws -n profile` - Add creds with STS enabled (default)
+- `nubifer-creds add -t aws -n profile --no-sts` - Disable STS, use static creds
+- `nubifer-creds token status -t aws -n profile` - Check token status
+- `nubifer-creds token disable -t aws -n profile` - Disable STS mode
+- `nubifer-creds token refresh -t aws -n profile` - Force token refresh
 
 **Related Files**:
 - `components/credential-manager/nubifer-creds`
-- `components/_LEGACY_cli-wrappers/aws-wrapper.py`
-- `docs/specs/cli-wrapper-security.md`
-
-**Dependencies**:
-- Phase 1 complete (installer working)
-- CLI wrapper system functional
+- `components/credential-manager/nubifer-aws-credential-helper`
+- `components/credential-manager/src/token_cache.py`
+- `components/credential-manager/src/token_generators/aws.py`
 
 ---
-
-## Fixed Issues
 
 ### ✅ GRUB Installation Fails During Calamares Install
 **Status**: FIXED  

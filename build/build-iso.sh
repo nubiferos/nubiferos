@@ -439,11 +439,18 @@ DBUS_SVC_EOF
     log "INFO" "  ✓ GNOME desktop integration installed"
     log "INFO" "  ✓ Context Manager auto-start enabled"
     
-    # Install AWS credential helper
+    # Install AWS credential helper and STS token support
     log "INFO" "Installing AWS credential helper..."
     cp "${PROJECT_ROOT}/components/credential-manager/nubifer-aws-credential-helper" "${CHROOT_DIR}/usr/local/bin/"
     chmod +x "${CHROOT_DIR}/usr/local/bin/nubifer-aws-credential-helper"
-    log "INFO" "  ✓ AWS credential helper installed"
+
+    # Copy token cache and generator modules (needed for STS token mode)
+    mkdir -p "${CHROOT_DIR}/usr/local/lib/nubifer/credential-manager/src/token_generators"
+    cp "${PROJECT_ROOT}/components/credential-manager/src/token_cache.py" \
+       "${CHROOT_DIR}/usr/local/lib/nubifer/credential-manager/src/"
+    cp "${PROJECT_ROOT}/components/credential-manager/src/token_generators/"*.py \
+       "${CHROOT_DIR}/usr/local/lib/nubifer/credential-manager/src/token_generators/"
+    log "INFO" "  ✓ AWS credential helper installed (with STS token support)"
     
     # Copy shell integration
     mkdir -p "${CHROOT_DIR}/etc/nubifer"
