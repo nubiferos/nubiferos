@@ -604,15 +604,15 @@ def main():
     
     # Create command
     create_parser = subparsers.add_parser("create", help="Create a new workspace")
-    create_parser.add_argument("--name", required=True, help="Workspace name")
-    create_parser.add_argument("--provider", required=True, 
+    create_parser.add_argument("-n", "--name", required=True, help="Workspace name")
+    create_parser.add_argument("-p", "--provider", required=True,
                               choices=['aws', 'azure', 'gcp', 'oracle', 'multi'],
                               help="Cloud provider")
-    create_parser.add_argument("--account-id", required=True, help="Account ID")
+    create_parser.add_argument("-a", "--account-id", required=True, help="Account ID")
     create_parser.add_argument("--account-name", help="Account name (display)")
-    create_parser.add_argument("--region", required=True, help="Default region (e.g., us-east-1, eu-west-1)")
-    create_parser.add_argument("--credential-id", help="Credential ID from nubifer-creds")
-    create_parser.add_argument("--read-only", action="store_true", 
+    create_parser.add_argument("-r", "--region", required=True, help="Default region (e.g., us-east-1, eu-west-1)")
+    create_parser.add_argument("-c", "--credential-id", help="Credential ID from nubifer-creds")
+    create_parser.add_argument("--read-only", action="store_true",
                               help="Create in read-only mode")
     create_parser.add_argument("-y", "--yes", action="store_true",
                               help="Skip confirmation prompt")

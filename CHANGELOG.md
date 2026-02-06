@@ -8,6 +8,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **STS Token Mode for AWS credentials**: Automatically generates temporary STS session tokens instead of using long-lived access keys
+  - Enabled by default when adding AWS credentials via `nubifer-creds add -t aws`
+  - Base credentials never leave the credential helper process
+  - Tokens cached with auto-refresh (5-minute buffer before expiry)
+  - Token duration configurable (default: 1 hour, range: 15 min - 12 hours)
+  - Use `--no-sts` flag to disable and use static credentials instead
+  - New commands: `nubifer-creds token {enable|disable|status|clear|refresh}`
+- Brand logos (multiple color variants, icon sizes, dark/light/transparent modes)
+- Simplified security-scan workflow (gitleaks, shellcheck, credential pattern checks)
 - Security Dashboard: Real-time security status monitoring with score calculation
 - Tool Update Checker: Config-driven version checking for all cloud tools (`nubifer-check-updates`)
 - Installer package descriptions: Every package now shows what it does
@@ -21,6 +30,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Security scan GitHub Actions workflow for automated CVE detection
 
 ### Changed
+- Legacy D-Bus-based CLI wrappers moved to `components/_LEGACY_cli-wrappers/`
+- Credential system now uses `credential_process` approach (simpler, more secure than D-Bus)
 - AWS CLI pager disabled by default (prevents terminal corruption on Ctrl+C)
 - Region is now required when creating workspaces
 - AWS wrapper reads region from workspace environment config
@@ -29,6 +40,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Terminal prompt shows `[🔒 RO]` or `[🔓 RW]` with colored backgrounds
 
 ### Fixed
+- Build workflow: Clean staging directory before upload to prevent artifact accumulation
+- Build workflow: Fix ASC file selection when multiple signature files exist
 - AWS wrapper now correctly reads region from `environment.AWS_REGION`
 - Security Dashboard checks for UFW, AppArmor, Context Indicator improved
 - Shellcheck errors in CLI wrappers (SC2168, SC2145, SC2155, SC2064)

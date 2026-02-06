@@ -310,14 +310,22 @@ EOF
     mkdir -p "${CHROOT_DIR}/etc/firefox-esr/policies"
     
     # Convert bookmarks JSON to Firefox ManagedBookmarks policy format
-    CHROOT_DIR="${CHROOT_DIR}" python3 << 'PYTHON_SCRIPT'
+    CHROOT_DIR="${CHROOT_DIR}" python3 << 'PYTHON_SCRIPT' || log "ERROR" "Failed to create Firefox policy"
 import json
 import os
+import sys
 
 chroot_dir = os.environ.get('CHROOT_DIR', '')
+if not chroot_dir:
+    print("ERROR: CHROOT_DIR not set", file=sys.stderr)
+    sys.exit(1)
 
 # Read our bookmarks
 bookmarks_file = f"{chroot_dir}/usr/share/nubifer/browser/firefox-bookmarks.json"
+if not os.path.exists(bookmarks_file):
+    print(f"ERROR: Bookmarks file not found: {bookmarks_file}", file=sys.stderr)
+    sys.exit(1)
+
 with open(bookmarks_file) as f:
     bookmarks = json.load(f)
 
@@ -326,11 +334,13 @@ def convert_children(children):
     result = []
     for item in children:
         if 'children' in item:
+            # Subfolder
             result.append({
                 "name": item['title'],
                 "children": convert_children(item['children'])
             })
         elif 'url' in item:
+            # Bookmark
             result.append({
                 "name": item['title'],
                 "url": item['url']
@@ -338,12 +348,23 @@ def convert_children(children):
     return result
 
 # Build managed bookmarks array
-managed = []
+# Firefox format: first entry is toplevel_name, then bookmarks/folders
+managed = [
+    {"toplevel_name": "NubiferOS Cloud Bookmarks"}
+]
+
 for folder in bookmarks.get('children', []):
     if 'children' in folder:
+        # Add folder with its children
         managed.append({
-            "toplevel_name": folder['title'],
+            "name": folder['title'],
             "children": convert_children(folder['children'])
+        })
+    elif 'url' in folder:
+        # Top-level bookmark
+        managed.append({
+            "name": folder['title'],
+            "url": folder['url']
         })
 
 # Create Firefox policy
@@ -359,8 +380,19 @@ policy = {
             "Fingerprinting": True
         },
         "FirefoxHome": {
+            "Search": True,
+            "TopSites": False,
+            "SponsoredTopSites": False,
+            "Highlights": False,
             "Pocket": False,
-            "Snippets": False
+            "SponsoredPocket": False,
+            "Snippets": False,
+            "Locked": True
+        },
+        "Homepage": {
+            "URL": "https://nubiferos.github.io/website/docs/",
+            "Locked": False,
+            "StartPage": "homepage"
         },
         "ManagedBookmarks": managed,
         "NoDefaultBookmarks": False,
@@ -439,11 +471,18 @@ DBUS_SVC_EOF
     log "INFO" "  ✓ GNOME desktop integration installed"
     log "INFO" "  ✓ Context Manager auto-start enabled"
     
-    # Install AWS credential helper
+    # Install AWS credential helper and STS token support
     log "INFO" "Installing AWS credential helper..."
     cp "${PROJECT_ROOT}/components/credential-manager/nubifer-aws-credential-helper" "${CHROOT_DIR}/usr/local/bin/"
     chmod +x "${CHROOT_DIR}/usr/local/bin/nubifer-aws-credential-helper"
-    log "INFO" "  ✓ AWS credential helper installed"
+
+    # Copy token cache and generator modules (needed for STS token mode)
+    mkdir -p "${CHROOT_DIR}/usr/local/lib/nubifer/credential-manager/src/token_generators"
+    cp "${PROJECT_ROOT}/components/credential-manager/src/token_cache.py" \
+       "${CHROOT_DIR}/usr/local/lib/nubifer/credential-manager/src/"
+    cp "${PROJECT_ROOT}/components/credential-manager/src/token_generators/"*.py \
+       "${CHROOT_DIR}/usr/local/lib/nubifer/credential-manager/src/token_generators/"
+    log "INFO" "  ✓ AWS credential helper installed (with STS token support)"
     
     # Copy shell integration
     mkdir -p "${CHROOT_DIR}/etc/nubifer"
@@ -687,12 +726,12 @@ insmod gfxterm
 terminal_output gfxterm
 
 menuentry "${DISTRO_FULLNAME} ${DISTRO_VERSION} - Install" {
-    linux /boot/vmlinuz boot=live components quiet splash username=installer
+    linux /boot/vmlinuz boot=live components quiet splash username=installer noeject
     initrd /boot/initrd.img
 }
 
 menuentry "${DISTRO_FULLNAME} ${DISTRO_VERSION} - Install (Safe Mode)" {
-    linux /boot/vmlinuz boot=live components nomodeset username=installer
+    linux /boot/vmlinuz boot=live components nomodeset username=installer noeject
     initrd /boot/initrd.img
 }
 EOF

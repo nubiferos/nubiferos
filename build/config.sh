@@ -159,6 +159,8 @@ SECURITY_PACKAGES=(
     "cryptsetup-initramfs"
     "pass"
     "gnupg"
+    "python3-keyring"
+    "python3-secretstorage"
 )
 
 # Development and build tools

@@ -16,7 +16,13 @@ from typing import Dict, List, Optional
 from datetime import datetime
 
 # Add src directory to path for imports
-sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), 'src'))
+# Check installed location first, then development location
+installed_path = '/usr/local/lib/nubifer/credential-manager/src'
+dev_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'src')
+if os.path.isdir(installed_path):
+    sys.path.insert(0, installed_path)
+else:
+    sys.path.insert(0, dev_path)
 
 class PassBackend:
     """Backend using pass (password-store) with GPG encryption"""
@@ -160,18 +166,40 @@ class CredentialManager:
     def __init__(self, workspace: str = None):
         self.backend = PassBackend(workspace)
     
-    def add_aws_credentials(self, profile: str, access_key_id: str, secret_access_key: str):
+    def add_aws_credentials(self, profile: str, access_key_id: str, secret_access_key: str,
+                             enable_sts: bool = True, sts_duration: int = 3600):
         """Add AWS credentials (region is set on workspace, not credential)"""
         # Store each component separately in pass
         self.backend.add_credential(f"cloud/aws/{profile}/access-key-id", access_key_id)
         self.backend.add_credential(f"cloud/aws/{profile}/secret-access-key", secret_access_key)
-        
+
         print(f"✓ AWS credentials added: {profile}")
         print(f"  Workspace: {self.backend.workspace_name} ({self.backend.workspace})")
-        print(f"  Retrieve with: nubifer-creds get -t aws -n {profile}")
+
+        # Enable STS token mode by default for security
+        if enable_sts:
+            try:
+                # Import here to avoid issues if dependencies aren't installed
+                sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), 'src'))
+                from token_cache import TokenCache
+
+                cache = TokenCache()
+                if cache.enable_token_mode(self.backend.workspace, 'aws', profile, sts_duration):
+                    print(f"✓ STS token mode enabled (default)")
+                    print(f"  Token duration: {sts_duration} seconds ({sts_duration // 60} minutes)")
+                    print(f"  Base credentials stay protected - only temp tokens are used")
+                else:
+                    print(f"  STS token mode: failed to enable (will use static credentials)")
+            except ImportError:
+                print(f"  STS token mode: not available (missing dependencies)")
+                print(f"  Install with: pip install keyring cryptography boto3")
+        else:
+            print(f"  STS token mode: disabled (using static credentials)")
+
+        print()
+        print(f"  The AWS CLI will automatically use these credentials via credential_process.")
         print(f"  Region is set on the workspace, not the credential.")
-        print(f"  Update region: nubifer-workspace update <workspace-id> --region <region>")
-        print(f"  The AWS CLI wrapper will automatically use these credentials.")
+        print(f"  Manage tokens: nubifer-creds token status -t aws -n {profile}")
     
     def get_aws_credentials(self, profile: str) -> Optional[Dict]:
         """Get AWS credentials (region comes from workspace, not here)"""
@@ -284,6 +312,10 @@ def main():
     # AWS specific
     add_parser.add_argument("--access-key-id", help="AWS access key ID")
     add_parser.add_argument("--secret-access-key", help="AWS secret access key")
+    add_parser.add_argument("--no-sts", action="store_true",
+                           help="Disable STS token mode (use static credentials instead)")
+    add_parser.add_argument("--sts-duration", type=int, default=3600,
+                           help="STS token duration in seconds (default: 3600)")
     
     # Azure specific
     add_parser.add_argument("--tenant-id", help="Azure tenant ID")
@@ -388,8 +420,12 @@ def main():
                 args.access_key_id = input("AWS Access Key ID: ")
             if not args.secret_access_key:
                 args.secret_access_key = getpass.getpass("AWS Secret Access Key: ")
-            
-            manager.add_aws_credentials(args.name, args.access_key_id, args.secret_access_key)
+
+            enable_sts = not getattr(args, 'no_sts', False)
+            sts_duration = getattr(args, 'sts_duration', 3600)
+
+            manager.add_aws_credentials(args.name, args.access_key_id, args.secret_access_key,
+                                       enable_sts=enable_sts, sts_duration=sts_duration)
         
         elif args.type == "azure":
             if not args.tenant_id:

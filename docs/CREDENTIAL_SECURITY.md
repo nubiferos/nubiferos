@@ -81,9 +81,41 @@ nubifer-creds aws add-access-key \
 - Automatic rotation reminders
 - Audit logging of key usage
 
-#### AWS Temporary Credentials (Recommended for Development)
+#### AWS Temporary Credentials (Default - Enabled Automatically)
+
+NubiferOS uses STS temporary credentials by default for enhanced security:
+
 ```bash
-# Use STS to get temporary credentials
+# Add credentials - STS token mode enabled automatically
+nubifer-creds add -t aws -n production
+# Enter access key and secret when prompted
+# Output: "✓ STS token mode enabled (default)"
+
+# Check token status
+nubifer-creds token status -t aws -n production
+
+# Force token refresh
+nubifer-creds token refresh -t aws -n production
+
+# Disable STS mode (use static credentials instead)
+nubifer-creds add -t aws -n legacy-profile --no-sts
+```
+
+**How it works**:
+- Base credentials stored encrypted in pass (never leave the helper process)
+- AWS CLI calls `nubifer-aws-credential-helper` via `credential_process`
+- Helper generates STS session token using base credentials
+- Temporary token (1-hour default) returned to AWS CLI
+- Tokens cached and auto-refresh when within 5 minutes of expiry
+
+**Benefits**:
+- Base credentials never exposed to child processes
+- Leaked temporary tokens expire automatically
+- Combined with Firejail isolation for defense in depth
+
+#### Manual STS Operations
+```bash
+# Assume a specific role
 nubifer-creds aws assume-role \
   --role-arn arn:aws:iam::123456789012:role/DevRole \
   --session-name dev-session \

@@ -5,6 +5,21 @@ on:
     tags:
       - 'v*'
   workflow_dispatch:
+    inputs:
+      create_release:
+        description: 'Create a GitHub release after promoting to production'
+        required: false
+        default: false
+        type: boolean
+      release_type:
+        description: 'Version bump type (only if create_release is true)'
+        required: false
+        default: 'patch'
+        type: choice
+        options:
+          - patch   # 1.0.0 -> 1.0.1
+          - minor   # 1.0.x -> 1.1.0
+          - major   # 1.x.x -> 2.0.0
 
 permissions:
   id-token: write
@@ -389,8 +404,49 @@ jobs:
         ✅ This build is now live on the website!
         EOF
 
+    - name: Calculate release version
+      id: release_version
+      if: inputs.create_release == true || startsWith(github.ref, 'refs/tags/v')
+      run: |
+        if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+          # Tag-triggered: use the tag as version
+          RELEASE_TAG="${{ github.ref_name }}"
+          RELEASE_VERSION="${RELEASE_TAG#v}"
+        else
+          # Manual trigger with create_release: calculate next version
+          git fetch --tags
+          LATEST_TAG=$(git tag -l 'v*' --sort=-v:refname | head -1)
+
+          if [ -z "$LATEST_TAG" ]; then
+            RELEASE_VERSION="1.0.0"
+          else
+            CURRENT="${LATEST_TAG#v}"
+            IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT"
+            PATCH=${PATCH:-0}
+
+            case "${{ inputs.release_type }}" in
+              major) MAJOR=$((MAJOR + 1)); MINOR=0; PATCH=0 ;;
+              minor) MINOR=$((MINOR + 1)); PATCH=0 ;;
+              patch) PATCH=$((PATCH + 1)) ;;
+            esac
+
+            RELEASE_VERSION="${MAJOR}.${MINOR}.${PATCH}"
+          fi
+          RELEASE_TAG="v${RELEASE_VERSION}"
+
+          # Create and push the tag
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag -a "$RELEASE_TAG" "${{ needs.build-iso.outputs.commit_sha }}" -m "Release $RELEASE_TAG"
+          git push origin "$RELEASE_TAG"
+        fi
+
+        echo "release_tag=$RELEASE_TAG" >> $GITHUB_OUTPUT
+        echo "release_version=$RELEASE_VERSION" >> $GITHUB_OUTPUT
+        echo "Created release: $RELEASE_TAG ($RELEASE_VERSION)"
+
     - name: Download ISO from S3 for release
-      if: startsWith(github.ref, 'refs/tags/v')
+      if: inputs.create_release == true || startsWith(github.ref, 'refs/tags/v')
       run: |
         VERSION="${{ needs.build-iso.outputs.version }}"
         mkdir -p release-assets
@@ -403,50 +459,51 @@ jobs:
         ls -la release-assets/
 
     - name: Create GitHub Release
-      if: startsWith(github.ref, 'refs/tags/v')
+      if: inputs.create_release == true || startsWith(github.ref, 'refs/tags/v')
       uses: softprops/action-gh-release@v1
       with:
-        name: "NubiferOS ${{ needs.build-iso.outputs.version }}"
+        tag_name: ${{ steps.release_version.outputs.release_tag }}
+        name: "NubiferOS ${{ steps.release_version.outputs.release_version }}"
         body: |
-          ## NubiferOS ${{ needs.build-iso.outputs.version }}
-          
+          ## NubiferOS ${{ steps.release_version.outputs.release_version }}
+
           A security-focused Linux distribution for cloud engineers.
-          
+
           ### Download
-          
+
           Download the ISO and verify the checksum:
-          
+
           ```bash
           # Download
-          wget https://github.com/nubiferos/nubiferos/releases/download/${{ github.ref_name }}/nubiferos-*.iso
-          
+          wget https://github.com/nubiferos/nubiferos/releases/download/${{ steps.release_version.outputs.release_tag }}/$(ls release-assets/*.iso | head -1 | xargs basename)
+
           # Verify checksum
           sha256sum -c SHA256SUMS
           ```
-          
+
           ### Verify Signature (optional)
-          
+
           ```bash
           # Import signing key
           gpg --import nubiferos-signing-key.pub
-          
+
           # Verify signature
           gpg --verify *.iso.asc *.iso
           ```
-          
+
           ### What's Included
-          
+
           - Pre-configured cloud CLI tools (AWS, Azure, GCP)
           - Workspace isolation with Firejail
           - Credential management via pass
           - Security hardening out of the box
-          
+
           ### Checksums
-          
+
           See `SHA256SUMS` file attached to this release.
-          
+
           ---
-          
+
           **Commit:** ${{ needs.build-iso.outputs.commit_sha }}
           **Build:** [#${{ github.run_number }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
         files: |
@@ -455,11 +512,12 @@ jobs:
           release-assets/*.iso.asc
           release-assets/nubiferos-signing-key.pub
         draft: false
-        prerelease: ${{ contains(needs.build-iso.outputs.version, 'alpha') || contains(needs.build-iso.outputs.version, 'beta') }}
+        prerelease: false
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
     - name: Trigger website rebuild
+      if: inputs.create_release == true || startsWith(github.ref, 'refs/tags/v')
       env:
         WEBSITE_TOKEN: ${{ secrets.WEBSITE_DISPATCH_TOKEN }}
       run: |
@@ -470,11 +528,11 @@ jobs:
           -d '{"event_type": "new-release"}'
 
   # ============================================
-  # OPTIONAL: Trigger AMI creation on release tags
+  # OPTIONAL: Trigger AMI creation on releases
   # ============================================
   trigger-ami-build:
     needs: promote-to-production
-    if: startsWith(github.ref, 'refs/tags/v')
+    if: inputs.create_release == true || startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     
     steps:
