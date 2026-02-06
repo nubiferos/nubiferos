@@ -312,7 +312,11 @@ jobs:
         echo "From: s3://${{ env.ISO_BUCKET }}/staging/$VERSION/"
         echo "To:   s3://${{ env.ISO_BUCKET }}/prod/$VERSION/"
         echo ""
-        
+
+        # Clean old artifacts from prod version directory (prevent accumulation)
+        echo "Cleaning old artifacts from prod/$VERSION/..."
+        aws s3 rm s3://${{ env.ISO_BUCKET }}/prod/$VERSION/ --recursive
+
         # Copy version directory from staging to prod
         aws s3 sync \
           s3://${{ env.ISO_BUCKET }}/staging/$VERSION/ \
