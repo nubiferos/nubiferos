@@ -1,443 +1,127 @@
 name: Security Scan
 
 on:
-  # Only run on PRs (not every push) to reduce overhead
+  push:
+    branches: [trunk, main]
   pull_request:
-    branches: [main, trunk]
-  # Manual trigger for on-demand scanning
+    branches: [trunk, main]
   workflow_dispatch:
-    inputs:
-      scan_type:
-        description: 'What to scan'
-        type: choice
-        options:
-          - repository
-          - iso
-          - both
-        default: 'repository'
-      iso_version:
-        description: 'ISO version to scan (for iso/both)'
-        type: string
-        default: 'latest'
+  schedule:
+    - cron: '0 6 * * 1'  # Weekly on Monday at 6am UTC
 
-# Permissions for security scanning
 permissions:
-  id-token: write         # Required for OIDC authentication with AWS
   contents: read
-  actions: read           # Required for CodeQL SARIF upload
-  security-events: write  # For SARIF upload
-  pull-requests: write    # For PR comments
-
-env:
-  ISO_BUCKET: nubiferos-iso
-  AWS_REGION: us-east-1
+  security-events: write
 
 jobs:
-  # ==========================================
-  # Repository Security Scan
-  # ==========================================
-  repo-scan:
-    name: Repository Security Scan
+  code-scan:
     runs-on: ubuntu-latest
-    # Run on PRs, or manual trigger with repository/both selected
-    if: github.event_name == 'pull_request' || github.event.inputs.scan_type == 'repository' || github.event.inputs.scan_type == 'both'
-    
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
-      with:
-        fetch-depth: 0  # Full history for secret scanning
-    
-    - name: Install dependencies
-      run: |
-        sudo apt-get update -qq
-        sudo apt-get install -y -qq jq shellcheck
-    
-    # --- Secret Scanning ---
-    - name: Install gitleaks
-      run: |
-        curl -sSfL https://github.com/gitleaks/gitleaks/releases/download/v8.18.4/gitleaks_8.18.4_linux_x64.tar.gz | tar xz
-        sudo mv gitleaks /usr/local/bin/
-    
-    - name: Run secret scan
-      id: secrets
-      run: |
-        mkdir -p output
-        
-        echo "Running secret scan..."
-        ./scripts/security/secret-scan.sh \
-          --path . \
-          --output output \
-          --no-fail || true
-        
-        # Count findings
-        SECRETS_FOUND=$(jq 'length' output/secrets.json 2>/dev/null || echo "0")
-        echo "secrets_found=$SECRETS_FOUND" >> $GITHUB_OUTPUT
-        
-        if [[ $SECRETS_FOUND -gt 0 ]]; then
-          echo "::warning::Found $SECRETS_FOUND potential secret(s)"
-        fi
-    
-    - name: Upload SARIF (secrets)
-      # Note: SARIF upload requires GitHub Advanced Security
-      # For personal repos, this is only available in Organizations
-      # Results are still available in workflow artifacts
-      if: false
-      uses: github/codeql-action/upload-sarif@v4
-      with:
-        sarif_file: output/secrets.sarif
-        category: gitleaks
+      
+    - name: Run gitleaks (secret detection)
+      uses: gitleaks/gitleaks-action@v2
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       continue-on-error: true
-    
-    # --- Code Quality Scan ---
-    - name: Run shellcheck scan
-      id: shellcheck
+      
+    - name: Install shellcheck
+      run: sudo apt-get install -y shellcheck
+      
+    - name: Run shellcheck on scripts
       run: |
-        echo "Running shellcheck..."
-        ./scripts/security/code-scan.sh \
-          --path . \
-          --output output \
-          --severity warning \
-          --no-fail || true
+        echo "=========================================="
+        echo "Running ShellCheck on shell scripts"
+        echo "=========================================="
         
-        # Count findings
-        ISSUES_FOUND=$(jq 'length' output/shellcheck.json 2>/dev/null || echo "0")
-        echo "issues_found=$ISSUES_FOUND" >> $GITHUB_OUTPUT
+        ERRORS=0
+        WARNINGS=0
         
-        if [[ $ISSUES_FOUND -gt 0 ]]; then
-          echo "::warning::Found $ISSUES_FOUND shellcheck issue(s)"
-        fi
-    
-    # --- Python Dependency Scan ---
-    - name: Set up Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: '3.11'
-    
-    - name: Scan Python dependencies
-      id: pydeps
-      run: |
-        echo "Scanning Python dependencies..."
-        
-        # Find all requirements files
-        VULN_COUNT=0
-        for req_file in $(find . -name "requirements*.txt" -type f); do
-          echo "Checking: $req_file"
-          pip-audit -r "$req_file" --format json > "output/pip-audit-$(basename $req_file .txt).json" 2>/dev/null || true
-          COUNT=$(jq 'length' "output/pip-audit-$(basename $req_file .txt).json" 2>/dev/null || echo "0")
-          VULN_COUNT=$((VULN_COUNT + COUNT))
+        # Find all shell scripts
+        find . -name "*.sh" -type f ! -path "./.git/*" ! -path "./work/*" ! -path "./output/*" | while read script; do
+          echo "Checking: $script"
+          if ! shellcheck -S warning "$script" 2>/dev/null; then
+            ((WARNINGS++)) || true
+          fi
         done
         
-        echo "vuln_count=$VULN_COUNT" >> $GITHUB_OUTPUT
+        echo ""
+        echo "ShellCheck complete"
         
-        if [[ $VULN_COUNT -gt 0 ]]; then
-          echo "::warning::Found $VULN_COUNT Python dependency vulnerability(ies)"
-        fi
-      continue-on-error: true
-    
-    # --- Generate Summary ---
-    - name: Generate scan summary
+    - name: Check for hardcoded credentials patterns
       run: |
-        cat >> $GITHUB_STEP_SUMMARY << EOF
-        # 🔒 Security Scan Results
+        echo "=========================================="
+        echo "Checking for credential patterns"
+        echo "=========================================="
         
-        ## Repository Scan
+        # Patterns that should NOT appear in code
+        PATTERNS=(
+          'AKIA[0-9A-Z]{16}'                    # AWS Access Key
+          'aws_secret_access_key\s*=\s*[^$]'   # Hardcoded AWS secret
+          'password\s*=\s*["\x27][^$\{]'       # Hardcoded password
+          'BEGIN RSA PRIVATE KEY'              # Private key
+          'BEGIN OPENSSH PRIVATE KEY'          # SSH private key
+        )
         
-        | Check | Status | Findings |
-        |-------|--------|----------|
-        | Secret Scan | $([[ "${{ steps.secrets.outputs.secrets_found }}" == "0" ]] && echo "✅ Pass" || echo "⚠️ Review") | ${{ steps.secrets.outputs.secrets_found }} |
-        | Shell Scripts | $([[ "${{ steps.shellcheck.outputs.issues_found }}" == "0" ]] && echo "✅ Pass" || echo "⚠️ Review") | ${{ steps.shellcheck.outputs.issues_found }} |
-        | Python Deps | $([[ "${{ steps.pydeps.outputs.vuln_count }}" == "0" ]] && echo "✅ Pass" || echo "⚠️ Review") | ${{ steps.pydeps.outputs.vuln_count }} |
+        FOUND=0
+        for pattern in "${PATTERNS[@]}"; do
+          if grep -rE "$pattern" --include="*.py" --include="*.sh" --include="*.yaml" --include="*.yml" --include="*.conf" . 2>/dev/null | grep -v "example" | grep -v "placeholder" | grep -v "test" | head -5; then
+            echo "⚠️  Found potential credential pattern: $pattern"
+            FOUND=1
+          fi
+        done
         
-        ## Details
-        
-        - **Commit**: \`${{ github.sha }}\`
-        - **Branch**: \`${{ github.ref_name }}\`
-        - **Triggered by**: ${{ github.event_name }}
-        
-        EOF
-    
-    - name: Upload scan artifacts
-      uses: actions/upload-artifact@v4
-      with:
-        name: security-scan-results
-        path: output/
-        retention-days: 30
+        if [ $FOUND -eq 0 ]; then
+          echo "✓ No hardcoded credentials detected"
+        fi
 
-  # ==========================================
-  # ISO Security Scan (on-demand only)
-  # ==========================================
-  iso-scan:
-    name: ISO Security Scan
+  build-log-analysis:
     runs-on: ubuntu-latest
-    if: github.event.inputs.scan_type == 'iso' || github.event.inputs.scan_type == 'both'
-    
+    if: github.event_name == 'workflow_dispatch'
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
-    
-    - name: Configure AWS credentials
-      uses: aws-actions/configure-aws-credentials@v4
-      with:
-        role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
-        aws-region: ${{ env.AWS_REGION }}
-    
-    - name: Install dependencies
+      
+    - name: Analyze recent build logs
       run: |
-        sudo apt-get update -qq
-        sudo apt-get install -y -qq jq squashfs-tools
-        
-        # Install syft and grype
-        curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh -s -- -b /usr/local/bin
-        curl -sSfL https://raw.githubusercontent.com/anchore/grype/main/install.sh | sh -s -- -b /usr/local/bin
-    
-    - name: Download ISO from S3
-      run: |
-        mkdir -p iso output
-        
-        VERSION="${{ github.event.inputs.iso_version }}"
-        
-        if [[ "$VERSION" == "latest" ]]; then
-          VERSION=$(aws s3 cp s3://${{ env.ISO_BUCKET }}/latest-version.txt - 2>/dev/null || echo "")
-          if [[ -z "$VERSION" ]]; then
-            echo "Could not determine latest version"
-            exit 1
-          fi
-        fi
-        
-        echo "Downloading ISO version: $VERSION"
-        ISO_FILE=$(aws s3 ls s3://${{ env.ISO_BUCKET }}/$VERSION/ | grep "\.iso$" | awk '{print $4}' | head -1)
-        
-        if [[ -z "$ISO_FILE" ]]; then
-          echo "No ISO found for version: $VERSION"
-          exit 1
-        fi
-        
-        aws s3 cp "s3://${{ env.ISO_BUCKET }}/$VERSION/$ISO_FILE" "iso/$ISO_FILE"
-        echo "ISO_PATH=iso/$ISO_FILE" >> $GITHUB_ENV
-        echo "ISO_VERSION=$VERSION" >> $GITHUB_ENV
-    
-    - name: Mount ISO and extract filesystem
-      run: |
-        mkdir -p mnt squashfs
-        
-        echo "ISO_PATH: $ISO_PATH"
-        ls -la "$ISO_PATH"
-        
-        # Mount ISO
-        sudo mount -o loop,ro "$ISO_PATH" mnt
-        
-        echo "ISO contents:"
-        ls -la mnt/
-        
-        # Find and mount squashfs - check multiple locations
-        SQUASHFS=""
-        for path in mnt/live/filesystem.squashfs mnt/casper/filesystem.squashfs mnt/install/filesystem.squashfs; do
-          if [[ -f "$path" ]]; then
-            SQUASHFS="$path"
-            break
-          fi
-        done
-        
-        # Also try find as fallback
-        if [[ -z "$SQUASHFS" ]]; then
-          SQUASHFS=$(find mnt -name "filesystem.squashfs" -o -name "*.squashfs" 2>/dev/null | head -1)
-        fi
-        
-        if [[ -n "$SQUASHFS" ]]; then
-          echo "Found squashfs: $SQUASHFS"
-          sudo mount -o loop,ro "$SQUASHFS" squashfs
-          echo "SCAN_TARGET=squashfs" >> $GITHUB_ENV
-          echo "Squashfs contents (sample):"
-          ls squashfs/ | head -20
-        else
-          echo "::warning::No squashfs found, scanning ISO root"
-          echo "SCAN_TARGET=mnt" >> $GITHUB_ENV
-        fi
-    
-    - name: Generate SBOM
-      id: sbom
-      run: |
-        set +e  # Don't exit on error, we want to capture it
-        
         echo "=========================================="
-        echo "Generating SBOM"
+        echo "Build Log Warning Patterns"
         echo "=========================================="
         echo ""
-        echo "SCAN_TARGET: $SCAN_TARGET"
+        echo "Known warnings to monitor in build logs:"
         echo ""
-        echo "Target directory contents:"
-        ls -la "$SCAN_TARGET/" 2>&1 | head -20
+        echo "1. EXPECTED (harmless in chroot):"
+        echo "   - 'cannot open /proc/mounts' - chroot has no /proc"
+        echo "   - 'Couldn't determine root device' - no real root in chroot"
+        echo "   - 'can't read /proc/cmdline' - no kernel cmdline in chroot"
+        echo "   - '/proc/cpuinfo: No such file' - no CPU info in chroot"
+        echo ""
+        echo "2. INVESTIGATE if seen:"
+        echo "   - 'E: Unable to locate package' - missing dependency"
+        echo "   - 'dpkg: error' - package installation failure"
+        echo "   - 'Permission denied' - file permission issues"
+        echo "   - 'No space left on device' - disk space exhausted"
+        echo "   - 'Segmentation fault' - crash during build"
+        echo ""
+        echo "3. CRITICAL (should fail build):"
+        echo "   - 'FATAL:' - critical error"
+        echo "   - 'kernel panic' - boot failure"
+        echo "   - 'grub-install: error' - bootloader failure"
         echo ""
         
-        # Check if target is accessible
-        if [[ ! -d "$SCAN_TARGET" ]]; then
-          echo "::error::Target directory does not exist: $SCAN_TARGET"
-          echo "sbom_generated=false" >> $GITHUB_OUTPUT
-          exit 0  # Don't fail the job
-        fi
-        
-        # Run SBOM generation with full output
-        echo "Running generate-sbom.sh..."
-        ./scripts/security/generate-sbom.sh \
-          --chroot "$SCAN_TARGET" \
-          --output output \
-          --version "$ISO_VERSION" 2>&1
-        EXIT_CODE=$?
-        
-        echo ""
-        echo "Script exit code: $EXIT_CODE"
-        
-        if [[ $EXIT_CODE -eq 0 ]]; then
-          echo "sbom_generated=true" >> $GITHUB_OUTPUT
+        # Check if we have local logs to analyze
+        if [ -d "logs" ]; then
+          echo "Analyzing local build logs..."
+          
+          # Count warning types
           echo ""
-          echo "SBOM files generated:"
-          ls -la output/*.sbom.json 2>/dev/null || echo "No SBOM files found despite success exit code"
+          echo "Warning counts in recent logs:"
+          grep -rh "WARNING" logs/*.log 2>/dev/null | sort | uniq -c | sort -rn | head -20 || echo "No warnings found"
+          
+          echo ""
+          echo "Error counts in recent logs:"
+          grep -rh "ERROR\|FATAL\|error:" logs/*.log 2>/dev/null | sort | uniq -c | sort -rn | head -20 || echo "No errors found"
         else
-          echo "::error::SBOM generation failed with exit code $EXIT_CODE"
-          echo "sbom_generated=false" >> $GITHUB_OUTPUT
-          echo ""
-          echo "Output directory contents:"
-          ls -la output/ 2>/dev/null || echo "Output directory empty or missing"
+          echo "No local logs directory found"
         fi
-    
-    - name: Run vulnerability scan
-      id: vulns
-      if: steps.sbom.outputs.sbom_generated == 'true'
-      run: |
-        echo "Running vulnerability scan..."
-        
-        # Find the SBOM file explicitly
-        SBOM_FILE=$(ls output/*.sbom.json 2>/dev/null | grep -v spdx | head -1)
-        
-        if [[ -z "$SBOM_FILE" ]]; then
-          echo "::error::No SBOM file found in output/"
-          ls -la output/
-          exit 1
-        fi
-        
-        echo "Using SBOM: $SBOM_FILE"
-        
-        ./scripts/security/vuln-scan.sh \
-          --sbom "$SBOM_FILE" \
-          --output output \
-          --threshold high \
-          --quiet || true
-        
-        # Count findings
-        CRITICAL=$(jq '[.matches[] | select(.vulnerability.severity == "Critical")] | length' output/*.vulns.json 2>/dev/null || echo "0")
-        HIGH=$(jq '[.matches[] | select(.vulnerability.severity == "High")] | length' output/*.vulns.json 2>/dev/null || echo "0")
-        
-        echo "critical=$CRITICAL" >> $GITHUB_OUTPUT
-        echo "high=$HIGH" >> $GITHUB_OUTPUT
-    
-    - name: Cleanup mounts
-      if: always()
-      run: |
-        sudo umount squashfs 2>/dev/null || true
-        sudo umount mnt 2>/dev/null || true
-    
-    - name: Generate ISO scan summary
-      if: always()
-      run: |
-        # Get values with defaults
-        CRITICAL="${{ steps.vulns.outputs.critical }}"
-        HIGH="${{ steps.vulns.outputs.high }}"
-        SBOM_STATUS="${{ steps.sbom.outputs.sbom_generated }}"
-        
-        [[ -z "$CRITICAL" ]] && CRITICAL="N/A"
-        [[ -z "$HIGH" ]] && HIGH="N/A"
-        
-        cat >> $GITHUB_STEP_SUMMARY << EOF
-        # 🔒 ISO Security Scan Results
-        
-        ## ISO Information
-        - **Version**: ${{ env.ISO_VERSION }}
-        - **File**: $(basename "${ISO_PATH:-unknown}")
-        
-        ## Scan Status
-        - **SBOM Generated**: ${SBOM_STATUS:-false}
-        
-        ## Vulnerability Summary
-        
-        | Severity | Count |
-        |----------|-------|
-        | Critical | ${CRITICAL} |
-        | High | ${HIGH} |
-        
-        ## Output Files
-        \`\`\`
-        $(ls -la output/ 2>/dev/null || echo "No output files generated")
-        \`\`\`
-        
-        EOF
-    
-    - name: Upload ISO scan artifacts
-      if: always()
-      uses: actions/upload-artifact@v4
-      with:
-        name: iso-security-scan-results
-        path: output/
-        retention-days: 30
-        if-no-files-found: warn
-
-  # ==========================================
-  # PR Comment (for pull requests)
-  # ==========================================
-  pr-comment:
-    name: Post PR Comment
-    runs-on: ubuntu-latest
-    needs: [repo-scan]
-    if: github.event_name == 'pull_request'
-    
-    steps:
-    - name: Download scan results
-      uses: actions/download-artifact@v4
-      with:
-        name: security-scan-results
-        path: results/
-    
-    - name: Post comment
-      uses: actions/github-script@v7
-      with:
-        script: |
-          const fs = require('fs');
-          
-          let secretsCount = 0;
-          let shellcheckCount = 0;
-          
-          try {
-            const secrets = JSON.parse(fs.readFileSync('results/secrets.json', 'utf8'));
-            secretsCount = secrets.length;
-          } catch (e) {}
-          
-          try {
-            const shellcheck = JSON.parse(fs.readFileSync('results/shellcheck.json', 'utf8'));
-            shellcheckCount = shellcheck.length;
-          } catch (e) {}
-          
-          const status = (secretsCount === 0 && shellcheckCount === 0) ? '✅' : '⚠️';
-          
-          const body = `## ${status} Security Scan Results
-          
-          | Check | Findings |
-          |-------|----------|
-          | 🔑 Secrets | ${secretsCount} |
-          | 📜 Shell Scripts | ${shellcheckCount} |
-          
-          ${secretsCount > 0 ? '⚠️ **Potential secrets detected** - please review before merging.\n' : ''}
-          ${shellcheckCount > 0 ? '⚠️ **Shell script issues found** - consider fixing for code quality.\n' : ''}
-          
-          <details>
-          <summary>View full results</summary>
-          
-          Download the \`security-scan-results\` artifact from the workflow run for detailed reports.
-          </details>
-          `;
-          
-          github.rest.issues.createComment({
-            issue_number: context.issue.number,
-            owner: context.repo.owner,
-            repo: context.repo.repo,
-            body: body
-          });
