@@ -199,6 +199,9 @@ jobs:
         echo "Destination: s3://${{ env.ISO_BUCKET }}/staging/${{ env.VERSION }}/"
         echo ""
         
+        # Clean old artifacts from staging version directory
+        aws s3 rm s3://${{ env.ISO_BUCKET }}/staging/${{ env.VERSION }}/ --recursive
+
         # Upload ISO to staging/version/
         aws s3 cp output/*.iso s3://${{ env.ISO_BUCKET }}/staging/${{ env.VERSION }}/ \
           --storage-class INTELLIGENT_TIERING \
@@ -313,7 +316,7 @@ jobs:
         
         # Copy signature if exists
         if aws s3 ls "s3://${{ env.ISO_BUCKET }}/prod/$VERSION/" | grep -q '\.iso\.asc'; then
-          ASC_FILE=$(aws s3 ls s3://${{ env.ISO_BUCKET }}/prod/$VERSION/ | grep '\.iso\.asc' | awk '{print $4}')
+          ASC_FILE=$(aws s3 ls s3://${{ env.ISO_BUCKET }}/prod/$VERSION/ | grep '\.iso\.asc' | awk '{print $4}' | head -1)
           aws s3 cp \
             s3://${{ env.ISO_BUCKET }}/prod/$VERSION/$ASC_FILE \
             s3://${{ env.ISO_BUCKET }}/prod/nubiferos-latest.iso.asc
