@@ -46,8 +46,8 @@ slideshowAPI:           2
 stylesheet:             "stylesheet.qss"
 
 # PHASE 5: Window settings
-windowExpanding:        normal
-windowPlacement:        free
+windowExpanding:        fullscreen
+windowPlacement:        center
 windowSize:             800px,520px
 
 # PHASE 6: Panel settings
