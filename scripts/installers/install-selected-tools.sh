@@ -166,7 +166,7 @@ install_if_selected "newman" "install-newman.sh" "false"
 # ============================================
 log ""
 log "--- AI Assistant ---"
-install_if_selected "nubiferai" "install-nubiferai.sh" "false"
+install_if_selected "nubiferai" "install-nubiferai.sh" "true"
 
 log ""
 log "=========================================="

@@ -8,6 +8,20 @@
 #   🔒 = Required (cannot be deselected)
 
 # ============================================
+# AI ASSISTANT (Optional)
+# ============================================
+- name: "🤖 NubiferAI - AI Cloud Assistant"
+  description: "AI-powered cloud resource management with natural language queries"
+  selected: false
+  critical: false
+  expanded: true
+  subgroups:
+    - name: "🌐 NubiferAI"
+      description: "Natural language queries across AWS, Azure, and GCP. Privacy-first with local LLM support via Ollama. Workspace-scoped access, fully auditable."
+      selected: false
+      packages: []
+
+# ============================================
 # SECURITY & HARDENING (Required)
 # ============================================
 - name: "🔒 Security & Hardening (Required)"
