@@ -161,6 +161,13 @@ log "--- Testing Tools ---"
 install_if_selected "k6" "install-k6.sh" "false"
 install_if_selected "newman" "install-newman.sh" "false"
 
+# ============================================
+# AI ASSISTANT
+# ============================================
+log ""
+log "--- AI Assistant ---"
+install_if_selected "nubiferai" "install-nubiferai.sh" "false"
+
 log ""
 log "=========================================="
 log "External tool installation complete!"

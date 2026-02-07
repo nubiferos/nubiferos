@@ -841,7 +841,169 @@ Presentation
         }
     }
 
-    // SLIDE 16 - ALMOST DONE
+    // SLIDE 16 - NUBIFERAI: INTRODUCTION
+    Slide {
+        anchors.fill: parent
+
+        Rectangle {
+            anchors.fill: parent
+            color: "#2c3e50"
+
+            Column {
+                anchors.centerIn: parent
+                spacing: 20
+                width: parent.width * 0.85
+
+                Text {
+                    text: "NubiferAI: Ask your infrastructure questions in plain English."
+                    font.pixelSize: 26
+                    font.bold: true
+                    color: "#3498db"
+                    width: parent.width
+                    wrapMode: Text.WordWrap
+                    horizontalAlignment: Text.AlignHCenter
+                }
+
+                Text {
+                    text: "NubiferAI connects to LLM providers (Amazon Q, OpenAI, Anthropic, Ollama) and queries cloud APIs on your behalf. Supports AWS, Azure, and GCP from a single interface."
+                    font.pixelSize: 16
+                    color: "#ecf0f1"
+                    width: parent.width
+                    wrapMode: Text.WordWrap
+                    horizontalAlignment: Text.AlignHCenter
+                }
+
+                Text {
+                    text: "What's that really mean?:"
+                    font.pixelSize: 15
+                    font.italic: true
+                    color: "#f39c12"
+                    width: parent.width
+                    wrapMode: Text.WordWrap
+                    horizontalAlignment: Text.AlignHCenter
+                }
+
+                Text {
+                    text: "Type \"show me all EC2 instances in us-east-1\" or \"find unused S3 buckets\" instead of memorizing CLI flags. One AI assistant across all your clouds."
+                    font.pixelSize: 15
+                    color: "#bdc3c7"
+                    width: parent.width
+                    wrapMode: Text.WordWrap
+                    horizontalAlignment: Text.AlignHCenter
+                }
+            }
+        }
+    }
+
+    // SLIDE 17 - NUBIFERAI: PRIVACY-FIRST
+    Slide {
+        anchors.fill: parent
+
+        Rectangle {
+            anchors.fill: parent
+            color: "#2c3e50"
+
+            Column {
+                anchors.centerIn: parent
+                spacing: 20
+                width: parent.width * 0.85
+
+                Text {
+                    text: "NubiferAI runs locally. Your data never has to leave your machine."
+                    font.pixelSize: 26
+                    font.bold: true
+                    color: "#9b59b6"
+                    width: parent.width
+                    wrapMode: Text.WordWrap
+                    horizontalAlignment: Text.AlignHCenter
+                }
+
+                Text {
+                    text: "Local LLM support via Ollama (Llama, Mistral, etc). Credentials are filtered before any AI query. Workspace-scoped access — AI only sees workspaces you explicitly permit."
+                    font.pixelSize: 16
+                    color: "#ecf0f1"
+                    width: parent.width
+                    wrapMode: Text.WordWrap
+                    horizontalAlignment: Text.AlignHCenter
+                }
+
+                Text {
+                    text: "What's that really mean?:"
+                    font.pixelSize: 15
+                    font.italic: true
+                    color: "#f39c12"
+                    width: parent.width
+                    wrapMode: Text.WordWrap
+                    horizontalAlignment: Text.AlignHCenter
+                }
+
+                Text {
+                    text: "Run AI models on your own hardware — zero cloud dependency. Even if you use a cloud AI provider, your secrets and keys are stripped out before anything is sent."
+                    font.pixelSize: 15
+                    color: "#bdc3c7"
+                    width: parent.width
+                    wrapMode: Text.WordWrap
+                    horizontalAlignment: Text.AlignHCenter
+                }
+            }
+        }
+    }
+
+    // SLIDE 18 - NUBIFERAI: YOU'RE IN CONTROL
+    Slide {
+        anchors.fill: parent
+
+        Rectangle {
+            anchors.fill: parent
+            color: "#2c3e50"
+
+            Column {
+                anchors.centerIn: parent
+                spacing: 20
+                width: parent.width * 0.85
+
+                Text {
+                    text: "NubiferAI is off by default. You decide when, where, and how it runs."
+                    font.pixelSize: 26
+                    font.bold: true
+                    color: "#16a085"
+                    width: parent.width
+                    wrapMode: Text.WordWrap
+                    horizontalAlignment: Text.AlignHCenter
+                }
+
+                Text {
+                    text: "Choose your provider. Restrict AI to specific workspaces. Every query and response is logged for full auditability. Disable it anytime."
+                    font.pixelSize: 16
+                    color: "#ecf0f1"
+                    width: parent.width
+                    wrapMode: Text.WordWrap
+                    horizontalAlignment: Text.AlignHCenter
+                }
+
+                Text {
+                    text: "What's that really mean?:"
+                    font.pixelSize: 15
+                    font.italic: true
+                    color: "#f39c12"
+                    width: parent.width
+                    wrapMode: Text.WordWrap
+                    horizontalAlignment: Text.AlignHCenter
+                }
+
+                Text {
+                    text: "Full audit log so you can review exactly what AI accessed. Enable it per-workspace or not at all — you're always in the driver's seat."
+                    font.pixelSize: 15
+                    color: "#bdc3c7"
+                    width: parent.width
+                    wrapMode: Text.WordWrap
+                    horizontalAlignment: Text.AlignHCenter
+                }
+            }
+        }
+    }
+
+    // SLIDE 19 - ALMOST DONE
     Slide {
         anchors.fill: parent
 

@@ -4,19 +4,20 @@ This document describes the custom slideshow implementation for the NubiferOS in
 
 ## Overview
 
-The slideshow displays 15 informational slides during the installation process, educating users about NubiferOS features while the system is being installed.
+The slideshow displays 18 informational slides during the installation process, educating users about NubiferOS features while the system is being installed.
 
 ## Slide Content
 
 The slideshow includes:
-- **Security Features (40%)**: 6 slides covering workspace isolation, encryption, read-only mode, battle-tested security, Wayland security, and Firejail isolation
-- **Benefits (40%)**: 6 slides covering visual context, zero configuration, disaster prevention, privacy, open source, and CLI wrappers
-- **Technical Facts (20%)**: 3 slides covering Debian foundation, welcome message, and completion message
+- **Security Features (33%)**: 6 slides covering workspace isolation, encryption, read-only mode, battle-tested security, Wayland security, and Firejail isolation
+- **Benefits (33%)**: 6 slides covering visual context, zero configuration, disaster prevention, privacy, open source, and CLI wrappers
+- **NubiferAI (17%)**: 3 slides covering AI introduction, privacy-first AI, and user control
+- **Technical Facts (17%)**: 3 slides covering Debian foundation, welcome message, and completion message
 
 ## Slide Timing
 
 - **Duration**: 35 seconds per slide
-- **Total Runtime**: ~8.75 minutes for all 15 slides
+- **Total Runtime**: ~10.5 minutes for all 18 slides
 - **Looping**: Slides loop automatically if installation takes longer
 
 ## Slide List
@@ -35,7 +36,10 @@ The slideshow includes:
 12. **Firejail Isolation** - Linux namespace details
 13. **Open Source** - Transparency and auditability
 14. **CLI Wrappers** - Secure credential injection
-15. **Almost Done** - Completion message
+15. **NubiferAI Introduction** - Natural language cloud queries
+16. **NubiferAI Privacy** - Local LLM support, data filtering
+17. **NubiferAI Control** - User control, audit logging, opt-in
+18. **Almost Done** - Completion message
 
 ## Color Scheme
 
