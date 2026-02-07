@@ -1,0 +1,80 @@
+#!/bin/bash
+# NubiferOS Cloud Bookmarks - Browse or import bookmarks into Firefox
+#
+# Usage:
+#   nubifer-bookmarks          # Opens bookmark chooser dialog
+#   nubifer-bookmarks browse   # Open bookmarks HTML page in Firefox
+#   nubifer-bookmarks import   # Import bookmarks into Firefox profile
+
+BOOKMARKS_HTML="/usr/share/nubifer/browser/bookmarks.html"
+BOOKMARKS_JSON="/usr/share/nubifer/browser/firefox-bookmarks.json"
+
+browse_bookmarks() {
+    if [ -f "$BOOKMARKS_HTML" ]; then
+        xdg-open "$BOOKMARKS_HTML"
+    else
+        zenity --error --text="Bookmarks file not found at:\n$BOOKMARKS_HTML" --title="Cloud Bookmarks" 2>/dev/null
+        exit 1
+    fi
+}
+
+import_bookmarks() {
+    # Find the default Firefox ESR profile
+    PROFILE_DIR=""
+    if [ -d "$HOME/.mozilla/firefox" ]; then
+        # Look for the default profile directory
+        PROFILE_DIR=$(grep -m1 'Default=.*\.default' "$HOME/.mozilla/firefox/profiles.ini" 2>/dev/null | cut -d= -f2)
+        if [ -n "$PROFILE_DIR" ]; then
+            PROFILE_DIR="$HOME/.mozilla/firefox/$PROFILE_DIR"
+        fi
+    fi
+
+    if [ ! -f "$BOOKMARKS_HTML" ]; then
+        zenity --error --text="Bookmarks file not found at:\n$BOOKMARKS_HTML" --title="Cloud Bookmarks" 2>/dev/null
+        exit 1
+    fi
+
+    # Use Firefox's built-in import by opening the bookmarks manager with the file
+    # Firefox can import Netscape HTML bookmarks via: Bookmarks > Manage Bookmarks > Import
+    zenity --info --title="Import Cloud Bookmarks" \
+        --text="To import bookmarks into Firefox:\n\n1. Firefox will open the Bookmarks Manager\n2. Click 'Import and Backup' (arrow icon)\n3. Select 'Import Bookmarks from HTML'\n4. Navigate to:\n   $BOOKMARKS_HTML\n5. Click Open\n\nYour cloud bookmarks will be imported." \
+        --width=450 2>/dev/null
+
+    # Open Firefox bookmarks manager (Ctrl+Shift+O equivalent)
+    firefox-esr "about:blank" &
+    sleep 2
+    # Use xdotool to open bookmarks manager if available
+    if command -v xdotool &>/dev/null; then
+        xdotool key ctrl+shift+o 2>/dev/null || true
+    fi
+}
+
+# Main: show chooser or handle arguments
+case "${1:-}" in
+    browse)
+        browse_bookmarks
+        ;;
+    import)
+        import_bookmarks
+        ;;
+    *)
+        # Show chooser dialog if zenity is available
+        if command -v zenity &>/dev/null; then
+            CHOICE=$(zenity --list --title="NubiferOS Cloud Bookmarks" \
+                --text="Choose an action:" \
+                --column="Action" --column="Description" \
+                "Browse" "Open bookmarks as a web page (view & click links)" \
+                "Import" "Import bookmarks into Firefox (adds to your bookmarks)" \
+                --width=500 --height=250 2>/dev/null)
+
+            case "$CHOICE" in
+                Browse) browse_bookmarks ;;
+                Import) import_bookmarks ;;
+                *) exit 0 ;;
+            esac
+        else
+            # Fallback: just open the HTML file
+            browse_bookmarks
+        fi
+        ;;
+esac

@@ -307,13 +307,22 @@ EOF
     
     # Create Firefox ESR policy with bookmarks
     log "INFO" "Creating Firefox ESR policy with bookmarks..."
-    mkdir -p "${CHROOT_DIR}/etc/firefox-esr/policies"
-    
+
+    # Firefox ESR on Debian reads policies from these paths:
+    #   1. <install-dir>/distribution/policies.json
+    #      /usr/lib/firefox-esr/distribution -> /usr/share/firefox-esr/distribution (symlink)
+    #   2. /etc/firefox/policies/policies.json (standard Linux path, NOT /etc/firefox-esr/)
+    # The old /etc/firefox-esr/policies/ path is NOT read by Firefox.
+    mkdir -p "${CHROOT_DIR}/usr/share/firefox-esr/distribution"
+    mkdir -p "${CHROOT_DIR}/etc/firefox/policies"
+
     # Convert bookmarks JSON to Firefox ManagedBookmarks policy format
+    # Also generates an HTML bookmarks file for manual import / desktop browsing
     CHROOT_DIR="${CHROOT_DIR}" python3 << 'PYTHON_SCRIPT' || log "ERROR" "Failed to create Firefox policy"
 import json
 import os
 import sys
+from html import escape
 
 chroot_dir = os.environ.get('CHROOT_DIR', '')
 if not chroot_dir:
@@ -330,17 +339,15 @@ with open(bookmarks_file) as f:
     bookmarks = json.load(f)
 
 def convert_children(children):
-    """Convert child items to Firefox format"""
+    """Convert child items to Firefox ManagedBookmarks format"""
     result = []
     for item in children:
         if 'children' in item:
-            # Subfolder
             result.append({
                 "name": item['title'],
                 "children": convert_children(item['children'])
             })
         elif 'url' in item:
-            # Bookmark
             result.append({
                 "name": item['title'],
                 "url": item['url']
@@ -348,20 +355,17 @@ def convert_children(children):
     return result
 
 # Build managed bookmarks array
-# Firefox format: first entry is toplevel_name, then bookmarks/folders
 managed = [
     {"toplevel_name": "NubiferOS Cloud Bookmarks"}
 ]
 
 for folder in bookmarks.get('children', []):
     if 'children' in folder:
-        # Add folder with its children
         managed.append({
             "name": folder['title'],
             "children": convert_children(folder['children'])
         })
     elif 'url' in folder:
-        # Top-level bookmark
         managed.append({
             "name": folder['title'],
             "url": folder['url']
@@ -402,16 +406,70 @@ policy = {
     }
 }
 
-# Write policy file
-policy_file = f"{chroot_dir}/etc/firefox-esr/policies/policies.json"
-with open(policy_file, 'w') as f:
-    json.dump(policy, f, indent=2)
+policy_json = json.dumps(policy, indent=2)
 
-print(f"Created Firefox policy with {len(managed)} bookmark folders")
+# Write to the distribution path (most reliable - Firefox reads from install dir)
+dist_policy = f"{chroot_dir}/usr/share/firefox-esr/distribution/policies.json"
+with open(dist_policy, 'w') as f:
+    f.write(policy_json)
+print(f"Wrote policy to: /usr/share/firefox-esr/distribution/policies.json")
+
+# Also write to the standard Linux policy path (/etc/firefox/, NOT /etc/firefox-esr/)
+etc_policy = f"{chroot_dir}/etc/firefox/policies/policies.json"
+with open(etc_policy, 'w') as f:
+    f.write(policy_json)
+print(f"Wrote policy to: /etc/firefox/policies/policies.json")
+
+print(f"Created Firefox policy with {len(managed)} bookmark entries")
+
+# --- Generate HTML bookmarks file (Netscape Bookmark format) ---
+# This can be imported via Firefox: Bookmarks > Manage Bookmarks > Import
+# Or browsed directly as a clickable HTML page on the desktop
+
+def bookmarks_to_html(children, indent=2):
+    """Convert bookmark tree to Netscape Bookmark HTML format"""
+    lines = []
+    pad = "    " * indent
+    for item in children:
+        if 'children' in item:
+            lines.append(f'{pad}<DT><H3>{escape(item["title"])}</H3>')
+            lines.append(f'{pad}<DL><p>')
+            lines.extend(bookmarks_to_html(item['children'], indent + 1))
+            lines.append(f'{pad}</DL><p>')
+        elif 'url' in item:
+            lines.append(f'{pad}<DT><A HREF="{escape(item["url"])}">{escape(item["title"])}</A>')
+    return lines
+
+html_lines = [
+    '<!DOCTYPE NETSCAPE-Bookmark-file-1>',
+    '<!-- This is an automatically generated file.',
+    '     It will be read and overwritten.',
+    '     DO NOT EDIT! -->',
+    '<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=UTF-8">',
+    '<TITLE>NubiferOS Cloud Bookmarks</TITLE>',
+    '<H1>NubiferOS Cloud Bookmarks</H1>',
+    '<DL><p>',
+]
+html_lines.extend(bookmarks_to_html(bookmarks.get('children', [])))
+html_lines.append('</DL><p>')
+
+html_content = '\n'.join(html_lines)
+
+html_file = f"{chroot_dir}/usr/share/nubifer/browser/bookmarks.html"
+with open(html_file, 'w') as f:
+    f.write(html_content)
+print(f"Generated HTML bookmarks: /usr/share/nubifer/browser/bookmarks.html")
 PYTHON_SCRIPT
-    
+
     log "INFO" "✓ Firefox ESR policy created with cloud bookmarks"
-    
+    log "INFO" "  Policy written to: /usr/share/firefox-esr/distribution/policies.json"
+    log "INFO" "  Policy written to: /etc/firefox/policies/policies.json"
+    log "INFO" "  HTML bookmarks: /usr/share/nubifer/browser/bookmarks.html"
+
+    # Install bookmark browser/importer script
+    cp "${PROJECT_ROOT}/scripts/nubifer-bookmarks" "${CHROOT_DIR}/usr/local/bin/"
+    chmod +x "${CHROOT_DIR}/usr/local/bin/nubifer-bookmarks"
+
     # Install Workspace Manager
     log "INFO" "Installing Workspace Manager..."
     

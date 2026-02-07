@@ -38,9 +38,11 @@ install_brave() {
 configure_firefox() {
     echo "Configuring Firefox..."
     
-    # Create Firefox policy directory
+    # Create Firefox policy directories
+    # Firefox ESR reads from distribution/ (most reliable) and /etc/firefox/policies/
     mkdir -p /etc/firefox/policies
-    
+    mkdir -p /usr/share/firefox-esr/distribution
+
     # Copy hardening configuration
     cp "${SCRIPT_DIR}/firefox-hardening.js" /etc/firefox/syspref.js
     
@@ -95,7 +97,10 @@ configure_firefox() {
   }
 }
 EOF
-    
+
+    # Also copy policy to the distribution path (Firefox reads from install dir)
+    cp /etc/firefox/policies/policies.json /usr/share/firefox-esr/distribution/policies.json
+
     echo "✓ Firefox configured"
 }
 
@@ -167,8 +172,13 @@ with open(policy_file) as f:
 # Add ManagedBookmarks
 policy['policies']['ManagedBookmarks'] = managed
 
-# Write updated policy
+# Write updated policy to both paths
 with open(policy_file, 'w') as f:
+    json.dump(policy, f, indent=2)
+
+# Also write to distribution path (most reliable for Firefox ESR on Debian)
+dist_policy = '/usr/share/firefox-esr/distribution/policies.json'
+with open(dist_policy, 'w') as f:
     json.dump(policy, f, indent=2)
 
 print(f"Added {len(managed)} bookmark folders to Firefox policy")

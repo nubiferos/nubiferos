@@ -115,6 +115,18 @@ MimeType=text/html;text/xml;application/xhtml+xml;
 EOF
 chmod +x "${CHROOT_DIR}/etc/skel/Desktop/firefox.desktop"
 
+# Cloud Bookmarks shortcut (opens HTML bookmarks page, also can import into Firefox)
+cat > "${CHROOT_DIR}/etc/skel/Desktop/cloud-bookmarks.desktop" << 'EOF'
+[Desktop Entry]
+Type=Application
+Name=Cloud Bookmarks
+Comment=Browse or import NubiferOS cloud bookmarks
+Exec=/usr/local/bin/nubifer-bookmarks
+Icon=user-bookmarks
+Terminal=false
+EOF
+chmod +x "${CHROOT_DIR}/etc/skel/Desktop/cloud-bookmarks.desktop"
+
 # Files (Nautilus) shortcut
 cat > "${CHROOT_DIR}/etc/skel/Desktop/files.desktop" << 'EOF'
 [Desktop Entry]
@@ -164,6 +176,18 @@ Terminal=false
 EOF
 chmod +x "${CHROOT_DIR}/etc/skel/Desktop/security-dashboard.desktop"
 
+# NubiferAI shortcut
+cat > "${CHROOT_DIR}/etc/skel/Desktop/nubiferai.desktop" << 'EOF'
+[Desktop Entry]
+Type=Application
+Name=NubiferAI
+Comment=AI-native cloud operations
+Exec=/usr/local/bin/nubiferai-gtk
+Icon=weather-overcast-symbolic
+Terminal=false
+EOF
+chmod +x "${CHROOT_DIR}/etc/skel/Desktop/nubiferai.desktop"
+
 # Create a script to clean up shortcuts for apps that aren't installed
 cat > "${CHROOT_DIR}/etc/profile.d/cleanup-desktop-shortcuts.sh" << 'CLEANUP_EOF'
 #!/bin/bash
@@ -182,7 +206,12 @@ if [ -d "$DESKTOP_DIR" ]; then
     if [ ! -f /usr/bin/code ] && [ -f "$DESKTOP_DIR/vscode.desktop" ]; then
         rm -f "$DESKTOP_DIR/vscode.desktop"
     fi
-    
+
+    # Remove NubiferAI shortcut if not installed
+    if [ ! -f /usr/local/bin/nubiferai-gtk ] && [ -f "$DESKTOP_DIR/nubiferai.desktop" ]; then
+        rm -f "$DESKTOP_DIR/nubiferai.desktop"
+    fi
+
     # Trust all desktop files (GNOME requires this)
     for desktop_file in "$DESKTOP_DIR"/*.desktop; do
         if [ -f "$desktop_file" ]; then
@@ -198,4 +227,4 @@ CLEANUP_EOF
 chmod +x "${CHROOT_DIR}/etc/profile.d/cleanup-desktop-shortcuts.sh"
 
 log "INFO" "First-boot wizard and documentation installed"
-log "INFO" "Desktop shortcuts added: Setup, Docs, Terminal, Firefox, Files, VS Code, Software Center"
+log "INFO" "Desktop shortcuts added: Setup, Docs, Terminal, Firefox, Cloud Bookmarks, Files, VS Code, Software Center, NubiferAI"
