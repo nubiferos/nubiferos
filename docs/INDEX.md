@@ -1,5 +1,8 @@
 # Nubifer Documentation Index
 
+## Project
+- [Roadmap & Audit](ROADMAP.md) - Feature status, planned work, and doc contradiction audit
+
 ## Getting Started
 - [README](README.md) - Documentation overview
 - [Quickstart Guide](QUICKSTART.md) - Get up and running quickly

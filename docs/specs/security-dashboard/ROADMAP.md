@@ -36,12 +36,12 @@ This document outlines the phased approach to implementing the NubiferOS Securit
 **Timeline:** 2-3 weeks
 
 ### Features
-- ✅ Network exposure monitoring
 - ✅ Firewall status
-- ✅ Open port detection
 - ✅ AppArmor status
 - ✅ Disk encryption check
-- ✅ Detailed view panels
+- 🔄 Network exposure monitoring
+- 🔄 Open port detection
+- 🔄 Detailed view panels
 
 ### Deliverables
 1. Network check module
@@ -62,11 +62,11 @@ This document outlines the phased approach to implementing the NubiferOS Securit
 **Timeline:** 2-3 weeks
 
 ### Features
-- ✅ Desktop notifications
-- ✅ Background monitoring service
-- ✅ Auto-refresh
-- ✅ Event logging
-- ✅ Quick actions
+- 📋 Desktop notifications
+- 📋 Background monitoring service
+- 📋 Auto-refresh
+- 📋 Event logging
+- 📋 Quick actions
 
 ### Deliverables
 1. Systemd service for monitoring
@@ -87,12 +87,12 @@ This document outlines the phased approach to implementing the NubiferOS Securit
 **Timeline:** 1-2 weeks
 
 ### Features
-- ✅ GNOME HIG compliance
-- ✅ Theme support
-- ✅ Accessibility
-- ✅ Localization support
-- ✅ Help documentation
-- ✅ Settings panel
+- 📋 GNOME HIG compliance
+- 📋 Theme support
+- 📋 Accessibility
+- 📋 Localization support
+- 📋 Help documentation
+- 📋 Settings panel
 
 ### Deliverables
 1. Polished UI
@@ -158,7 +158,7 @@ components/security-dashboard/
 
 ### Dependencies
 - Python 3.9+
-- GTK 4
+- GTK 3
 - PyGObject
 - python-dbus
 - systemd (for background service)
@@ -216,7 +216,7 @@ components/security-dashboard/
 ## Risk Mitigation
 
 ### Technical Risks
-- **Risk:** GTK 4 learning curve
+- **Risk:** GTK 3 learning curve
   - **Mitigation:** Start with simple UI, iterate
   
 - **Risk:** Performance impact of checks
