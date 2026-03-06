@@ -4,7 +4,7 @@
  * Always-visible cloud account context for secure multi-cloud management
  */
 
-const { GObject, St, Gio, Clutter } = imports.gi;
+const { GObject, St, Gio, GLib, Clutter } = imports.gi;
 const Main = imports.ui.main;
 const PanelMenu = imports.ui.panelMenu;
 const PopupMenu = imports.ui.popupMenu;
@@ -120,24 +120,117 @@ class ContextIndicator extends PanelMenu.Button {
     
     _loadCurrentWorkspace() {
         if (!this._proxy) {
-            this._updateDisplay(null);
+            // D-Bus unavailable — fall back to JSON
+            this._loadWorkspaceFromJson();
+            this._startJsonPolling();
             return;
         }
-        
+
         try {
             this._proxy.GetCurrentWorkspaceRemote((result, error) => {
                 if (error) {
-                    log(`NubiferOS: Failed to get current workspace: ${error}`);
-                    this._updateDisplay(null);
+                    log(`NubiferOS: D-Bus failed, falling back to JSON: ${error}`);
+                    this._loadWorkspaceFromJson();
+                    this._startJsonPolling();
                     return;
                 }
-                
+
+                this._stopJsonPolling();
                 const [workspace] = result;
                 this._updateDisplay(workspace);
             });
         } catch (e) {
-            log(`NubiferOS: Error loading workspace: ${e}`);
-            this._updateDisplay(null);
+            log(`NubiferOS: Error loading workspace, falling back to JSON: ${e}`);
+            this._loadWorkspaceFromJson();
+            this._startJsonPolling();
+        }
+    }
+
+    _loadWorkspaceFromJson() {
+        try {
+            const homeDir = GLib.get_home_dir();
+            const currentFile = `${homeDir}/.config/nubifer/current-workspace`;
+
+            const [ok, contents] = GLib.file_get_contents(currentFile);
+            if (!ok) {
+                this._updateDisplayFromJson(null);
+                return;
+            }
+
+            const wsId = imports.byteArray.toString(contents).trim();
+            const wsFile = `${homeDir}/.config/nubifer/workspaces/${wsId}.json`;
+
+            const [wok, wcontents] = GLib.file_get_contents(wsFile);
+            if (!wok) {
+                this._updateDisplayFromJson(null);
+                return;
+            }
+
+            const ws = JSON.parse(imports.byteArray.toString(wcontents));
+            this._updateDisplayFromJson(ws);
+        } catch (e) {
+            log(`NubiferOS: Error reading workspace JSON: ${e}`);
+            this._updateDisplayFromJson(null);
+        }
+    }
+
+    _updateDisplayFromJson(ws) {
+        if (!ws) {
+            this._label.set_text('No Workspace');
+            this._box.set_style('background-color: #555555; padding: 4px 12px; border-radius: 4px;');
+            return;
+        }
+
+        const provider = ws.provider || 'unknown';
+        const accountName = ws.account_name || ws.account_id || 'Unknown';
+        const region = ws.region || '';
+        const readOnly = ws.read_only || false;
+
+        const providerConfig = PROVIDERS[provider] || {
+            name: provider.toUpperCase(),
+            icon: '☁️',
+            color: '#555555',
+            textColor: '#FFFFFF'
+        };
+
+        let text = `${providerConfig.icon} ${providerConfig.name} | ${accountName}`;
+        if (region) {
+            text += ` | ${region}`;
+        }
+        text += readOnly ? ' | 🔒 Read-Only' : ' | 🔓 Read-Write';
+
+        this._label.set_text(text);
+
+        // Green=RO (safe), Red=RW (danger)
+        const borderColor = readOnly ? '#28A745' : '#DC3545';
+        const style = `
+            background-color: ${providerConfig.color};
+            color: ${providerConfig.textColor};
+            padding: 4px 12px;
+            border-radius: 4px;
+            border: 2px solid ${borderColor};
+            font-weight: bold;
+        `;
+        this._box.set_style(style);
+    }
+
+    _startJsonPolling() {
+        if (this._jsonPollTimerId) return;  // Already polling
+
+        this._jsonPollTimerId = GLib.timeout_add_seconds(
+            GLib.PRIORITY_DEFAULT,
+            5,
+            () => {
+                this._loadWorkspaceFromJson();
+                return GLib.SOURCE_CONTINUE;
+            }
+        );
+    }
+
+    _stopJsonPolling() {
+        if (this._jsonPollTimerId) {
+            GLib.source_remove(this._jsonPollTimerId);
+            this._jsonPollTimerId = null;
         }
     }
     
@@ -167,19 +260,17 @@ class ContextIndicator extends PanelMenu.Button {
             textColor: '#FFFFFF'
         };
         
-        // Build display text
+        // Build display text — always show mode
         let text = `${providerConfig.icon} ${providerConfig.name} | ${accountName}`;
         if (region) {
             text += ` | ${region}`;
         }
-        if (readOnly) {
-            text += ' | 🔒 READ-ONLY';
-        }
-        
+        text += readOnly ? ' | 🔒 Read-Only' : ' | 🔓 Read-Write';
+
         this._label.set_text(text);
-        
-        // Apply styling
-        const borderColor = readOnly ? '#DC3545' : '#28A745';
+
+        // Apply styling — green=RO (safe), red=RW (danger)
+        const borderColor = readOnly ? '#28A745' : '#DC3545';
         const style = `
             background-color: ${providerConfig.color};
             color: ${providerConfig.textColor};
@@ -221,6 +312,36 @@ class ContextIndicator extends PanelMenu.Button {
             this._openTerminalWithCommand('nubifer-workspace list');
         });
         this.menu.addMenuItem(manageItem);
+
+        // Add "Toggle Read-Only Mode" button
+        const toggleRoItem = new PopupMenu.PopupMenuItem('🔒 Toggle Read-Only Mode');
+        toggleRoItem.connect('activate', () => {
+            // Determine current mode and run the appropriate command
+            const homeDir = GLib.get_home_dir();
+            const currentFile = `${homeDir}/.config/nubifer/current-workspace`;
+            try {
+                const [ok, contents] = GLib.file_get_contents(currentFile);
+                if (ok) {
+                    const wsId = imports.byteArray.toString(contents).trim();
+                    const wsFile = `${homeDir}/.config/nubifer/workspaces/${wsId}.json`;
+                    const [wok, wcontents] = GLib.file_get_contents(wsFile);
+                    if (wok) {
+                        const ws = JSON.parse(imports.byteArray.toString(wcontents));
+                        if (ws.read_only) {
+                            // Currently RO → switch to RW (requires sudo)
+                            this._openTerminalWithCommand(`sudo nubifer-workspace rw ${wsId}`);
+                        } else {
+                            // Currently RW → switch to RO
+                            this._openTerminalWithCommand(`nubifer-workspace ro ${wsId}`);
+                        }
+                    }
+                }
+            } catch (e) {
+                log(`NubiferOS: Error toggling read-only: ${e}`);
+                this._openTerminalWithCommand('nubifer-workspace ro');
+            }
+        });
+        this.menu.addMenuItem(toggleRoItem);
         
         // Load workspace list when menu is opened
         this.menu.connect('open-state-changed', (menu, open) => {
@@ -233,11 +354,10 @@ class ContextIndicator extends PanelMenu.Button {
     _rebuildWorkspaceList() {
         // Clear existing items
         this._workspaceSection.removeAll();
-        
+
         if (!this._proxy) {
-            const item = new PopupMenu.PopupMenuItem('D-Bus service not available');
-            item.setSensitive(false);
-            this._workspaceSection.addMenuItem(item);
+            // D-Bus unavailable — fall back to JSON
+            this._rebuildWorkspaceListFromJson();
             return;
         }
         
@@ -277,11 +397,11 @@ class ContextIndicator extends PanelMenu.Button {
                         
                         const providerConfig = PROVIDERS[provider] || PROVIDERS['aws'];
                         const icon = providerConfig.icon;
-                        const lockIcon = readOnly ? ' 🔒' : '';
+                        const modeLabel = readOnly ? ' 🔒 Read-Only' : ' 🔓 Read-Write';
                         const checkmark = workspaceId === currentWorkspaceId ? '✓ ' : '';
-                        
+
                         const item = new PopupMenu.PopupMenuItem(
-                            `${checkmark}${icon} ${name}${lockIcon}`
+                            `${checkmark}${icon} ${name}${modeLabel}`
                         );
                         
                         item.connect('activate', () => {
@@ -297,6 +417,79 @@ class ContextIndicator extends PanelMenu.Button {
         }
     }
     
+    _rebuildWorkspaceListFromJson() {
+        try {
+            const homeDir = GLib.get_home_dir();
+            const wsDir = `${homeDir}/.config/nubifer/workspaces`;
+            const currentFile = `${homeDir}/.config/nubifer/current-workspace`;
+
+            let currentWorkspaceId = null;
+            try {
+                const [ok, contents] = GLib.file_get_contents(currentFile);
+                if (ok) currentWorkspaceId = imports.byteArray.toString(contents).trim();
+            } catch (e) { /* ignore */ }
+
+            const dir = Gio.File.new_for_path(wsDir);
+            if (!dir.query_exists(null)) {
+                const item = new PopupMenu.PopupMenuItem('No workspaces found');
+                item.setSensitive(false);
+                this._workspaceSection.addMenuItem(item);
+                return;
+            }
+
+            const enumerator = dir.enumerate_children(
+                'standard::name',
+                Gio.FileQueryInfoFlags.NONE,
+                null
+            );
+
+            let fileInfo;
+            let found = false;
+            while ((fileInfo = enumerator.next_file(null)) !== null) {
+                const fileName = fileInfo.get_name();
+                if (!fileName.endsWith('.json')) continue;
+
+                try {
+                    const filePath = `${wsDir}/${fileName}`;
+                    const [ok, contents] = GLib.file_get_contents(filePath);
+                    if (!ok) continue;
+
+                    const ws = JSON.parse(imports.byteArray.toString(contents));
+                    const providerConfig = PROVIDERS[ws.provider] || PROVIDERS['aws'];
+                    const modeLabel = ws.read_only ? ' 🔒 Read-Only' : ' 🔓 Read-Write';
+                    const checkmark = ws.workspace_id === currentWorkspaceId ? '✓ ' : '';
+
+                    const item = new PopupMenu.PopupMenuItem(
+                        `${checkmark}${providerConfig.icon} ${ws.name}${modeLabel}`
+                    );
+
+                    const wsId = ws.workspace_id;
+                    item.connect('activate', () => {
+                        this._openTerminalWithCommand(
+                            `nubifer-workspace switch "${wsId}" && eval $(nubifer-workspace env "${wsId}")`
+                        );
+                    });
+
+                    this._workspaceSection.addMenuItem(item);
+                    found = true;
+                } catch (e) {
+                    log(`NubiferOS: Error parsing workspace JSON ${fileName}: ${e}`);
+                }
+            }
+
+            if (!found) {
+                const item = new PopupMenu.PopupMenuItem('No workspaces found');
+                item.setSensitive(false);
+                this._workspaceSection.addMenuItem(item);
+            }
+        } catch (e) {
+            log(`NubiferOS: Error listing workspaces from JSON: ${e}`);
+            const item = new PopupMenu.PopupMenuItem('Failed to load workspaces');
+            item.setSensitive(false);
+            this._workspaceSection.addMenuItem(item);
+        }
+    }
+
     _switchWorkspace(workspaceId) {
         if (!this._proxy) {
             return;
@@ -374,7 +567,8 @@ class ContextIndicator extends PanelMenu.Button {
     }
     
     destroy() {
-        if (this._signalId) {
+        this._stopJsonPolling();
+        if (this._signalId && this._proxy) {
             this._proxy.disconnectSignal(this._signalId);
         }
         super.destroy();

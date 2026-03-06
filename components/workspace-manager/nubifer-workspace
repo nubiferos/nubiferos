@@ -417,10 +417,10 @@ class WorkspaceManager:
         # Read-write: 🔓 with red background (danger - writes allowed)
         if workspace['read_only']:
             # Green background (48;5;22) for read-only (safe mode)
-            mode_indicator = "\\[\\e[48;5;22;97m\\] 🔒 RO \\[\\e[0m\\]"
+            mode_indicator = "\\[\\e[48;5;22;97m\\] 🔒 Read-Only \\[\\e[0m\\]"
         else:
             # Red background (48;5;196) for read-write (danger mode)
-            mode_indicator = "\\[\\e[48;5;196;97m\\] 🔓 RW \\[\\e[0m\\]"
+            mode_indicator = "\\[\\e[48;5;196;97m\\] 🔓 Read-Write \\[\\e[0m\\]"
         
         # Build the full prompt
         # Format: [MODE] [provider_icon account_name] user@host:path$
@@ -483,7 +483,10 @@ class WorkspaceManager:
         workspace_file = self.workspace_dir / f"{workspace_id}.json"
         with open(workspace_file, 'w') as f:
             json.dump(workspace, f, indent=2)
-        
+
+        # Signal D-Bus service so GNOME extension refreshes
+        self._signal_workspace_change(workspace_id, 'mode_changed')
+
         mode = "enabled" if enabled else "disabled"
         self._audit_log_entry("SET_READ_ONLY", workspace_id, f"mode={mode}, duration={duration}")
         
@@ -698,7 +701,7 @@ def main():
         
         for ws in workspaces:
             theme = ws['theme']
-            mode_icon = '🔒' if ws['read_only'] else '🔓'
+            mode_icon = '🔒 Read-Only' if ws['read_only'] else '🔓 Read-Write'
             current_marker = '→' if ws['workspace_id'] == current_id else ' '
             
             print(f"{current_marker} {theme['icon']} {ws['name']}")

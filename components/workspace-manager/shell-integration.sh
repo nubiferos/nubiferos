@@ -3,22 +3,47 @@
 # Provides visual workspace context in terminal prompts
 # Source this file in ~/.bashrc or /etc/bash.bashrc
 
-# Track last known workspace to detect changes
+# Track last known workspace and JSON mtime to detect changes
 _NUBIFER_LAST_WORKSPACE=""
+_NUBIFER_LAST_WS_MTIME=""
 
 # Function to check if workspace changed (via GNOME UI or another terminal)
 _nubifer_check_workspace_change() {
     local current_file="$HOME/.config/nubifer/current-workspace"
     local env_file="$HOME/.config/nubifer/current-env"
-    
+
     if [ -f "$current_file" ]; then
         local new_workspace_id
         new_workspace_id=$(cat "$current_file" 2>/dev/null)
-        
-        # If workspace changed since last check, reload environment
+
+        local needs_reload=false
+
+        # Check if workspace ID changed
         if [ -n "$new_workspace_id" ] && [ "$new_workspace_id" != "$_NUBIFER_LAST_WORKSPACE" ]; then
+            needs_reload=true
+        fi
+
+        # Check if workspace JSON was modified (e.g. RO toggle in another terminal)
+        if [ -n "$new_workspace_id" ] && [ "$needs_reload" = "false" ]; then
+            local ws_file="$HOME/.config/nubifer/workspaces/${new_workspace_id}.json"
+            if [ -f "$ws_file" ]; then
+                local current_mtime
+                current_mtime=$(stat -c %Y "$ws_file" 2>/dev/null)
+                if [ -n "$current_mtime" ] && [ "$current_mtime" != "$_NUBIFER_LAST_WS_MTIME" ]; then
+                    needs_reload=true
+                fi
+            fi
+        fi
+
+        if [ "$needs_reload" = "true" ]; then
             _NUBIFER_LAST_WORKSPACE="$new_workspace_id"
-            
+
+            # Track mtime of workspace JSON
+            local ws_file="$HOME/.config/nubifer/workspaces/${new_workspace_id}.json"
+            if [ -f "$ws_file" ]; then
+                _NUBIFER_LAST_WS_MTIME=$(stat -c %Y "$ws_file" 2>/dev/null)
+            fi
+
             # Source the environment file if it exists (written by GNOME extension)
             if [ -f "$env_file" ]; then
                 eval "$(cat "$env_file")"
@@ -26,7 +51,7 @@ _nubifer_check_workspace_change() {
                 # Fall back to running the CLI
                 eval "$(nubifer-workspace env "$new_workspace_id" 2>/dev/null)"
             fi
-            
+
             nubifer_update_prompt
         fi
     fi
@@ -49,21 +74,23 @@ with open('$workspace_file') as f:
     icon = theme['icon']
     color = theme['terminal_color']
     account = ws['account_name']
-    readonly = '🔒' if ws['read_only'] else ''
-    print(f'{icon}|{color}|{account}|{readonly}')
+    readonly = '🔒 Read-Only' if ws['read_only'] else '🔓 Read-Write'
+    ro_flag = 'true' if ws['read_only'] else 'false'
+    print(f'{icon}|{color}|{account}|{readonly}|{ro_flag}')
 " 2>/dev/null)
-            
+
             if [ -n "$workspace_info" ]; then
-                IFS='|' read -r icon color account readonly <<< "$workspace_info"
-                
+                IFS='|' read -r icon color account readonly ro_flag <<< "$workspace_info"
+
                 # Build colored prompt
-                # Format: [☁️ account-name 🔒] user@host:path$
-                PS1="[\[\e[38;5;${color}m\]${icon} ${account}${readonly:+ $readonly}\[\e[0m\]] \u@\h:\w\$ "
-                
+                # Format: [☁️ account-name 🔒 Read-Only] user@host:path$
+                PS1="[\[\e[38;5;${color}m\]${icon} ${account} ${readonly}\[\e[0m\]] \u@\h:\w\$ "
+
                 # Export workspace variables for scripts
                 export NUBIFER_WORKSPACE_ID="$workspace_id"
                 export NUBIFER_WORKSPACE_ACTIVE="true"
-                
+                export NUBIFER_WORKSPACE_READ_ONLY="$ro_flag"
+
                 return
             fi
         fi
@@ -189,6 +216,13 @@ alias nc='nubifer-creds'
 
 # Initialize last workspace tracker
 _NUBIFER_LAST_WORKSPACE="$NUBIFER_WORKSPACE_ID"
+if [ -n "$NUBIFER_WORKSPACE_ID" ]; then
+    local_ws_file="$HOME/.config/nubifer/workspaces/${NUBIFER_WORKSPACE_ID}.json"
+    if [ -f "$local_ws_file" ]; then
+        _NUBIFER_LAST_WS_MTIME=$(stat -c %Y "$local_ws_file" 2>/dev/null)
+    fi
+    unset local_ws_file
+fi
 
 # Update prompt on shell start
 nubifer_update_prompt
