@@ -1,0 +1,11 @@
+Package: nubifer-creds
+Version: __VERSION__
+Section: admin
+Priority: optional
+Architecture: all
+Depends: bash, python3, python3-dbus, gnupg, pass
+Maintainer: NubiferOS Project <info@nubiferos.org>
+Homepage: https://nubiferos.org
+Description: NubiferOS credential manager
+ GPG-encrypted credential management using pass backend.
+ Includes AWS credential helper and STS token support.

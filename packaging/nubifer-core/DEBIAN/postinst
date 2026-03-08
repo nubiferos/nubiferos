@@ -1,0 +1,19 @@
+#!/bin/bash
+set -e
+
+# Update icon cache and desktop database
+gtk-update-icon-cache -f /usr/share/icons/hicolor 2>/dev/null || true
+update-desktop-database /usr/share/applications 2>/dev/null || true
+
+# Source shell integration if not already present
+if [ -f /etc/bash.bashrc ] && ! grep -q "nubifer/shell-integration.sh" /etc/bash.bashrc; then
+    cat >> /etc/bash.bashrc << 'EOF'
+
+# NubiferOS Workspace Integration
+if [ -f /etc/nubifer/shell-integration.sh ]; then
+    source /etc/nubifer/shell-integration.sh
+fi
+EOF
+fi
+
+echo "nubifer-core: installation complete"

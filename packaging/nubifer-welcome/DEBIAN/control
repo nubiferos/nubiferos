@@ -1,0 +1,11 @@
+Package: nubifer-welcome
+Version: __VERSION__
+Section: admin
+Priority: optional
+Architecture: all
+Depends: bash, python3, python3-gi, gir1.2-gtk-4.0, gir1.2-adw-1
+Maintainer: NubiferOS Project <info@nubiferos.org>
+Homepage: https://nubiferos.org
+Description: NubiferOS first-boot wizard and setup
+ GTK4 welcome screen, first-boot setup wizard,
+ and GPG/pass initialization.

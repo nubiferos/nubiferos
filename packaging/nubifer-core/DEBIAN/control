@@ -1,0 +1,12 @@
+Package: nubifer-core
+Version: __VERSION__
+Section: admin
+Priority: optional
+Architecture: all
+Depends: bash, python3, gnupg, pass
+Recommends: nubifer-creds, nubifer-workspace, nubifer-dashboard, nubifer-tools, nubifer-welcome, nubifer-updater
+Maintainer: NubiferOS Project <info@nubiferos.org>
+Homepage: https://nubiferos.org
+Description: NubiferOS core system files and configuration
+ Core configuration, branding, shell integration, browser policies,
+ desktop integration, and base utilities for NubiferOS.

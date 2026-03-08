@@ -693,6 +693,15 @@ EOF
         log "INFO" "  ✓ Test mode enabled"
     fi
     
+    # Configure NubiferOS APT repository for OTA updates
+    log "INFO" "Configuring NubiferOS APT repository..."
+    mkdir -p "${CHROOT_DIR}/etc/apt/sources.list.d"
+    cat > "${CHROOT_DIR}/etc/apt/sources.list.d/nubiferos.list" << 'APT_EOF'
+deb [signed-by=/etc/apt/keyrings/nubiferos.gpg] https://packages.nubiferos.org bookworm main
+APT_EOF
+    mkdir -p "${CHROOT_DIR}/etc/apt/keyrings"
+    log "INFO" "  ✓ NubiferOS APT repository configured (packages.nubiferos.org)"
+
     log "INFO" "✓ NubiferOS components installed"
 }
 

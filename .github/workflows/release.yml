@@ -1,0 +1,416 @@
+name: Release to Production
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_type:
+        description: 'Version bump type'
+        required: true
+        type: choice
+        options:
+          - patch   # 1.0.2 -> 1.0.3
+          - minor   # 1.0.x -> 1.1.0
+          - major   # 1.x.x -> 2.0.0
+      publish_packages:
+        description: 'Also publish updated APT packages'
+        required: false
+        default: true
+        type: boolean
+
+permissions:
+  id-token: write
+  contents: write
+
+env:
+  ISO_BUCKET: nubiferos-iso
+  APT_BUCKET: nubiferos-packages
+  AWS_REGION: us-east-1
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    environment: production
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      release_tag: ${{ steps.version.outputs.release_tag }}
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+        aws-region: ${{ env.AWS_REGION }}
+
+    - name: Calculate release version
+      id: version
+      run: |
+        git fetch --tags
+        LATEST_TAG=$(git tag -l 'v*' --sort=-v:refname | head -1)
+
+        if [ -z "$LATEST_TAG" ]; then
+          CURRENT="0.0.0"
+        else
+          CURRENT="${LATEST_TAG#v}"
+        fi
+
+        IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT"
+        PATCH=${PATCH:-0}
+
+        case "${{ inputs.release_type }}" in
+          major) MAJOR=$((MAJOR + 1)); MINOR=0; PATCH=0 ;;
+          minor) MINOR=$((MINOR + 1)); PATCH=0 ;;
+          patch) PATCH=$((PATCH + 1)) ;;
+        esac
+
+        VERSION="${MAJOR}.${MINOR}.${PATCH}"
+        RELEASE_TAG="v${VERSION}"
+        COMMIT_SHA=$(git rev-parse --short HEAD)
+
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+        echo "release_tag=$RELEASE_TAG" >> $GITHUB_OUTPUT
+        echo "commit_sha=$COMMIT_SHA" >> $GITHUB_OUTPUT
+
+        echo "=========================================="
+        echo "Release: $RELEASE_TAG (${{ inputs.release_type }} bump)"
+        echo "Previous: ${LATEST_TAG:-none}"
+        echo "Commit: $COMMIT_SHA"
+        echo "=========================================="
+
+    - name: Verify staging build exists
+      id: staging
+      run: |
+        BRAND_VERSION=$(grep 'BRAND_VERSION=' brand/brand.conf | cut -d'"' -f2)
+
+        echo "Looking for staging build..."
+        if aws s3 ls "s3://${{ env.ISO_BUCKET }}/staging/${BRAND_VERSION}/" > /tmp/staging_listing.txt 2>/dev/null; then
+          ISO_FILE=$(grep '\.iso$' /tmp/staging_listing.txt | grep -v '\.asc' | awk '{print $4}' | head -1)
+          if [ -n "$ISO_FILE" ]; then
+            ISO_SIZE=$(grep '\.iso$' /tmp/staging_listing.txt | grep -v '\.asc' | awk '{print $3}' | head -1)
+            echo "Found: $ISO_FILE (${ISO_SIZE} bytes)"
+            echo "iso_file=$ISO_FILE" >> $GITHUB_OUTPUT
+            echo "brand_version=$BRAND_VERSION" >> $GITHUB_OUTPUT
+            echo "has_staging=true" >> $GITHUB_OUTPUT
+          else
+            echo "No ISO found in staging"
+            echo "has_staging=false" >> $GITHUB_OUTPUT
+          fi
+        else
+          echo "No staging directory found"
+          echo "has_staging=false" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Promote staging to production
+      if: steps.staging.outputs.has_staging == 'true'
+      run: |
+        BRAND_VERSION="${{ steps.staging.outputs.brand_version }}"
+        VERSION="${{ steps.version.outputs.version }}"
+
+        echo "=========================================="
+        echo "Promoting to PRODUCTION"
+        echo "=========================================="
+
+        # Clean old artifacts from prod version directory
+        aws s3 rm "s3://${{ env.ISO_BUCKET }}/prod/${VERSION}/" --recursive 2>/dev/null || true
+
+        # Copy from staging to versioned prod directory
+        aws s3 sync \
+          "s3://${{ env.ISO_BUCKET }}/staging/${BRAND_VERSION}/" \
+          "s3://${{ env.ISO_BUCKET }}/prod/${VERSION}/" \
+          --storage-class INTELLIGENT_TIERING
+
+        echo "✓ Copied to prod/${VERSION}/"
+
+        # Update latest pointers
+        ISO_FILE="${{ steps.staging.outputs.iso_file }}"
+
+        aws s3 cp \
+          "s3://${{ env.ISO_BUCKET }}/prod/${VERSION}/${ISO_FILE}" \
+          "s3://${{ env.ISO_BUCKET }}/prod/nubiferos-latest.iso" \
+          --storage-class INTELLIGENT_TIERING
+
+        aws s3 cp \
+          "s3://${{ env.ISO_BUCKET }}/prod/${VERSION}/SHA256SUMS" \
+          "s3://${{ env.ISO_BUCKET }}/prod/nubiferos-latest.iso.sha256"
+
+        # Copy signature if exists
+        if grep -q '\.iso\.asc' /tmp/staging_listing.txt 2>/dev/null; then
+          ASC_FILE=$(grep '\.iso\.asc' /tmp/staging_listing.txt | awk '{print $4}' | head -1)
+          aws s3 cp \
+            "s3://${{ env.ISO_BUCKET }}/prod/${VERSION}/${ASC_FILE}" \
+            "s3://${{ env.ISO_BUCKET }}/prod/nubiferos-latest.iso.asc"
+        fi
+
+        # Copy SBOM if exists
+        aws s3 cp \
+          "s3://${{ env.ISO_BUCKET }}/prod/${VERSION}/sbom-cyclonedx.json" \
+          "s3://${{ env.ISO_BUCKET }}/prod/nubiferos-latest-sbom.json" 2>/dev/null || true
+
+        # Copy signing key
+        aws s3 cp \
+          "s3://${{ env.ISO_BUCKET }}/prod/${VERSION}/nubiferos-signing-key.pub" \
+          "s3://${{ env.ISO_BUCKET }}/prod/nubiferos-signing-key.pub" 2>/dev/null || true
+
+        # Update version pointer
+        echo "$VERSION" | aws s3 cp - "s3://${{ env.ISO_BUCKET }}/prod/latest-version.txt"
+
+        echo "✓ Updated latest pointers"
+
+    - name: Update build manifest status
+      if: steps.staging.outputs.has_staging == 'true'
+      run: |
+        # Download current manifest and mark build as tested
+        if aws s3 cp "s3://${{ env.ISO_BUCKET }}/staging/builds.json" /tmp/builds.json 2>/dev/null; then
+          jq '.builds = [.builds[] | .status = "tested"]' /tmp/builds.json > /tmp/builds_updated.json
+          aws s3 cp /tmp/builds_updated.json "s3://${{ env.ISO_BUCKET }}/staging/builds.json" \
+            --content-type "application/json" --cache-control "max-age=60"
+          echo "✓ Updated build manifest"
+        fi
+
+    - name: Create git tag
+      run: |
+        RELEASE_TAG="${{ steps.version.outputs.release_tag }}"
+        git config user.name "github-actions[bot]"
+        git config user.email "github-actions[bot]@users.noreply.github.com"
+        git tag -a "$RELEASE_TAG" -m "Release $RELEASE_TAG"
+        git push origin "$RELEASE_TAG"
+        echo "✓ Created tag: $RELEASE_TAG"
+
+    - name: Download ISO for GitHub Release
+      if: steps.staging.outputs.has_staging == 'true'
+      run: |
+        VERSION="${{ steps.version.outputs.version }}"
+        mkdir -p release-assets
+        aws s3 cp "s3://${{ env.ISO_BUCKET }}/prod/${VERSION}/" release-assets/ --recursive \
+          --exclude "*" \
+          --include "*.iso" \
+          --include "SHA256SUMS" \
+          --include "*.iso.asc" \
+          --include "nubiferos-signing-key.pub"
+        ls -la release-assets/
+
+    - name: Generate release notes
+      id: notes
+      run: |
+        git fetch --tags
+        RELEASE_TAG="${{ steps.version.outputs.release_tag }}"
+        PREV_TAG=$(git tag -l 'v*' --sort=-v:refname | grep -v "^${RELEASE_TAG}$" | head -1)
+
+        if [ -n "$PREV_TAG" ]; then
+          NOTES=$(git log --pretty=format:"- %s" "${PREV_TAG}..HEAD" | head -30)
+        else
+          NOTES=$(git log --pretty=format:"- %s" -15)
+        fi
+
+        echo "notes<<NOTESEOF" >> $GITHUB_OUTPUT
+        echo "$NOTES" >> $GITHUB_OUTPUT
+        echo "NOTESEOF" >> $GITHUB_OUTPUT
+
+    - name: Create GitHub Release
+      if: steps.staging.outputs.has_staging == 'true'
+      uses: softprops/action-gh-release@v1
+      with:
+        tag_name: ${{ steps.version.outputs.release_tag }}
+        name: "NubiferOS ${{ steps.version.outputs.version }}"
+        body: |
+          ## NubiferOS ${{ steps.version.outputs.version }}
+
+          A security-focused Linux distribution for cloud engineers.
+
+          ### Changes
+          ${{ steps.notes.outputs.notes }}
+
+          ### Download & Verify
+
+          ```bash
+          # Verify checksum
+          sha256sum -c SHA256SUMS
+
+          # Verify signature (optional)
+          gpg --import nubiferos-signing-key.pub
+          gpg --verify *.iso.asc *.iso
+          ```
+
+          ### Checksums
+          See `SHA256SUMS` attached to this release.
+
+          ---
+          **Commit:** `${{ steps.version.outputs.commit_sha }}`
+          **Build:** [Actions](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
+        files: |
+          release-assets/*.iso
+          release-assets/SHA256SUMS
+          release-assets/*.iso.asc
+          release-assets/nubiferos-signing-key.pub
+        draft: false
+        prerelease: false
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Create GitHub Release (no ISO)
+      if: steps.staging.outputs.has_staging != 'true'
+      uses: softprops/action-gh-release@v1
+      with:
+        tag_name: ${{ steps.version.outputs.release_tag }}
+        name: "NubiferOS ${{ steps.version.outputs.version }}"
+        body: |
+          ## NubiferOS ${{ steps.version.outputs.version }}
+
+          Package-only release (no new ISO build).
+
+          ### Changes
+          ${{ steps.notes.outputs.notes }}
+
+          Update via: `sudo apt update && sudo apt upgrade`
+        draft: false
+        prerelease: false
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Trigger website rebuild
+      env:
+        WEBSITE_TOKEN: ${{ secrets.WEBSITE_DISPATCH_TOKEN }}
+      run: |
+        if [ -n "$WEBSITE_TOKEN" ]; then
+          curl -X POST \
+            -H "Authorization: token $WEBSITE_TOKEN" \
+            -H "Accept: application/vnd.github.v3+json" \
+            https://api.github.com/repos/nubiferos/website/dispatches \
+            -d '{"event_type": "new-release", "client_payload": {"version": "${{ steps.version.outputs.version }}"}}'
+          echo "✓ Website rebuild triggered"
+        else
+          echo "⚠️ No WEBSITE_DISPATCH_TOKEN configured"
+        fi
+
+    - name: Release summary
+      run: |
+        cat >> $GITHUB_STEP_SUMMARY << EOF
+        # 🚀 NubiferOS ${{ steps.version.outputs.version }} Released!
+
+        ## Release Details
+        - **Version:** ${{ steps.version.outputs.version }}
+        - **Tag:** ${{ steps.version.outputs.release_tag }}
+        - **Bump Type:** ${{ inputs.release_type }}
+        - **Commit:** \`${{ steps.version.outputs.commit_sha }}\`
+        - **ISO Promoted:** ${{ steps.staging.outputs.has_staging }}
+
+        ## What Happened
+        1. ✅ Promoted staging ISO to production (s3://nubiferos-iso/prod/)
+        2. ✅ Created git tag: ${{ steps.version.outputs.release_tag }}
+        3. ✅ Created GitHub Release with assets
+        4. ✅ Triggered website rebuild
+
+        ## Production URLs
+        \`\`\`
+        s3://${{ env.ISO_BUCKET }}/prod/nubiferos-latest.iso
+        s3://${{ env.ISO_BUCKET }}/prod/${{ steps.version.outputs.version }}/
+        \`\`\`
+        EOF
+
+  # ============================================
+  # OPTIONAL: Build and publish APT packages
+  # ============================================
+  publish-packages:
+    needs: release
+    if: inputs.publish_packages == true
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Install build dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y dpkg-dev gzip gnupg
+
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+        aws-region: ${{ env.AWS_REGION }}
+
+    - name: Import GPG key
+      env:
+        GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
+        GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
+      run: |
+        if [ -n "$GPG_PRIVATE_KEY" ]; then
+          export GNUPGHOME=$(mktemp -d -t gpg-XXXXXX)
+          chmod 700 "$GNUPGHOME"
+          echo "$GPG_PRIVATE_KEY" | gpg --batch --import
+          echo "GNUPGHOME=$GNUPGHOME" >> $GITHUB_ENV
+          echo "GPG_PASSPHRASE=$GPG_PASSPHRASE" >> $GITHUB_ENV
+        fi
+
+    - name: Build and publish packages
+      run: |
+        VERSION="${{ needs.release.outputs.version }}"
+        echo "Building packages at version $VERSION"
+
+        chmod +x build/build-debs.sh build/publish-repo.sh
+        bash build/build-debs.sh "$VERSION"
+        bash build/publish-repo.sh --bucket "${{ env.APT_BUCKET }}"
+
+    - name: Ensure S3 bucket exists
+      run: |
+        if ! aws s3 ls "s3://${{ env.APT_BUCKET }}" 2>/dev/null; then
+          aws s3 mb "s3://${{ env.APT_BUCKET }}" --region ${{ env.AWS_REGION }}
+        fi
+
+    - name: Package summary
+      run: |
+        cat >> $GITHUB_STEP_SUMMARY << EOF
+        # 📦 APT Packages Published
+
+        ## Version: ${{ needs.release.outputs.version }}
+
+        ## Packages
+        \`\`\`
+        $(ls -lh output/debs/*.deb | awk '{print $5, $9}')
+        \`\`\`
+
+        ## Update on NubiferOS
+        \`\`\`bash
+        sudo apt update && sudo apt upgrade
+        \`\`\`
+        EOF
+
+  # ============================================
+  # OPTIONAL: Trigger AMI build
+  # ============================================
+  trigger-ami-build:
+    needs: release
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+        aws-region: ${{ env.AWS_REGION }}
+
+    - name: Trigger CodeBuild for AMI
+      run: |
+        PROJECT_NAME="nubiferos-ami-builder"
+        VERSION="${{ needs.release.outputs.version }}"
+
+        if aws codebuild list-projects --query 'projects' --output text 2>/dev/null | grep -q "$PROJECT_NAME"; then
+          aws s3 ls "s3://${{ env.ISO_BUCKET }}/prod/${VERSION}/" > /tmp/s3_listing.txt
+          ISO_FILE=$(grep '\.iso$' /tmp/s3_listing.txt | grep -v '\.asc' | awk '{print $4}' | head -1)
+
+          BUILD_ID=$(aws codebuild start-build \
+            --project-name "$PROJECT_NAME" \
+            --environment-variables-override \
+              name=ISO_VERSION,value=$VERSION,type=PLAINTEXT \
+              name=ISO_KEY,value=prod/$VERSION/$ISO_FILE,type=PLAINTEXT \
+            --query 'build.id' --output text)
+
+          echo "✓ CodeBuild started: $BUILD_ID"
+        else
+          echo "⚠️ CodeBuild project not found - skipping AMI creation"
+        fi

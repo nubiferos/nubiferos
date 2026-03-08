@@ -1,0 +1,11 @@
+Package: nubifer-dashboard
+Version: __VERSION__
+Section: admin
+Priority: optional
+Architecture: all
+Depends: bash, python3
+Maintainer: NubiferOS Project <info@nubiferos.org>
+Homepage: https://nubiferos.org
+Description: NubiferOS security dashboard
+ Security health monitoring dashboard with system metrics
+ and vulnerability scanning integration.

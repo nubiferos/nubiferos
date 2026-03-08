@@ -1,0 +1,11 @@
+Package: nubifer-updater
+Version: __VERSION__
+Section: admin
+Priority: optional
+Architecture: all
+Depends: bash, apt-transport-https, gnupg
+Maintainer: NubiferOS Project <info@nubiferos.org>
+Homepage: https://nubiferos.org
+Description: NubiferOS automatic update service
+ Configures the NubiferOS APT repository and provides
+ automatic update checking and notification.

@@ -1,0 +1,17 @@
+#!/bin/bash
+set -e
+
+# Import the NubiferOS signing key if not already present
+if [ -f /usr/share/nubifer/apt-signing-key.gpg ]; then
+    cp /usr/share/nubifer/apt-signing-key.gpg /etc/apt/keyrings/nubiferos.gpg
+    chmod 644 /etc/apt/keyrings/nubiferos.gpg
+fi
+
+# Enable and start the update timer
+if command -v systemctl >/dev/null 2>&1; then
+    systemctl daemon-reload
+    systemctl enable nubifer-update.timer 2>/dev/null || true
+    systemctl start nubifer-update.timer 2>/dev/null || true
+fi
+
+echo "nubifer-updater: APT repository configured, update timer enabled"

@@ -1,0 +1,11 @@
+Package: nubifer-tools
+Version: __VERSION__
+Section: admin
+Priority: optional
+Architecture: all
+Depends: bash, python3
+Maintainer: NubiferOS Project <info@nubiferos.org>
+Homepage: https://nubiferos.org
+Description: NubiferOS cloud tools launcher and software center
+ GUI launcher for cloud CLI tools and software center
+ for installing cloud development tools.

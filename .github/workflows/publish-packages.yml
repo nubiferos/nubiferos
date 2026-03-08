@@ -1,0 +1,118 @@
+name: Build & Publish Packages
+
+on:
+  push:
+    branches: [trunk]
+    paths:
+      - 'components/**'
+      - 'scripts/**'
+      - 'configs/**'
+      - 'brand/**'
+      - 'packaging/**'
+      - 'build/build-debs.sh'
+      - 'build/publish-repo.sh'
+  workflow_dispatch:
+    inputs:
+      version_override:
+        description: 'Override package version (leave empty for auto)'
+        required: false
+        type: string
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  APT_BUCKET: nubiferos-packages
+  AWS_REGION: us-east-1
+
+jobs:
+  build-and-publish:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Install build dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y dpkg-dev gzip gnupg
+
+    - name: Determine version
+      id: version
+      run: |
+        if [ -n "${{ inputs.version_override }}" ]; then
+          VERSION="${{ inputs.version_override }}"
+        else
+          VERSION=$(grep 'BRAND_VERSION=' brand/brand.conf | cut -d'"' -f2)
+          # Append commit short SHA for non-release builds
+          COMMIT_SHA=$(git rev-parse --short HEAD)
+          VERSION="${VERSION}.${COMMIT_SHA}"
+        fi
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+        echo "Version: $VERSION"
+
+    - name: Build .deb packages
+      run: |
+        chmod +x build/build-debs.sh
+        bash build/build-debs.sh "${{ steps.version.outputs.version }}"
+
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+        aws-region: ${{ env.AWS_REGION }}
+
+    - name: Ensure S3 bucket exists
+      run: |
+        if ! aws s3 ls "s3://${{ env.APT_BUCKET }}" 2>/dev/null; then
+          echo "Creating bucket ${{ env.APT_BUCKET }}..."
+          aws s3 mb "s3://${{ env.APT_BUCKET }}" --region ${{ env.AWS_REGION }}
+        fi
+
+    - name: Import GPG key for signing
+      env:
+        GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
+        GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
+      run: |
+        if [ -n "$GPG_PRIVATE_KEY" ]; then
+          export GNUPGHOME=$(mktemp -d -t gpg-XXXXXX)
+          chmod 700 "$GNUPGHOME"
+          echo "$GPG_PRIVATE_KEY" | gpg --batch --import
+          echo "GNUPGHOME=$GNUPGHOME" >> $GITHUB_ENV
+          echo "GPG_PASSPHRASE=$GPG_PASSPHRASE" >> $GITHUB_ENV
+          echo "GPG key imported"
+        else
+          echo "No GPG key configured - packages will be unsigned"
+        fi
+
+    - name: Publish to APT repository
+      run: |
+        chmod +x build/publish-repo.sh
+        bash build/publish-repo.sh --bucket "${{ env.APT_BUCKET }}"
+
+    - name: Build summary
+      run: |
+        cat >> $GITHUB_STEP_SUMMARY << EOF
+        # 📦 NubiferOS Packages Published
+
+        ## Version: ${{ steps.version.outputs.version }}
+
+        ## Packages Built
+        \`\`\`
+        $(ls -lh output/debs/*.deb | awk '{print $5, $9}')
+        \`\`\`
+
+        ## Repository
+        - **S3 Bucket:** \`s3://${{ env.APT_BUCKET }}/\`
+        - **Client Config:**
+          \`\`\`
+          deb [signed-by=/etc/apt/keyrings/nubiferos.gpg] https://packages.nubiferos.org bookworm main
+          \`\`\`
+
+        ## Update on NubiferOS
+        \`\`\`bash
+        sudo apt update && sudo apt upgrade
+        \`\`\`
+        EOF

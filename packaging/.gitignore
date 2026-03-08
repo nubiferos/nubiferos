@@ -1,0 +1,4 @@
+# Only track DEBIAN/ control files, not generated package content
+*/usr/
+*/etc/
+*/var/

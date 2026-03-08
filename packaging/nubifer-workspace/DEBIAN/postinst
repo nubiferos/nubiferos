@@ -1,0 +1,9 @@
+#!/bin/bash
+set -e
+
+# Enable context manager service for all users
+mkdir -p /etc/systemd/user/default.target.wants
+ln -sf /usr/lib/systemd/user/nubifer-context-manager.service \
+    /etc/systemd/user/default.target.wants/nubifer-context-manager.service 2>/dev/null || true
+
+echo "nubifer-workspace: installation complete"
