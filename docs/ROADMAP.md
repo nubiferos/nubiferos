@@ -1,11 +1,33 @@
 # NubiferOS Roadmap
 
-**Last Updated**: 2026-02-07
+**Last Updated**: 2026-03-09
 **Maintainer**: Jesse Toporowski
 
 This document tracks planned features, their actual status, and known contradictions between docs. Each item has been audited against the codebase, internal docs, and the published website.
 
 > **Legend**: Done = shipped in trunk | Partial = some code exists but incomplete | Planned = no implementation yet
+
+---
+
+## Completed (March 2026)
+
+### OTA Update Infrastructure
+
+| | |
+|---|---|
+| **Priority** | CRITICAL |
+| **Status** | **Done** |
+
+Full OTA update pipeline so installed systems receive updates without ISO rebuilds:
+
+- **APT repository**: S3-hosted (`packages.nubiferos.org`) with CloudFront CDN, GPG-signed
+- **9 .deb packages**: nubifer-core, nubifer-creds, nubifer-workspace, nubifer-dashboard, nubifer-tools, nubifer-welcome, nubifer-updater, nubifer-security, nubifer-branding
+- **CI/CD**: `publish-packages.yml` auto-publishes on push to trunk; `release.yml` for manual version bumps
+- **ISO bootstrap**: GPG key + APT source + systemd timer baked into ISO for first-boot repo access
+- **Auto-updates**: `nubifer-update.timer` checks every 6 hours, auto-installs nubifer-* updates
+- **Kernel reboots**: `needrestart` + `kexec-tools` for fast kernel update reboots
+- **Security hardening package**: AppArmor, UFW, fail2ban, auditd, sysctl, SSH hardening, PAM policies
+- **Branding package**: os-release, Plymouth, wallpapers, icons, dconf, GDM branding, GNOME extension
 
 ---
 

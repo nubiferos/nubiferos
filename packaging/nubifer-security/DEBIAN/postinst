@@ -18,4 +18,22 @@ ufw --force default deny incoming 2>/dev/null || true
 ufw --force default allow outgoing 2>/dev/null || true
 ufw --force enable 2>/dev/null || true
 
+# Configure needrestart for automatic restarts (non-interactive)
+if [ -d /etc/needrestart/conf.d ]; then
+    cat > /etc/needrestart/conf.d/nubifer.conf << 'NREOF'
+# NubiferOS needrestart configuration
+# Automatically restart services after library updates
+$nrconf{restart} = 'a';
+
+# Use kexec for fast kernel reboots when available
+$nrconf{kexec} = 1 if -x '/sbin/kexec';
+
+# Don't prompt during unattended upgrades
+$nrconf{kernelhints} = -1;
+
+# Notify via desktop notification when reboot required
+$nrconf{ucodehints} = 1;
+NREOF
+fi
+
 echo "nubifer-security: security hardening applied"

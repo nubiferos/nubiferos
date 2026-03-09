@@ -3,7 +3,7 @@ Version: __VERSION__
 Section: admin
 Priority: optional
 Architecture: all
-Depends: bash, apparmor, apparmor-utils, apparmor-profiles, apparmor-profiles-extra, ufw, fail2ban, unattended-upgrades, apt-listchanges, auditd, audispd-plugins, libpam-tmpdir, libpam-pwquality, rkhunter, chkrootkit, aide, aide-common
+Depends: bash, apparmor, apparmor-utils, apparmor-profiles, apparmor-profiles-extra, ufw, fail2ban, unattended-upgrades, apt-listchanges, auditd, audispd-plugins, libpam-tmpdir, libpam-pwquality, rkhunter, chkrootkit, aide, aide-common, needrestart, kexec-tools
 Recommends: nubifer-core
 Maintainer: NubiferOS Project <info@nubiferos.org>
 Homepage: https://nubiferos.org

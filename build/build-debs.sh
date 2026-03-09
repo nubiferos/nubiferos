@@ -596,6 +596,65 @@ if [ -f "$PROJECT_ROOT/configs/security/nubifer-security-monitor.service" ]; the
     cp "$PROJECT_ROOT/configs/security/nubifer-security-monitor.service" "$PKG/usr/lib/systemd/system/"
 fi
 
+# Reboot-required check script for dashboard integration
+cat > "$PKG/usr/local/bin/nubifer-reboot-check" << 'REBOOT'
+#!/bin/bash
+# Check if a reboot is required and notify
+if [ -f /var/run/reboot-required ]; then
+    echo "REBOOT_REQUIRED=true"
+    if [ -f /var/run/reboot-required.pkgs ]; then
+        echo "PACKAGES=$(cat /var/run/reboot-required.pkgs | tr '\n' ',')"
+    fi
+    # Check if kexec is available for fast reboot
+    if command -v kexec >/dev/null 2>&1; then
+        echo "KEXEC_AVAILABLE=true"
+    else
+        echo "KEXEC_AVAILABLE=false"
+    fi
+else
+    echo "REBOOT_REQUIRED=false"
+fi
+REBOOT
+chmod +x "$PKG/usr/local/bin/nubifer-reboot-check"
+
+# Fast reboot script using kexec
+cat > "$PKG/usr/local/bin/nubifer-fast-reboot" << 'FASTREBOOT'
+#!/bin/bash
+# Fast reboot using kexec (loads new kernel without full BIOS/POST)
+set -euo pipefail
+
+if [ "$(id -u)" -ne 0 ]; then
+    echo "Error: must be run as root (use sudo)"
+    exit 1
+fi
+
+if ! command -v kexec >/dev/null 2>&1; then
+    echo "kexec-tools not installed, falling back to normal reboot"
+    systemctl reboot
+    exit 0
+fi
+
+KERNEL=$(ls -t /boot/vmlinuz-* 2>/dev/null | head -1)
+INITRD=$(ls -t /boot/initrd.img-* 2>/dev/null | head -1)
+
+if [ -z "$KERNEL" ] || [ -z "$INITRD" ]; then
+    echo "Cannot find kernel/initrd, falling back to normal reboot"
+    systemctl reboot
+    exit 0
+fi
+
+CMDLINE=$(cat /proc/cmdline)
+
+echo "Loading new kernel via kexec..."
+echo "  Kernel: $KERNEL"
+echo "  Initrd: $INITRD"
+kexec -l "$KERNEL" --initrd="$INITRD" --command-line="$CMDLINE"
+
+echo "Executing fast reboot..."
+systemctl kexec
+FASTREBOOT
+chmod +x "$PKG/usr/local/bin/nubifer-fast-reboot"
+
 build_package "nubifer-security"
 
 # ============================================

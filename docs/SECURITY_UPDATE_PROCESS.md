@@ -1,8 +1,60 @@
 # NubiferOS Security Update Process
 
-## How Security Updates Work
+## Update Architecture
 
-### During ISO Build
+NubiferOS uses a multi-layer update strategy:
+
+1. **Debian security updates** — upstream patches via `unattended-upgrades`
+2. **NubiferOS package updates** — OTA via custom APT repository at `packages.nubiferos.org`
+3. **Kernel updates** — via Debian security repo with `needrestart` + `kexec` for fast reboots
+
+### APT Repository Infrastructure
+
+```
+packages.nubiferos.org (CloudFront → S3)
+├── dists/bookworm/main/binary-all/
+│   ├── Packages
+│   ├── Packages.gz
+│   └── Release
+├── pool/main/
+│   ├── nubifer-core_*.deb
+│   ├── nubifer-creds_*.deb
+│   ├── nubifer-workspace_*.deb
+│   ├── nubifer-dashboard_*.deb
+│   ├── nubifer-tools_*.deb
+│   ├── nubifer-welcome_*.deb
+│   ├── nubifer-updater_*.deb
+│   ├── nubifer-security_*.deb
+│   └── nubifer-branding_*.deb
+└── GPG signed with NubiferOS release key
+```
+
+### Update Flow
+
+```
+                    ┌─────────────────┐
+  Push to trunk ──→ │ GitHub Actions   │
+                    │ publish-packages │
+                    └────────┬────────┘
+                             │ build-debs.sh
+                             │ publish-repo.sh
+                             ▼
+                    ┌─────────────────┐
+                    │ S3 + CloudFront  │
+                    │ packages.nubifer │
+                    │  eros.org        │
+                    └────────┬────────┘
+                             │
+              ┌──────────────┴──────────────┐
+              ▼                             ▼
+    ┌──────────────────┐         ┌──────────────────┐
+    │ nubifer-update    │         │ unattended-       │
+    │ .timer (6h)       │         │ upgrades (daily)  │
+    │ NubiferOS pkgs    │         │ Debian security   │
+    └──────────────────┘         └──────────────────┘
+```
+
+## During ISO Build
 
 1. **APT sources include security repo**:
    ```
@@ -13,19 +65,75 @@
    - `extract-debian.sh`: Initial `apt-get upgrade` after bootstrap
    - `security-cleanup.sh`: Final `apt-get upgrade` before ISO creation
 
-3. **Latest patches at build time** are included in the ISO
+3. **NubiferOS repo bootstrapped into ISO**:
+   - APT source: `/etc/apt/sources.list.d/nubiferos.list`
+   - GPG key: `/etc/apt/keyrings/nubiferos.gpg`
+   - Update timer: `nubifer-update.timer` (every 6 hours)
 
-### After Installation
+4. **Latest patches at build time** are included in the ISO
 
-1. **Automatic security updates** via `unattended-upgrades`:
-   - Enabled by default in NubiferOS
-   - Checks daily for security patches
-   - Installs automatically (configurable)
+## After Installation
 
-2. **Manual updates**:
-   ```bash
-   sudo apt update && sudo apt upgrade
-   ```
+### Automatic Updates
+
+**Debian Security (via unattended-upgrades)**:
+- Checks daily for security patches
+- Installs automatically
+- Configured in `/etc/apt/apt.conf.d/50unattended-upgrades`
+
+**NubiferOS Packages (via nubifer-update.timer)**:
+- Checks every 6 hours (with 30-min random delay)
+- Auto-installs all nubifer-* package updates
+- Desktop notification on completion
+- Logs to syslog with tag `nubifer-update`
+- Stamp file: `/var/lib/nubifer/last-update-check`
+
+### Manual Updates
+
+```bash
+# Update all packages
+sudo apt update && sudo apt upgrade
+
+# Update only NubiferOS packages
+sudo nubifer-update-service
+
+# Check update status
+cat /var/lib/nubifer/last-update-check
+```
+
+### Kernel Updates
+
+NubiferOS uses `needrestart` + `kexec-tools` for fast kernel reboots:
+
+- **needrestart**: Detects when services need restarting after library updates, configured for automatic restarts (`$nrconf{restart} = 'a'`)
+- **kexec-tools**: Enables fast reboots by loading the new kernel directly, skipping BIOS/POST (~5-10 seconds vs ~60+ seconds)
+
+```bash
+# Check if reboot is required
+nubifer-reboot-check
+
+# Fast reboot using kexec (skips BIOS/POST)
+sudo nubifer-fast-reboot
+
+# Normal reboot (full hardware re-initialization)
+sudo systemctl reboot
+```
+
+## CI/CD Pipelines
+
+### Package Publishing (`publish-packages.yml`)
+- **Trigger**: Push to trunk when component/script/config files change
+- **Process**: `build-debs.sh` → `publish-repo.sh` → S3/CloudFront
+- **GPG signing**: Release file signed with NubiferOS key (passphrase from GitHub Secrets)
+
+### ISO Release (`release.yml`)
+- **Trigger**: Manual dispatch with version bump (patch/minor/major)
+- **Process**: Promote staging ISO to production, create git tag + GitHub Release
+- **Approval**: Requires `production` environment approval gate
+
+### ISO Build (`build-iso.yml`)
+- **Trigger**: Push to trunk (auto) or manual dispatch
+- **Output**: Staging ISO in S3 (not promoted until release)
 
 ## Understanding CVE Reports
 
@@ -107,7 +215,7 @@ apt install linux-headers-amd64   # Kernel module building
    ```bash
    # On installed system
    nubifer-vuln-scan
-   
+
    # On ISO (via GitHub Actions)
    # Trigger security-scan workflow manually
    ```

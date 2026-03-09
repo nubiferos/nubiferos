@@ -12,6 +12,22 @@ This document tracks known bugs, issues, and planned fixes for NubiferOS.
 
 ## Active Issues
 
+### 🟢 MEDIUM: Version Sources Out of Sync
+**Status**: KNOWN
+**Priority**: Low (mechanism works, cosmetic issue)
+**Discovered**: 2026-03-09
+
+**Current State**:
+- `VERSION` file: `0.0.1-dev`
+- `brand/brand.conf`: `1.0`
+- Git tags: `v1.0.2`
+
+**Impact**: ISO filename embeds `0.0.1-dev` while S3 paths use `1.0`. The `release.yml` workflow calculates version from git tags, so releases are tagged correctly. Package builds fall back to `brand.conf` when `VERSION` is `0.0.1-dev`.
+
+**Resolution**: Will be cleaned up when version strategy is formalized. The `release.yml` workflow handles version bumps at release time.
+
+---
+
 ### 🟡 MEDIUM: Automated Installation Testing Needed
 **Status**: PLANNED  
 **Priority**: After Phase 1 complete  
@@ -339,5 +355,5 @@ See: `docs/WHAT_IS_A_CRITICAL_DOC.md`
 
 ---
 
-**Last Updated**: 2026-02-04  
+**Last Updated**: 2026-03-09
 **Maintainer**: Jesse Toporowski

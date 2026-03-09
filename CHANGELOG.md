@@ -8,6 +8,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+
+#### OTA Update Infrastructure (March 2026)
+- **APT package repository** hosted on S3 with CloudFront CDN at `packages.nubiferos.org`
+- **GPG-signed repository** with Release file signing for package integrity
+- **9 .deb packages** covering all NubiferOS components: core, creds, workspace, dashboard, tools, welcome, updater, security, branding
+- **`build/build-debs.sh`** — builds all .deb packages from source tree
+- **`build/publish-repo.sh`** — publishes debs to S3 APT repo with GPG signing
+- **`release.yml`** — manual dispatch workflow for production releases with version bump, approval gate, GitHub Release creation, website dispatch
+- **`publish-packages.yml`** — auto-publishes .deb packages on push to trunk when component files change
+- ISO bootstrap: APT source, GPG key, and systemd timer baked in for first-boot OTA access
+- `nubifer-update.timer` — checks for NubiferOS package updates every 6 hours with desktop notifications
+- AWS infrastructure: S3 bucket, CloudFront distribution, ACM cert, Route53 DNS for `packages.nubiferos.org`
+
+#### Security Hardening Package (`nubifer-security`)
+- AppArmor profiles and enforcement service
+- UFW firewall (deny incoming, allow outgoing)
+- fail2ban with SSH jail (3 retries, 2hr ban)
+- auditd rules for config/credential/auth monitoring
+- Kernel hardening via sysctl (ASLR, ptrace, BPF, network hardening)
+- SSH hardening (no root login, key-only auth, session limits)
+- PAM password quality (16 char min, all character classes)
+- `needrestart` — automatic service restarts after library updates
+- `kexec-tools` — fast kernel reboots (skips BIOS/POST, ~5-10s vs ~60+s)
+- `nubifer-reboot-check` — reboot-required status for dashboard integration
+- `nubifer-fast-reboot` — kexec-based fast reboot script
+
+#### Branding Package (`nubifer-branding`)
+- `/etc/os-release`, `lsb-release`, `issue`, `issue.net`, `motd` generated from brand.conf
+- Plymouth boot splash theme
+- Wallpapers (10 color variants + 4 cloud provider themes)
+- Icons (multiple sizes + SVG), GDM branding, dconf settings
+- GNOME wallpaper picker XML, Shell context indicator extension, terminal prompt integration
+
 - **STS Token Mode for AWS credentials**: Automatically generates temporary STS session tokens instead of using long-lived access keys
   - Enabled by default when adding AWS credentials via `nubifer-creds add -t aws`
   - Base credentials never leave the credential helper process
@@ -30,6 +63,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Security scan GitHub Actions workflow for automated CVE detection
 
 ### Changed
+- **`build-iso.yml` simplified** to staging-only builds; production promotion moved to `release.yml`
+- **Version bumping** moved from build time to release time (calculated from git tags)
+- `nubifer-core` now recommends `nubifer-security` and `nubifer-branding`
+- `nubifer-core` postinst generates Firefox ESR policy from bookmarks JSON
 - Legacy D-Bus-based CLI wrappers moved to `components/_LEGACY_cli-wrappers/`
 - Credential system now uses `credential_process` approach (simpler, more secure than D-Bus)
 - AWS CLI pager disabled by default (prevents terminal corruption on Ctrl+C)
