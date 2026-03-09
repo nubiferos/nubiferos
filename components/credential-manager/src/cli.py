@@ -45,7 +45,7 @@ def info(msg):
 
 
 @click.group()
-@click.version_option(version='1.0.0')
+@click.version_option(version='0.1.0')
 def cli():
     """
     NubiferOS Credential Manager

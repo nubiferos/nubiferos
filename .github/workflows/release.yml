@@ -8,9 +8,9 @@ on:
         required: true
         type: choice
         options:
-          - patch   # 1.0.2 -> 1.0.3
-          - minor   # 1.0.x -> 1.1.0
-          - major   # 1.x.x -> 2.0.0
+          - patch   # 0.1.0 -> 0.1.1
+          - minor   # 0.1.x -> 0.2.0
+          - major   # 0.x.x -> 1.0.0 (stable release!)
       publish_packages:
         description: 'Also publish updated APT packages'
         required: false
@@ -50,10 +50,11 @@ jobs:
       id: version
       run: |
         git fetch --tags
-        LATEST_TAG=$(git tag -l 'v*' --sort=-v:refname | head -1)
+        # Filter out legacy v1.x tags from before alpha versioning reset
+        LATEST_TAG=$(git tag -l 'v0.*' --sort=-v:refname | head -1)
 
         if [ -z "$LATEST_TAG" ]; then
-          CURRENT="0.0.0"
+          CURRENT="0.1.0"
         else
           CURRENT="${LATEST_TAG#v}"
         fi
@@ -247,7 +248,7 @@ jobs:
           release-assets/*.iso.asc
           release-assets/nubiferos-signing-key.pub
         draft: false
-        prerelease: false
+        prerelease: ${{ startsWith(steps.version.outputs.version, '0.') }}
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -267,7 +268,7 @@ jobs:
 
           Update via: `sudo apt update && sudo apt upgrade`
         draft: false
-        prerelease: false
+        prerelease: ${{ startsWith(steps.version.outputs.version, '0.') }}
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 

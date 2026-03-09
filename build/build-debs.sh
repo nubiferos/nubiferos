@@ -9,7 +9,7 @@ OUTPUT_DIR="${PROJECT_ROOT}/output/debs"
 
 # Version: use arg, or VERSION file, or brand.conf
 VERSION="${1:-$(cat "${PROJECT_ROOT}/VERSION" 2>/dev/null | tr -d '\n')}"
-if [ -z "$VERSION" ] || [ "$VERSION" = "0.0.1-dev" ]; then
+if [ -z "$VERSION" ]; then
     VERSION=$(grep 'BRAND_VERSION=' "${PROJECT_ROOT}/brand/brand.conf" | cut -d'"' -f2)
 fi
 GIT_COMMIT=$(git -C "$PROJECT_ROOT" rev-parse --short HEAD 2>/dev/null || echo "unknown")

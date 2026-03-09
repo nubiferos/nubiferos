@@ -12,19 +12,14 @@ This document tracks known bugs, issues, and planned fixes for NubiferOS.
 
 ## Active Issues
 
-### 🟢 MEDIUM: Version Sources Out of Sync
+### 🟢 LOW: Legacy v1.x Git Tags
 **Status**: KNOWN
-**Priority**: Low (mechanism works, cosmetic issue)
+**Priority**: Low (cosmetic, no functional impact)
 **Discovered**: 2026-03-09
 
-**Current State**:
-- `VERSION` file: `0.0.1-dev`
-- `brand/brand.conf`: `1.0`
-- Git tags: `v1.0.2`
+**Current State**: Old git tags `v1.0.0`, `v1.0.1`, `v1.0.2` exist from before the versioning reset. The project is now on `0.x.x` (alpha) versioning. The `release.yml` workflow filters these out by only matching `v0.*` tags.
 
-**Impact**: ISO filename embeds `0.0.1-dev` while S3 paths use `1.0`. The `release.yml` workflow calculates version from git tags, so releases are tagged correctly. Package builds fall back to `brand.conf` when `VERSION` is `0.0.1-dev`.
-
-**Resolution**: Will be cleaned up when version strategy is formalized. The `release.yml` workflow handles version bumps at release time.
+**Resolution**: Tags can be deleted once alpha is stable, or left as historical artifacts. They don't affect anything.
 
 ---
 
