@@ -700,6 +700,112 @@ EOF
 deb [signed-by=/etc/apt/keyrings/nubiferos.gpg] https://packages.nubiferos.org bookworm main
 APT_EOF
     mkdir -p "${CHROOT_DIR}/etc/apt/keyrings"
+
+    # Fetch the APT signing key from S3 (published by publish-repo.sh)
+    log "INFO" "Fetching NubiferOS APT signing key..."
+    if curl -fsSL "https://packages.nubiferos.org/nubiferos-apt-key.gpg" \
+         -o "${CHROOT_DIR}/etc/apt/keyrings/nubiferos.gpg" 2>/dev/null; then
+        chmod 644 "${CHROOT_DIR}/etc/apt/keyrings/nubiferos.gpg"
+        log "INFO" "  ✓ APT signing key installed"
+    elif [ -f "${PROJECT_ROOT}/output/nubiferos-signing-key.pub" ]; then
+        # Fallback: use local signing key from ISO build
+        gpg --dearmor < "${PROJECT_ROOT}/output/nubiferos-signing-key.pub" \
+            > "${CHROOT_DIR}/etc/apt/keyrings/nubiferos.gpg" 2>/dev/null || \
+        cp "${PROJECT_ROOT}/output/nubiferos-signing-key.pub" \
+           "${CHROOT_DIR}/etc/apt/keyrings/nubiferos.gpg"
+        chmod 644 "${CHROOT_DIR}/etc/apt/keyrings/nubiferos.gpg"
+        log "INFO" "  ✓ APT signing key installed (from local build)"
+    else
+        log "WARNING" "No APT signing key available - updates will require manual key import"
+    fi
+
+    # Install update service and timer (bootstrap - nubifer-updater pkg takes over later)
+    log "INFO" "Installing NubiferOS update service..."
+
+    mkdir -p "${CHROOT_DIR}/usr/local/bin"
+    cat > "${CHROOT_DIR}/usr/local/bin/nubifer-update-service" << 'UPDATE_SVC'
+#!/bin/bash
+# NubiferOS Update Service - checks for and applies package updates
+set -euo pipefail
+
+LOG_TAG="nubifer-update"
+STAMP_FILE="/var/lib/nubifer/last-update-check"
+
+log() { logger -t "$LOG_TAG" "$1"; }
+
+log "Checking for NubiferOS package updates..."
+
+# Update package lists (only nubiferos repo)
+if ! apt-get update -o Dir::Etc::sourcelist=/etc/apt/sources.list.d/nubiferos.list \
+     -o Dir::Etc::sourceparts="-" -o APT::Get::List-Cleanup="0" -qq 2>/dev/null; then
+    log "WARNING: Failed to update NubiferOS package list"
+    exit 1
+fi
+
+# Check for upgradable nubifer packages
+UPGRADABLE=$(apt list --upgradable 2>/dev/null | grep -c "^nubifer-" || true)
+
+if [ "$UPGRADABLE" -gt 0 ]; then
+    log "Found ${UPGRADABLE} NubiferOS package update(s), installing..."
+
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --only-upgrade \
+        nubifer-core nubifer-creds nubifer-workspace nubifer-dashboard \
+        nubifer-tools nubifer-welcome nubifer-updater 2>/dev/null || true
+
+    log "NubiferOS packages updated successfully"
+
+    # Notify logged-in users
+    for user_id in $(loginctl list-users --no-legend 2>/dev/null | awk '{print $1}'); do
+        user_name=$(loginctl show-user "$user_id" -p Name --value 2>/dev/null || true)
+        if [ -n "$user_name" ]; then
+            sudo -u "$user_name" DISPLAY=:0 DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/$(id -u "$user_name")/bus" \
+                notify-send "NubiferOS Updated" "System packages have been updated. Some changes may require logout." \
+                --icon=system-software-update 2>/dev/null || true
+        fi
+    done
+else
+    log "All NubiferOS packages are up to date"
+fi
+
+# Update timestamp
+mkdir -p "$(dirname "$STAMP_FILE")"
+date -Iseconds > "$STAMP_FILE"
+UPDATE_SVC
+    chmod +x "${CHROOT_DIR}/usr/local/bin/nubifer-update-service"
+
+    # Systemd service
+    mkdir -p "${CHROOT_DIR}/usr/lib/systemd/system"
+    cat > "${CHROOT_DIR}/usr/lib/systemd/system/nubifer-update.service" << 'SVC_EOF'
+[Unit]
+Description=NubiferOS Package Update Check
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/nubifer-update-service
+SVC_EOF
+
+    cat > "${CHROOT_DIR}/usr/lib/systemd/system/nubifer-update.timer" << 'TIMER_EOF'
+[Unit]
+Description=NubiferOS Update Check Timer
+
+[Timer]
+OnBootSec=5min
+OnUnitActiveSec=6h
+RandomizedDelaySec=30min
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+TIMER_EOF
+
+    # Enable the timer
+    mkdir -p "${CHROOT_DIR}/etc/systemd/system/timers.target.wants"
+    ln -sf /usr/lib/systemd/system/nubifer-update.timer \
+        "${CHROOT_DIR}/etc/systemd/system/timers.target.wants/nubifer-update.timer"
+
+    log "INFO" "  ✓ Update service installed (checks every 6h)"
     log "INFO" "  ✓ NubiferOS APT repository configured (packages.nubiferos.org)"
 
     log "INFO" "✓ NubiferOS components installed"
