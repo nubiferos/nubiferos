@@ -750,7 +750,8 @@ if [ "$UPGRADABLE" -gt 0 ]; then
 
     DEBIAN_FRONTEND=noninteractive apt-get install -y --only-upgrade \
         nubifer-core nubifer-creds nubifer-workspace nubifer-dashboard \
-        nubifer-tools nubifer-welcome nubifer-updater 2>/dev/null || true
+        nubifer-tools nubifer-welcome nubifer-updater nubifer-security \
+        nubifer-branding 2>/dev/null || true
 
     log "NubiferOS packages updated successfully"
 

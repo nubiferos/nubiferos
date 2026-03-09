@@ -4,7 +4,7 @@ Section: admin
 Priority: optional
 Architecture: all
 Depends: bash, python3, gnupg, pass
-Recommends: nubifer-creds, nubifer-workspace, nubifer-dashboard, nubifer-tools, nubifer-welcome, nubifer-updater
+Recommends: nubifer-creds, nubifer-workspace, nubifer-dashboard, nubifer-tools, nubifer-welcome, nubifer-updater, nubifer-security, nubifer-branding
 Maintainer: NubiferOS Project <info@nubiferos.org>
 Homepage: https://nubiferos.org
 Description: NubiferOS core system files and configuration

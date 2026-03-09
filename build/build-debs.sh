@@ -340,7 +340,8 @@ if [ "$UPGRADABLE" -gt 0 ]; then
 
     DEBIAN_FRONTEND=noninteractive apt-get install -y --only-upgrade \
         nubifer-core nubifer-creds nubifer-workspace nubifer-dashboard \
-        nubifer-tools nubifer-welcome nubifer-updater 2>/dev/null || true
+        nubifer-tools nubifer-welcome nubifer-updater nubifer-security \
+        nubifer-branding 2>/dev/null || true
 
     log "NubiferOS packages updated successfully"
 
@@ -364,6 +365,524 @@ UPDATER
 chmod +x "$PKG/usr/local/bin/nubifer-update-service"
 
 build_package "nubifer-updater"
+
+# ============================================
+# 8. nubifer-security
+# ============================================
+PKG="${PROJECT_ROOT}/packaging/nubifer-security"
+
+# AppArmor profile for credential manager
+mkdir -p "$PKG/etc/apparmor.d"
+cat > "$PKG/etc/apparmor.d/nubifer.credential-manager" << 'EOF'
+#include <tunables/global>
+
+/usr/bin/nubifer-credential-manager {
+  #include <abstractions/base>
+  #include <abstractions/python>
+  /etc/nubifer/** r,
+  owner @{HOME}/.config/nubifer/** rw,
+  owner @{HOME}/.local/share/nubifer/** rw,
+  #include <abstractions/dbus-session-strict>
+  deny network,
+  owner @{HOME}/.local/share/keyrings/** rw,
+}
+EOF
+
+# AppArmor first-boot enforcement service
+mkdir -p "$PKG/etc/systemd/system"
+cat > "$PKG/etc/systemd/system/apparmor-enforce-profiles.service" << 'EOF'
+[Unit]
+Description=Enforce AppArmor profiles on first boot
+After=apparmor.service
+ConditionPathExists=!/var/lib/nubifer/apparmor-enforced
+
+[Service]
+Type=oneshot
+ExecStart=/bin/bash -c 'aa-enforce /etc/apparmor.d/* 2>/dev/null || true; mkdir -p /var/lib/nubifer; touch /var/lib/nubifer/apparmor-enforced'
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+# fail2ban config
+mkdir -p "$PKG/etc/fail2ban"
+cat > "$PKG/etc/fail2ban/jail.local" << 'EOF'
+[DEFAULT]
+bantime = 3600
+findtime = 600
+maxretry = 5
+destemail = root@localhost
+sendername = Fail2Ban
+action = %(action_)s
+
+[sshd]
+enabled = true
+port = ssh
+logpath = /var/log/auth.log
+maxretry = 3
+bantime = 7200
+EOF
+
+# Unattended upgrades
+mkdir -p "$PKG/etc/apt/apt.conf.d"
+cat > "$PKG/etc/apt/apt.conf.d/50unattended-upgrades" << 'EOF'
+Unattended-Upgrade::Allowed-Origins {
+    "${distro_id}:${distro_codename}-security";
+    "${distro_id}ESMApps:${distro_codename}-apps-security";
+    "${distro_id}ESM:${distro_codename}-infra-security";
+};
+Unattended-Upgrade::AutoFixInterruptedDpkg "true";
+Unattended-Upgrade::MinimalSteps "true";
+Unattended-Upgrade::InstallOnShutdown "false";
+Unattended-Upgrade::Remove-Unused-Kernel-Packages "true";
+Unattended-Upgrade::Remove-Unused-Dependencies "true";
+Unattended-Upgrade::Automatic-Reboot "false";
+EOF
+
+cat > "$PKG/etc/apt/apt.conf.d/20auto-upgrades" << 'EOF'
+APT::Periodic::Update-Package-Lists "1";
+APT::Periodic::Download-Upgradeable-Packages "1";
+APT::Periodic::AutocleanInterval "7";
+APT::Periodic::Unattended-Upgrade "1";
+EOF
+
+# Audit rules
+mkdir -p "$PKG/etc/audit/rules.d"
+cat > "$PKG/etc/audit/rules.d/nubifer.rules" << 'EOF'
+# NubiferOS Audit Rules
+-w /etc/nubifer/ -p wa -k nubifer_config
+-w /home/ -p wa -k nubifer_credentials
+-w /var/log/auth.log -p wa -k auth_log
+-w /etc/passwd -p wa -k passwd_changes
+-w /etc/group -p wa -k group_changes
+-w /etc/shadow -p wa -k shadow_changes
+-w /etc/sudoers -p wa -k sudoers_changes
+-w /var/log/sudo.log -p wa -k sudo_log
+-w /etc/network/ -p wa -k network_config
+-a always,exit -F arch=b64 -S adjtimex -S settimeofday -k time_change
+-a always,exit -F arch=b64 -S clock_settime -k time_change
+-a always,exit -F arch=b64 -S unlink -S unlinkat -S rename -S renameat -k delete
+-w /sbin/insmod -p x -k modules
+-w /sbin/rmmod -p x -k modules
+-w /sbin/modprobe -p x -k modules
+EOF
+
+# Kernel hardening sysctl
+mkdir -p "$PKG/etc/sysctl.d"
+cat > "$PKG/etc/sysctl.d/99-nubifer-hardening.conf" << 'EOF'
+# NubiferOS Kernel Hardening
+net.ipv4.ip_forward = 0
+net.ipv6.conf.all.forwarding = 0
+net.ipv4.conf.all.send_redirects = 0
+net.ipv4.conf.default.send_redirects = 0
+net.ipv4.conf.all.accept_source_route = 0
+net.ipv4.conf.default.accept_source_route = 0
+net.ipv6.conf.all.accept_source_route = 0
+net.ipv6.conf.default.accept_source_route = 0
+net.ipv4.conf.all.accept_redirects = 0
+net.ipv4.conf.default.accept_redirects = 0
+net.ipv6.conf.all.accept_redirects = 0
+net.ipv6.conf.default.accept_redirects = 0
+net.ipv4.conf.all.secure_redirects = 0
+net.ipv4.conf.default.secure_redirects = 0
+net.ipv4.conf.all.rp_filter = 1
+net.ipv4.conf.default.rp_filter = 1
+net.ipv4.conf.all.log_martians = 1
+net.ipv4.conf.default.log_martians = 1
+net.ipv4.icmp_echo_ignore_all = 0
+net.ipv4.icmp_echo_ignore_broadcasts = 1
+net.ipv4.icmp_ignore_bogus_error_responses = 1
+net.ipv4.tcp_syncookies = 1
+net.ipv4.tcp_syn_retries = 2
+net.ipv4.tcp_synack_retries = 2
+net.ipv4.tcp_max_syn_backlog = 4096
+fs.file-max = 65535
+net.ipv4.tcp_rfc1337 = 1
+kernel.dmesg_restrict = 1
+kernel.kptr_restrict = 2
+kernel.yama.ptrace_scope = 2
+kernel.unprivileged_bpf_disabled = 1
+net.core.bpf_jit_harden = 2
+kernel.core_uses_pid = 1
+fs.suid_dumpable = 0
+kernel.randomize_va_space = 2
+kernel.printk = 3 3 3 3
+EOF
+
+# SSH hardening
+mkdir -p "$PKG/etc/ssh/sshd_config.d"
+cat > "$PKG/etc/ssh/sshd_config.d/99-nubifer-hardening.conf" << 'EOF'
+# NubiferOS SSH Hardening
+PermitRootLogin no
+PasswordAuthentication no
+PubkeyAuthentication yes
+ChallengeResponseAuthentication no
+X11Forwarding no
+ClientAliveInterval 300
+ClientAliveCountMax 2
+MaxAuthTries 3
+MaxSessions 2
+EOF
+
+# Password quality
+mkdir -p "$PKG/etc/security"
+cat > "$PKG/etc/security/pwquality.conf" << 'EOF'
+# NubiferOS Password Quality Requirements
+minlen = 16
+dcredit = -1
+ucredit = -1
+lcredit = -1
+ocredit = -1
+minclass = 4
+maxrepeat = 2
+maxsequence = 3
+gecoscheck = 1
+dictcheck = 1
+usercheck = 1
+enforcing = 1
+retry = 3
+EOF
+
+# Security verification script
+mkdir -p "$PKG/usr/local/bin"
+cat > "$PKG/usr/local/bin/verify-security" << 'VERIFY'
+#!/bin/bash
+echo "=========================================="
+echo "NubiferOS Security Verification"
+echo "=========================================="
+
+check_service() {
+    local service="$1"
+    if systemctl is-enabled "$service" &>/dev/null; then
+        echo "✓ $service: enabled"
+    else
+        echo "✗ $service: not enabled"
+    fi
+}
+
+echo ""
+echo "Security Services:"
+check_service "apparmor"
+check_service "ufw"
+check_service "fail2ban"
+check_service "unattended-upgrades"
+check_service "auditd"
+
+echo ""
+echo "Firewall Status:"
+ufw status | head -n 5
+
+echo ""
+echo "AppArmor Status:"
+aa-status 2>/dev/null | head -n 10 || echo "Run as root to see AppArmor status"
+
+echo ""
+echo "=========================================="
+VERIFY
+chmod +x "$PKG/usr/local/bin/verify-security"
+
+# Security monitoring scripts
+for script in anti-theft-protection.sh bios-security-confirm.sh configure-cpu-mitigations.sh \
+              enable-retbleed-mitigation.sh recovery-key-setup.sh security-monitor.sh; do
+    [ -f "$PROJECT_ROOT/configs/security/$script" ] && \
+        cp "$PROJECT_ROOT/configs/security/$script" "$PKG/usr/local/bin/"
+done
+chmod +x "$PKG/usr/local/bin/"*.sh 2>/dev/null || true
+
+# Security monitor systemd service
+if [ -f "$PROJECT_ROOT/configs/security/nubifer-security-monitor.service" ]; then
+    mkdir -p "$PKG/usr/lib/systemd/system"
+    cp "$PROJECT_ROOT/configs/security/nubifer-security-monitor.service" "$PKG/usr/lib/systemd/system/"
+fi
+
+build_package "nubifer-security"
+
+# ============================================
+# 9. nubifer-branding
+# ============================================
+PKG="${PROJECT_ROOT}/packaging/nubifer-branding"
+
+# os-release and system identity (use brand.conf values)
+BNAME=$(grep 'BRAND_NAME=' "$PROJECT_ROOT/brand/brand.conf" | cut -d'"' -f2)
+BVER=$(grep 'BRAND_VERSION=' "$PROJECT_ROOT/brand/brand.conf" | cut -d'"' -f2)
+BCODE=$(grep 'BRAND_CODENAME=' "$PROJECT_ROOT/brand/brand.conf" | cut -d'"' -f2)
+BSITE=$(grep 'BRAND_WEBSITE=' "$PROJECT_ROOT/brand/brand.conf" | cut -d'"' -f2)
+BTAG=$(grep 'BRAND_TAGLINE=' "$PROJECT_ROOT/brand/brand.conf" | cut -d'"' -f2)
+BCODE_LC=$(echo "$BCODE" | tr '[:upper:]' '[:lower:]')
+
+mkdir -p "$PKG/etc"
+cat > "$PKG/etc/os-release" << OSEOF
+PRETTY_NAME="${BNAME} ${BVER} (${BCODE})"
+NAME="${BNAME}"
+VERSION_ID="${BVER}"
+VERSION="${BVER} (${BCODE})"
+VERSION_CODENAME=${BCODE_LC}
+ID=nubiferos
+ID_LIKE=debian
+HOME_URL="${BSITE}"
+SUPPORT_URL="https://github.com/nubiferos/nubiferos/issues"
+BUG_REPORT_URL="https://github.com/nubiferos/nubiferos/issues"
+OSEOF
+
+cat > "$PKG/etc/lsb-release" << LSBEOF
+DISTRIB_ID=${BNAME}
+DISTRIB_RELEASE=${BVER}
+DISTRIB_CODENAME=${BCODE_LC}
+DISTRIB_DESCRIPTION="${BNAME} ${BVER} (${BCODE})"
+LSBEOF
+
+cat > "$PKG/etc/issue" << ISSEOF
+${BNAME} ${BVER} (${BCODE}) - ${BTAG}
+Kernel \r on \m (\l)
+
+ISSEOF
+
+cat > "$PKG/etc/issue.net" << ISSNETEOF
+${BNAME} ${BVER} (${BCODE})
+ISSNETEOF
+
+cat > "$PKG/etc/motd" << MOTDEOF
+
+Welcome to ${BNAME} ${BVER} (${BCODE})
+${BTAG}
+
+  * Documentation: ${BSITE}
+  * Support:       https://github.com/nubiferos/nubiferos/issues
+
+MOTDEOF
+
+# Wallpapers
+mkdir -p "$PKG/usr/share/backgrounds/nubiferos"
+if [ -d "$PROJECT_ROOT/brand/wallpapers/nubifer_dark" ]; then
+    cp "$PROJECT_ROOT/brand/wallpapers/nubifer_dark/"*.png "$PKG/usr/share/backgrounds/nubiferos/" 2>/dev/null || true
+fi
+for wp in default aws azure gcp oracle; do
+    [ -f "$PROJECT_ROOT/brand/wallpapers/${wp}.svg" ] && \
+        cp "$PROJECT_ROOT/brand/wallpapers/${wp}.svg" "$PKG/usr/share/backgrounds/nubiferos/"
+done
+if [ -d "$PROJECT_ROOT/brand/wallpapers/png" ]; then
+    cp "$PROJECT_ROOT/brand/wallpapers/png/"*.png "$PKG/usr/share/backgrounds/nubiferos/" 2>/dev/null || true
+fi
+
+# Icons
+mkdir -p "$PKG/usr/share/pixmaps/nubiferos"
+for size in 32 64 128 256 512; do
+    if [ -f "$PROJECT_ROOT/brand/icons/logo-${size}.png" ]; then
+        cp "$PROJECT_ROOT/brand/icons/logo-${size}.png" "$PKG/usr/share/pixmaps/nubiferos/"
+        mkdir -p "$PKG/usr/share/icons/hicolor/${size}x${size}/apps"
+        cp "$PROJECT_ROOT/brand/icons/logo-${size}.png" "$PKG/usr/share/icons/hicolor/${size}x${size}/apps/nubiferos.png"
+    fi
+done
+[ -f "$PROJECT_ROOT/brand/logo.svg" ] && {
+    cp "$PROJECT_ROOT/brand/logo.svg" "$PKG/usr/share/pixmaps/nubiferos/"
+    mkdir -p "$PKG/usr/share/icons/hicolor/scalable/apps"
+    cp "$PROJECT_ROOT/brand/logo.svg" "$PKG/usr/share/icons/hicolor/scalable/apps/nubiferos.svg"
+}
+
+# GDM branding
+mkdir -p "$PKG/usr/share/gdm/greeter/images"
+[ -f "$PROJECT_ROOT/brand/icons/logo-128.png" ] && \
+    cp "$PROJECT_ROOT/brand/icons/logo-128.png" "$PKG/usr/share/gdm/greeter/images/logo.png"
+
+mkdir -p "$PKG/etc/gdm3"
+cat > "$PKG/etc/gdm3/greeter.dconf-defaults" << 'EOF'
+# NubiferOS GDM Configuration
+[org/gnome/login-screen]
+logo='/usr/share/pixmaps/nubiferos/logo-128.png'
+disable-user-list=false
+banner-message-enable=false
+
+[org/gnome/desktop/interface]
+cursor-theme='Adwaita'
+icon-theme='Adwaita'
+EOF
+
+# User face icon
+mkdir -p "$PKG/etc/skel/.face.d"
+[ -f "$PROJECT_ROOT/brand/icons/logo-256.png" ] && \
+    cp "$PROJECT_ROOT/brand/icons/logo-256.png" "$PKG/etc/skel/.face"
+
+# dconf settings (wallpaper, workspaces, extensions)
+mkdir -p "$PKG/etc/dconf/db/local.d"
+mkdir -p "$PKG/etc/dconf/db/local.d/locks"
+mkdir -p "$PKG/etc/dconf/db/gdm.d"
+mkdir -p "$PKG/etc/dconf/profile"
+
+cat > "$PKG/etc/dconf/profile/user" << 'EOF'
+user-db:user
+system-db:local
+EOF
+
+cat > "$PKG/etc/dconf/profile/gdm" << 'EOF'
+user-db:user
+system-db:gdm
+file-db:/usr/share/gdm/greeter-dconf-defaults
+EOF
+
+cat > "$PKG/etc/dconf/db/local.d/01-nubiferos-wallpaper" << 'EOF'
+[org/gnome/desktop/background]
+picture-uri='file:///usr/share/backgrounds/nubiferos/cyan_black_original_4K.png'
+picture-uri-dark='file:///usr/share/backgrounds/nubiferos/cyan_black_original_4K.png'
+picture-options='zoom'
+primary-color='#000000'
+secondary-color='#00ffff'
+
+[org/gnome/desktop/screensaver]
+picture-uri='file:///usr/share/backgrounds/nubiferos/cyan_black_original_4K.png'
+primary-color='#000000'
+secondary-color='#00ffff'
+
+[org/gnome/desktop/wm/preferences]
+button-layout='appmenu:minimize,maximize,close'
+
+[org/gnome/shell]
+enabled-extensions=['nubiferos-context@nubiferos.org', 'ding@rastersoft.com']
+favorite-apps=['firefox-esr.desktop', 'org.gnome.Terminal.desktop', 'org.gnome.Nautilus.desktop', 'nubifer-dashboard.desktop', 'nubifer-software.desktop', 'ai.nubiferos.nubiferai.desktop']
+EOF
+
+cat > "$PKG/etc/dconf/db/local.d/02-nubiferos-workspaces" << 'EOF'
+[org/gnome/desktop/wm/preferences]
+num-workspaces=1
+
+[org/gnome/mutter]
+dynamic-workspaces=false
+
+[org/gnome/shell/app-switcher]
+current-workspace-only=true
+EOF
+
+cat > "$PKG/etc/dconf/db/local.d/locks/01-nubiferos-workspace-locks" << 'EOF'
+/org/gnome/mutter/dynamic-workspaces
+EOF
+
+cat > "$PKG/etc/dconf/db/gdm.d/01-nubiferos-branding" << 'EOF'
+[org/gnome/login-screen]
+logo='/usr/share/pixmaps/nubiferos/logo-128.png'
+banner-message-enable=false
+
+[org/gnome/desktop/background]
+picture-uri='file:///usr/share/backgrounds/nubiferos/cyan_black_original_4K.png'
+picture-options='zoom'
+primary-color='#000000'
+
+[org/gnome/desktop/screensaver]
+picture-uri='file:///usr/share/backgrounds/nubiferos/cyan_black_original_4K.png'
+EOF
+
+# GNOME wallpaper selection XML
+mkdir -p "$PKG/usr/share/gnome-background-properties"
+cp "$PROJECT_ROOT/build/install-branding-assets.sh" /dev/null 2>&1 || true
+# Generate the XML inline (same content as install-branding-assets.sh)
+cat > "$PKG/usr/share/gnome-background-properties/nubiferos.xml" << 'WPXML'
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE wallpapers SYSTEM "gnome-wp-list.dtd">
+<wallpapers>
+  <wallpaper deleted="false">
+    <name>NubiferOS Cyan (Default)</name>
+    <filename>/usr/share/backgrounds/nubiferos/cyan_black_original_4K.png</filename>
+    <options>zoom</options>
+    <shade_type>solid</shade_type>
+    <pcolor>#000000</pcolor>
+    <scolor>#00ffff</scolor>
+  </wallpaper>
+  <wallpaper deleted="false">
+    <name>NubiferOS Green</name>
+    <filename>/usr/share/backgrounds/nubiferos/green_black_original_4K.png</filename>
+    <options>zoom</options>
+  </wallpaper>
+  <wallpaper deleted="false">
+    <name>NubiferOS Lime</name>
+    <filename>/usr/share/backgrounds/nubiferos/lime_black_original_4K.png</filename>
+    <options>zoom</options>
+  </wallpaper>
+  <wallpaper deleted="false">
+    <name>NubiferOS Magenta</name>
+    <filename>/usr/share/backgrounds/nubiferos/magenta_black_original_4K.png</filename>
+    <options>zoom</options>
+  </wallpaper>
+  <wallpaper deleted="false">
+    <name>NubiferOS Orange</name>
+    <filename>/usr/share/backgrounds/nubiferos/orange_black_original_4K.png</filename>
+    <options>zoom</options>
+  </wallpaper>
+  <wallpaper deleted="false">
+    <name>NubiferOS Pink</name>
+    <filename>/usr/share/backgrounds/nubiferos/pink_black_original_4K.png</filename>
+    <options>zoom</options>
+  </wallpaper>
+  <wallpaper deleted="false">
+    <name>NubiferOS Purple</name>
+    <filename>/usr/share/backgrounds/nubiferos/purple_black_original_4K.png</filename>
+    <options>zoom</options>
+  </wallpaper>
+  <wallpaper deleted="false">
+    <name>NubiferOS Red</name>
+    <filename>/usr/share/backgrounds/nubiferos/red_black_original_4K.png</filename>
+    <options>zoom</options>
+  </wallpaper>
+  <wallpaper deleted="false">
+    <name>NubiferOS White</name>
+    <filename>/usr/share/backgrounds/nubiferos/white_black_original_4K.png</filename>
+    <options>zoom</options>
+  </wallpaper>
+  <wallpaper deleted="false">
+    <name>NubiferOS Yellow</name>
+    <filename>/usr/share/backgrounds/nubiferos/yellow_black_original_4K.png</filename>
+    <options>zoom</options>
+  </wallpaper>
+  <wallpaper deleted="false">
+    <name>NubiferOS AWS Theme</name>
+    <filename>/usr/share/backgrounds/nubiferos/aws.svg</filename>
+    <options>zoom</options>
+  </wallpaper>
+  <wallpaper deleted="false">
+    <name>NubiferOS Azure Theme</name>
+    <filename>/usr/share/backgrounds/nubiferos/azure.svg</filename>
+    <options>zoom</options>
+  </wallpaper>
+  <wallpaper deleted="false">
+    <name>NubiferOS GCP Theme</name>
+    <filename>/usr/share/backgrounds/nubiferos/gcp.svg</filename>
+    <options>zoom</options>
+  </wallpaper>
+  <wallpaper deleted="false">
+    <name>NubiferOS Oracle Theme</name>
+    <filename>/usr/share/backgrounds/nubiferos/oracle.svg</filename>
+    <options>zoom</options>
+  </wallpaper>
+</wallpapers>
+WPXML
+
+# GNOME Shell context indicator extension
+EXTENSION_UUID="nubiferos-context@nubiferos.org"
+EXTENSION_DIR="$PKG/usr/share/gnome-shell/extensions/${EXTENSION_UUID}"
+mkdir -p "$EXTENSION_DIR"
+if [ -d "$PROJECT_ROOT/components/context-indicator/gnome-extension" ]; then
+    cp "$PROJECT_ROOT/components/context-indicator/gnome-extension/extension.js" "$EXTENSION_DIR/"
+    cp "$PROJECT_ROOT/components/context-indicator/gnome-extension/metadata.json" "$EXTENSION_DIR/"
+    cp "$PROJECT_ROOT/components/context-indicator/gnome-extension/stylesheet.css" "$EXTENSION_DIR/"
+fi
+
+# Terminal prompt integration
+mkdir -p "$PKG/etc/profile.d"
+if [ -f "$PROJECT_ROOT/components/context-indicator/nubiferos-prompt.sh" ]; then
+    cp "$PROJECT_ROOT/components/context-indicator/nubiferos-prompt.sh" "$PKG/etc/profile.d/"
+    chmod +x "$PKG/etc/profile.d/nubiferos-prompt.sh"
+fi
+
+# Plymouth theme
+PLYMOUTH_DIR="$PKG/usr/share/plymouth/themes/nubiferos"
+mkdir -p "$PLYMOUTH_DIR"
+if [ -f "$PROJECT_ROOT/branding/plymouth/nubiferos/nubiferos.plymouth" ]; then
+    cp "$PROJECT_ROOT/branding/plymouth/nubiferos/nubiferos.plymouth" "$PLYMOUTH_DIR/"
+    cp "$PROJECT_ROOT/branding/plymouth/nubiferos/nubiferos.script" "$PLYMOUTH_DIR/"
+fi
+if [ -f "$PROJECT_ROOT/installer/calamares/branding/nubiferos/logo.png" ]; then
+    cp "$PROJECT_ROOT/installer/calamares/branding/nubiferos/logo.png" "$PLYMOUTH_DIR/"
+fi
+
+build_package "nubifer-branding"
 
 # ============================================
 # Summary

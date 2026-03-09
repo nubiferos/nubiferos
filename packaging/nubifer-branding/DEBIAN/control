@@ -1,0 +1,13 @@
+Package: nubifer-branding
+Version: __VERSION__
+Section: misc
+Priority: optional
+Architecture: all
+Depends: bash, plymouth, plymouth-themes
+Recommends: nubifer-core
+Maintainer: NubiferOS Project <info@nubiferos.org>
+Homepage: https://nubiferos.org
+Description: NubiferOS branding, wallpapers, and Plymouth boot theme
+ System identification (os-release, lsb-release), login banners,
+ wallpapers, icons, GDM branding, GNOME shell extension,
+ dconf settings, and Plymouth boot splash theme.

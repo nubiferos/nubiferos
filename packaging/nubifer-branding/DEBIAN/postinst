@@ -1,0 +1,16 @@
+#!/bin/bash
+set -e
+
+# Set Plymouth theme and update initramfs
+if command -v plymouth-set-default-theme >/dev/null 2>&1; then
+    plymouth-set-default-theme nubiferos 2>/dev/null || true
+    update-initramfs -u 2>/dev/null || true
+fi
+
+# Update icon cache
+gtk-update-icon-cache -f /usr/share/icons/hicolor 2>/dev/null || true
+
+# Update dconf database
+dconf update 2>/dev/null || true
+
+echo "nubifer-branding: branding applied"

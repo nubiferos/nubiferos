@@ -1,0 +1,21 @@
+#!/bin/bash
+set -e
+
+# Enable security services
+systemctl enable apparmor 2>/dev/null || true
+systemctl enable ufw 2>/dev/null || true
+systemctl enable fail2ban 2>/dev/null || true
+systemctl enable auditd 2>/dev/null || true
+systemctl enable apparmor-enforce-profiles.service 2>/dev/null || true
+
+# Apply sysctl hardening immediately if running (not in chroot)
+if [ -d /proc/1 ]; then
+    sysctl --system 2>/dev/null || true
+fi
+
+# Enable firewall with defaults
+ufw --force default deny incoming 2>/dev/null || true
+ufw --force default allow outgoing 2>/dev/null || true
+ufw --force enable 2>/dev/null || true
+
+echo "nubifer-security: security hardening applied"

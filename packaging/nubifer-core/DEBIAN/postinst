@@ -16,4 +16,57 @@ fi
 EOF
 fi
 
+# Generate Firefox ESR policy from bookmarks JSON
+if [ -f /usr/share/nubifer/browser/firefox-bookmarks.json ] && command -v python3 >/dev/null 2>&1; then
+    python3 << 'PYEOF' || true
+import json, os, sys
+from html import escape
+
+bookmarks_file = "/usr/share/nubifer/browser/firefox-bookmarks.json"
+if not os.path.exists(bookmarks_file):
+    sys.exit(0)
+
+with open(bookmarks_file) as f:
+    bookmarks = json.load(f)
+
+def convert_children(children):
+    result = []
+    for item in children:
+        if 'children' in item:
+            result.append({"name": item['title'], "children": convert_children(item['children'])})
+        elif 'url' in item:
+            result.append({"name": item['title'], "url": item['url']})
+    return result
+
+managed = [{"toplevel_name": "NubiferOS Cloud Bookmarks"}]
+for folder in bookmarks.get('children', []):
+    if 'children' in folder:
+        managed.append({"name": folder['title'], "children": convert_children(folder['children'])})
+    elif 'url' in folder:
+        managed.append({"name": folder['title'], "url": folder['url']})
+
+policy = {
+    "policies": {
+        "DisableTelemetry": True,
+        "DisableFirefoxStudies": True,
+        "DisablePocket": True,
+        "DontCheckDefaultBrowser": True,
+        "EnableTrackingProtection": {"Value": True, "Cryptomining": True, "Fingerprinting": True},
+        "FirefoxHome": {"Search": True, "TopSites": False, "SponsoredTopSites": False, "Highlights": False, "Pocket": False, "SponsoredPocket": False, "Snippets": False, "Locked": True},
+        "Homepage": {"URL": "https://nubiferos.github.io/website/docs/", "Locked": False, "StartPage": "homepage"},
+        "ManagedBookmarks": managed,
+        "NoDefaultBookmarks": False,
+        "SearchEngines": {"Default": "DuckDuckGo"}
+    }
+}
+
+policy_json = json.dumps(policy, indent=2)
+
+for path in ["/usr/share/firefox-esr/distribution", "/etc/firefox/policies"]:
+    os.makedirs(path, exist_ok=True)
+    with open(os.path.join(path, "policies.json"), 'w') as f:
+        f.write(policy_json)
+PYEOF
+fi
+
 echo "nubifer-core: installation complete"
