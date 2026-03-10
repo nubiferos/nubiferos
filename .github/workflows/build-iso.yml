@@ -1,17 +1,6 @@
 name: Build NubiferOS ISO
 
 on:
-  push:
-    branches: [trunk]
-    paths:
-      - 'build/**'
-      - 'installer/**'
-      - 'scripts/**'
-      - 'components/**'
-      - 'configs/**'
-      - 'brand/**'
-      - 'branding/**'
-      - 'VERSION'
   workflow_dispatch:
 
 permissions:
