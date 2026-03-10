@@ -50,6 +50,63 @@ class WorkspaceService:
         self.workspace_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
         logger.info(f"Initialized workspace service: {self.workspace_dir}")
 
+    def create_workspace(self, name: str, provider: str, account_id: str,
+                         account_name: Optional[str] = None, region: Optional[str] = None,
+                         credential_id: Optional[str] = None, read_only: bool = False) -> str:
+        """Create a new workspace and return its ID"""
+        if provider not in self.SUPPORTED_PROVIDERS:
+            raise WorkspaceServiceError(f"Unsupported provider: {provider}")
+
+        # Generate workspace ID from name + account
+        workspace_id = hashlib.sha256(
+            f"{name}-{provider}-{account_id}-{time.time()}".encode()
+        ).hexdigest()[:12]
+
+        # Get provider theme
+        theme = self.PROVIDER_COLORS.get(provider, self.PROVIDER_COLORS['multi']).copy()
+
+        # Build provider-specific environment variables
+        environment = {}
+        if provider == 'aws':
+            if region:
+                environment['AWS_REGION'] = region
+                environment['AWS_DEFAULT_REGION'] = region
+        elif provider == 'azure':
+            if region:
+                environment['AZURE_LOCATION'] = region
+        elif provider == 'gcp':
+            if region:
+                environment['CLOUDSDK_COMPUTE_REGION'] = region
+            environment['CLOUDSDK_CORE_PROJECT'] = account_id
+        elif provider == 'oracle':
+            if region:
+                environment['OCI_CLI_REGION'] = region
+
+        workspace = {
+            'workspace_id': workspace_id,
+            'name': name,
+            'provider': provider,
+            'account_id': account_id,
+            'account_name': account_name or account_id,
+            'region': region or '',
+            'credential_id': credential_id or '',
+            'read_only': read_only,
+            'theme': theme,
+            'environment': environment,
+            'created_at': datetime.utcnow().isoformat(),
+            'last_used': '',
+        }
+
+        workspace_file = self.workspace_dir / f"{workspace_id}.json"
+        try:
+            with open(workspace_file, 'w') as f:
+                json.dump(workspace, f, indent=2)
+            workspace_file.chmod(0o600)
+            logger.info(f"Created workspace: {workspace_id} ({name})")
+            return workspace_id
+        except Exception as e:
+            raise WorkspaceServiceError(f"Failed to create workspace: {e}")
+
     def get_workspace(self, workspace_id: str) -> Optional[Dict]:
         """Get workspace by ID"""
         workspace_file = self.workspace_dir / f"{workspace_id}.json"

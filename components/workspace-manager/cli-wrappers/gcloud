@@ -9,19 +9,29 @@ FIREJAIL_WRAPPER="${SCRIPT_DIR}/../firejail-wrapper.sh"
 # Check if workspace is active
 if [ -z "$NUBIFER_WORKSPACE_ID" ]; then
     echo "⚠️  No active workspace. Running gcloud without isolation." >&2
-    echo "   Activate workspace: eval \$(nubifer-workspace env <workspace-id>)" >&2
+    echo "   Activate workspace: nubifer-workspace switch <workspace-id>" >&2
     exec /usr/bin/gcloud "$@"
 fi
 
 # Check read-only mode
 if [ "$NUBIFER_WORKSPACE_READ_ONLY" = "true" ]; then
-    # Check if command is a write operation
-    write_commands="create|delete|update|set|add|remove|start|stop|reset|move"
-    
-    if echo "$*" | grep -qE "$write_commands"; then
-        echo "✗ GCP write operation blocked: Workspace is in read-only mode 🔒" >&2
+    # Write verbs that modify resources
+    write_verbs="create|delete|update|set|add|remove|start|stop|reset|move|resize|attach|detach|deploy|undeploy|import|export|enable|disable|invoke|run|apply|destroy|suspend|resume|patch|insert|cancel|submit"
+
+    # gcloud commands use: gcloud <group> <subgroup>... <verb>
+    # Check if any argument is a write verb (word boundary match)
+    if echo "$*" | grep -qwE "($write_verbs)"; then
+        echo "" >&2
+        echo -e "\033[48;5;22;97m 🔒 WRITE BLOCKED \033[0m Workspace is in read-only mode" >&2
+        echo "" >&2
         echo "  Command: gcloud $*" >&2
-        echo "  Disable read-only: nubifer-workspace readonly $NUBIFER_WORKSPACE_ID --disable" >&2
+        echo "" >&2
+        echo "  To enable writes (requires sudo):" >&2
+        echo "    sudo nubifer-workspace rw $NUBIFER_WORKSPACE_ID" >&2
+        echo "" >&2
+        echo "  For timed write access (auto-reverts):" >&2
+        echo "    sudo nubifer-workspace rw $NUBIFER_WORKSPACE_ID -d 30  # 30 minutes" >&2
+        echo "" >&2
         exit 1
     fi
 fi
@@ -30,6 +40,5 @@ fi
 if [ -x "$FIREJAIL_WRAPPER" ]; then
     exec "$FIREJAIL_WRAPPER" gcp /usr/bin/gcloud "$@"
 else
-    # Fallback if wrapper not found
     exec /usr/bin/gcloud "$@"
 fi

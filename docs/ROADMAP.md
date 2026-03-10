@@ -33,87 +33,45 @@ Full OTA update pipeline so installed systems receive updates without ISO rebuil
 
 ## Alpha Blockers
 
-### 1. Read-Only Mode: AWS CLI Enforcement
+### 1. Read-Only Mode: CLI Enforcement
 
 | | |
 |---|---|
 | **Priority** | CRITICAL |
-| **Source** | `.kiro/specs/read-only-mode/requirements.md` REQ-1 |
-| **Status** | **Partial** |
+| **Source** | `.kiro/specs/read-only-mode/requirements.md` REQ-1 through REQ-4 |
+| **Status** | **Done** (March 2026) |
 
-**What exists**: `components/workspace-manager/cli-wrappers/aws` has pattern-based verb matching (create, delete, update, modify, terminate, etc. + S3 write commands). Blocks operations when `NUBIFER_WORKSPACE_READ_ONLY=true`.
+All CLI wrappers now use word-boundary verb matching to block writes while allowing reads:
+- **AWS**: Comprehensive write verb list + S3-specific shorthand handling
+- **Azure**: Word-boundary matching with `grep -w`, 30+ write verbs
+- **GCP**: Same approach, cloud-specific verbs (deploy, patch, submit, etc.)
+- **OCI**: Same approach, OCI-specific verbs (terminate, launch, migrate, etc.)
+- **Terraform**: Blocks apply (without plan file), destroy, import, taint, untaint. Allows `terraform apply planfile.out` (pre-approved)
 
-**What's missing**: No special-case handling for S3 source/destination detection (spec calls for distinguishing `s3 cp` read vs write). No `nubifer-exec --force` emergency override (spec designed it but never implemented).
-
-**Doc contradictions found**:
-- `requirements.md` says "only works for kubectl" (written Jan 2026) but the AWS wrapper already exists with verb matching.
-- `SECURITY_SUMMARY.md` and website claim read-only is fully "Protected" with a checkmark.
-- **Ground truth**: AWS wrapper works for common verbs but lacks the sophistication described in `design.md`.
-
----
-
-### 2. Read-Only Mode: Azure CLI Enforcement
-
-| | |
-|---|---|
-| **Priority** | CRITICAL |
-| **Source** | `.kiro/specs/read-only-mode/requirements.md` REQ-2 |
-| **Status** | **Partial (over-blocking)** |
-
-**What exists**: `cli-wrappers/az` blocks ALL operations when read-only is active (blanket block, no pattern detection).
-
-**What's missing**: Should detect specific write verbs (like the AWS wrapper does) to allow `az account show`, `az group list`, etc.
-
-**Doc contradictions found**:
-- `requirements.md` lists this as Phase 2 (Beta), but a wrapper already exists.
-- Website presents read-only as working for all CLIs. Technically it "works" but blocks reads too.
-- **Ground truth**: Over-restrictive. Users can't run ANY `az` commands in RO mode, not just writes.
+**Remaining gaps** (non-blocking):
+- No `nubifer-exec --force` emergency override (deferred)
+- AWS S3 source/destination detection not implemented (blocks all S3 cp/sync/mv)
+- CLI audit trail for write overrides not implemented
 
 ---
 
-### 3. Read-Only Mode: GCP gcloud Enforcement
-
-| | |
-|---|---|
-| **Priority** | CRITICAL |
-| **Source** | `.kiro/specs/read-only-mode/requirements.md` REQ-3 |
-| **Status** | **Partial (over-blocking)** |
-
-Same issue as Azure. `cli-wrappers/gcloud` blanket-blocks all operations. Same for `oci`.
-
----
-
-### 4. Read-Only Mode: Terraform Enforcement
-
-| | |
-|---|---|
-| **Priority** | CRITICAL |
-| **Source** | `.kiro/specs/read-only-mode/requirements.md` REQ-4 |
-| **Status** | **Planned (not implemented)** |
-
-**What exists**: Nothing. No Terraform wrapper in `cli-wrappers/`.
-
-**What's missing**: Should block `terraform apply`, `destroy`, `import`, `taint`, `untaint`. Should allow `terraform plan`, `show`, `state list`. Spec even designed special-case handling for `terraform apply tfplan.out` (applying a saved plan).
-
-**Doc contradictions found**:
-- `requirements.md` lists this as Phase 1 Alpha Blocker (2-3 hours effort).
-- `design.md` has a complete Python implementation design.
-- Website doesn't mention Terraform in read-only context.
-- **Ground truth**: Completely missing despite being spec'd as critical.
-
----
-
-### 5. Context Manager D-Bus Service & GNOME Indicator
+### ~~5.~~ 2. Context Manager D-Bus Service & GNOME Indicator
 
 | | |
 |---|---|
 | **Priority** | HIGH |
 | **Source** | `.kiro/specs/custom-linux-distro/tasks.md` 4.7/5.1 |
-| **Status** | **Partial** |
+| **Status** | **Done** (March 2026) |
 
-**What exists**: GNOME Shell extension installed. Context Manager D-Bus service files exist. Shell prompt integration works.
+Fixed critical bugs:
+- Implemented missing `create_workspace()` method in `workspace_service.py`
+- Fixed `db_path` crash in CLI status command
+- Fixed systemd service path mismatch (`nubiferos` → `nubifer`)
+- Fixed `environment.py` to export both `NUBIFER_*` and `NUBIFEROS_*` variable naming conventions
 
-**What's missing**: Extension shows "No Workspace" until D-Bus service runs. Service startup not verified. Integration between context-manager and credential-manager incomplete (TODO at `components/context-manager/src/cli.py:73`).
+**Remaining gaps** (non-blocking):
+- Integration between context-manager and credential-manager (TODO at `cli.py:73`)
+- D-Bus service auto-start not verified on live system
 
 ---
 

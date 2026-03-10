@@ -332,8 +332,8 @@ def status():
         
         click.echo(f"\n{Colors.BOLD}NubiferOS Context Manager Status{Colors.END}\n")
         
-        # Show database location
-        click.echo(f"Database:   {service.db_path}")
+        # Show workspace directory
+        click.echo(f"Data dir:   {service.workspace_dir}")
         
         # Count workspaces
         workspaces = service.list_workspaces()

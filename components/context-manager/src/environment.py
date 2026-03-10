@@ -18,21 +18,28 @@ def export_workspace_environment(workspace_id: str):
         print(f"# Error: Workspace not found: {workspace_id}", file=sys.stderr)
         return
     
-    # Export workspace metadata
+    ro_val = str(workspace['read_only']).lower()
+
+    # Export workspace metadata (both naming conventions for compatibility)
+    # NUBIFER_* — used by CLI wrappers (aws, az, gcloud, oci, terraform)
+    print(f"export NUBIFER_WORKSPACE_ID='{workspace_id}'")
+    print(f"export NUBIFER_WORKSPACE_NAME='{workspace['name']}'")
+    print(f"export NUBIFER_WORKSPACE_READ_ONLY='{ro_val}'")
+    # NUBIFEROS_* — used by GNOME extension and prompt integration
     print(f"export NUBIFEROS_WORKSPACE_ID='{workspace_id}'")
     print(f"export NUBIFEROS_WORKSPACE_NAME='{workspace['name']}'")
-    print(f"export NUBIFEROS_WORKSPACE_READ_ONLY='{str(workspace['read_only']).lower()}'")
-    
+    print(f"export NUBIFEROS_WORKSPACE_READ_ONLY='{ro_val}'")
+
     # Export provider-specific environment variables
     for key, value in workspace['environment'].items():
         print(f"export {key}='{value}'")
-    
+
     # Export theme information for prompt customization
     theme = workspace['theme']
     print(f"export NUBIFEROS_PROMPT_COLOR='{theme['terminal_color']}'")
     print(f"export NUBIFEROS_PROMPT_ICON='{theme['icon']}'")
     print(f"export NUBIFEROS_PROMPT_NAME='{workspace['account_name']}'")
-    
+
     # Update PS1 for visual context
     mode_icon = '🔒' if workspace['read_only'] else ''
     ps1 = f"'[\\[\\e[38;5;{theme['terminal_color']}m\\]"

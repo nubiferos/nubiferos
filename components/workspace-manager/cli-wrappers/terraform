@@ -1,0 +1,97 @@
+#!/bin/bash
+# NubiferOS Terraform CLI Wrapper
+# Provides workspace isolation and read-only mode enforcement
+
+# Get the directory where this script is located
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+FIREJAIL_WRAPPER="${SCRIPT_DIR}/../firejail-wrapper.sh"
+
+# Find real terraform binary (skip this wrapper)
+TERRAFORM_BIN=""
+for dir in /usr/bin /usr/local/bin /snap/bin; do
+    if [ -x "$dir/terraform" ] && [ "$dir/terraform" != "${BASH_SOURCE[0]}" ]; then
+        TERRAFORM_BIN="$dir/terraform"
+        break
+    fi
+done
+if [ -z "$TERRAFORM_BIN" ]; then
+    echo "Error: terraform not found in /usr/bin, /usr/local/bin, or /snap/bin" >&2
+    exit 1
+fi
+
+# Check if workspace is active
+if [ -z "$NUBIFER_WORKSPACE_ID" ]; then
+    echo "⚠️  No active workspace. Running Terraform without isolation." >&2
+    echo "   Activate workspace: nubifer-workspace switch <workspace-id>" >&2
+    exec "$TERRAFORM_BIN" "$@"
+fi
+
+# Check read-only mode
+if [ "$NUBIFER_WORKSPACE_READ_ONLY" = "true" ]; then
+    # Get the terraform subcommand (first non-flag argument)
+    SUBCMD=""
+    for arg in "$@"; do
+        case "$arg" in
+            -*) continue ;;
+            *) SUBCMD="$arg"; break ;;
+        esac
+    done
+
+    case "$SUBCMD" in
+        apply)
+            # Special case: allow 'terraform apply <planfile>' (pre-approved plan)
+            # Block 'terraform apply' with no plan file or with flags only
+            HAS_PLAN_FILE=false
+            PAST_SUBCMD=false
+            for arg in "$@"; do
+                if [ "$PAST_SUBCMD" = true ]; then
+                    case "$arg" in
+                        -*) continue ;;  # skip flags
+                        *) HAS_PLAN_FILE=true; break ;;
+                    esac
+                fi
+                if [ "$arg" = "apply" ]; then
+                    PAST_SUBCMD=true
+                fi
+            done
+
+            if [ "$HAS_PLAN_FILE" = false ]; then
+                echo "" >&2
+                echo -e "\033[48;5;22;97m 🔒 WRITE BLOCKED \033[0m Workspace is in read-only mode" >&2
+                echo "" >&2
+                echo "  Command: terraform $*" >&2
+                echo "" >&2
+                echo "  terraform apply without a saved plan is blocked in read-only mode." >&2
+                echo "  You can still run: terraform plan -out=tfplan" >&2
+                echo "" >&2
+                echo "  To enable writes (requires sudo):" >&2
+                echo "    sudo nubifer-workspace rw $NUBIFER_WORKSPACE_ID" >&2
+                echo "" >&2
+                exit 1
+            fi
+            ;;
+        destroy|import|taint|untaint)
+            echo "" >&2
+            echo -e "\033[48;5;22;97m 🔒 WRITE BLOCKED \033[0m Workspace is in read-only mode" >&2
+            echo "" >&2
+            echo "  Command: terraform $*" >&2
+            echo "" >&2
+            echo "  To enable writes (requires sudo):" >&2
+            echo "    sudo nubifer-workspace rw $NUBIFER_WORKSPACE_ID" >&2
+            echo "" >&2
+            echo "  For timed write access (auto-reverts):" >&2
+            echo "    sudo nubifer-workspace rw $NUBIFER_WORKSPACE_ID -d 30  # 30 minutes" >&2
+            echo "" >&2
+            exit 1
+            ;;
+        # These are safe read-only commands: plan, validate, fmt, init, show,
+        # output, state list, state show, graph, providers, version, etc.
+    esac
+fi
+
+# Run with Firejail isolation
+if [ -x "$FIREJAIL_WRAPPER" ]; then
+    exec "$FIREJAIL_WRAPPER" terraform "$TERRAFORM_BIN" "$@"
+else
+    exec "$TERRAFORM_BIN" "$@"
+fi
