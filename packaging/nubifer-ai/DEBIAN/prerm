@@ -1,0 +1,8 @@
+#!/bin/bash
+set -e
+
+# Remove symlinks
+rm -f /usr/local/bin/nubiferai
+rm -f /usr/local/bin/nubiferai-gtk
+
+echo "nubifer-ai: symlinks removed"

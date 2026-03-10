@@ -1,0 +1,56 @@
+#!/bin/bash
+set -e
+
+# Create config directories
+mkdir -p /etc/nubiferai/providers
+mkdir -p /etc/nubiferai/seeds
+
+# Write default config if not present (don't overwrite user config)
+if [ ! -f /etc/nubiferai/config.toml ]; then
+    cat > /etc/nubiferai/config.toml << 'CONF'
+# NubiferAI Configuration
+# AI is disabled by default — enable with: nubiferai config --provider <provider>
+
+[ai]
+enabled = false
+provider = "none"
+
+[ai.security]
+require_approval_for_writes = true
+log_all_queries = true
+filter_sensitive_data = true
+allowed_workspaces = []
+
+[ai.privacy]
+anonymize_account_ids = true
+CONF
+fi
+
+# Create venv and install packages if not already set up
+INSTALL_DIR="/opt/nubiferos/addons/nubiferai"
+VENV_DIR="${INSTALL_DIR}/.venv"
+
+if [ -d "$INSTALL_DIR/packages" ] && [ ! -d "$VENV_DIR" ]; then
+    echo "nubifer-ai: setting up Python virtual environment..."
+    python3 -m venv --system-site-packages "$VENV_DIR"
+
+    "${VENV_DIR}/bin/pip" install --no-cache-dir --quiet "${INSTALL_DIR}/packages/nubiferai-core"
+    "${VENV_DIR}/bin/pip" install --no-cache-dir --quiet "${INSTALL_DIR}/packages/nubiferai-cli"
+    "${VENV_DIR}/bin/pip" install --no-cache-dir --quiet "${INSTALL_DIR}/packages/nubiferai-gtk" 2>/dev/null || true
+    "${VENV_DIR}/bin/pip" install --no-cache-dir --quiet "${INSTALL_DIR}/packages/nubiferai-dbus" 2>/dev/null || true
+
+    echo "nubifer-ai: Python packages installed"
+fi
+
+# Create symlinks for CLI entry points
+if [ -x "${VENV_DIR}/bin/nubiferai" ]; then
+    ln -sf "${VENV_DIR}/bin/nubiferai" /usr/local/bin/nubiferai
+fi
+if [ -x "${VENV_DIR}/bin/nubiferai-gtk" ]; then
+    ln -sf "${VENV_DIR}/bin/nubiferai-gtk" /usr/local/bin/nubiferai-gtk
+fi
+
+# Update desktop database
+update-desktop-database /usr/share/applications 2>/dev/null || true
+
+echo "nubifer-ai: installation complete"

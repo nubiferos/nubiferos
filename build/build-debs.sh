@@ -341,7 +341,7 @@ if [ "$UPGRADABLE" -gt 0 ]; then
     DEBIAN_FRONTEND=noninteractive apt-get install -y --only-upgrade \
         nubifer-core nubifer-creds nubifer-workspace nubifer-dashboard \
         nubifer-tools nubifer-welcome nubifer-updater nubifer-security \
-        nubifer-branding 2>/dev/null || true
+        nubifer-branding nubifer-ai 2>/dev/null || true
 
     log "NubiferOS packages updated successfully"
 
@@ -942,6 +942,53 @@ if [ -f "$PROJECT_ROOT/installer/calamares/branding/nubiferos/logo.png" ]; then
 fi
 
 build_package "nubifer-branding"
+
+# ============================================
+# 10. nubifer-ai
+# ============================================
+NUBIFERAI_REPO="https://github.com/nubiferos/nubiferai.git"
+NUBIFERAI_BRANCH="trunk"
+NUBIFERAI_CLONE_DIR="${OUTPUT_DIR}/build/_nubiferai-src"
+
+# Clone NubiferAI source (needed for package contents)
+if git clone --branch "$NUBIFERAI_BRANCH" --depth 1 "$NUBIFERAI_REPO" "$NUBIFERAI_CLONE_DIR" 2>/dev/null; then
+    PKG="${PROJECT_ROOT}/packaging/nubifer-ai"
+
+    # Ship the source packages for venv install in postinst
+    mkdir -p "$PKG/opt/nubiferos/addons/nubiferai/packages"
+    cp -r "$NUBIFERAI_CLONE_DIR/packages/nubiferai-core" "$PKG/opt/nubiferos/addons/nubiferai/packages/"
+    cp -r "$NUBIFERAI_CLONE_DIR/packages/nubiferai-cli" "$PKG/opt/nubiferos/addons/nubiferai/packages/"
+    cp -r "$NUBIFERAI_CLONE_DIR/packages/nubiferai-gtk" "$PKG/opt/nubiferos/addons/nubiferai/packages/" 2>/dev/null || true
+    cp -r "$NUBIFERAI_CLONE_DIR/packages/nubiferai-dbus" "$PKG/opt/nubiferos/addons/nubiferai/packages/" 2>/dev/null || true
+
+    # Ship bundled seeds
+    if [ -d "$NUBIFERAI_CLONE_DIR/seeds" ]; then
+        mkdir -p "$PKG/etc/nubiferai/seeds"
+        cp "$NUBIFERAI_CLONE_DIR/seeds/"*.toml "$PKG/etc/nubiferai/seeds/" 2>/dev/null || true
+    fi
+
+    # Desktop entry
+    mkdir -p "$PKG/usr/share/applications"
+    cat > "$PKG/usr/share/applications/ai.nubiferos.nubiferai.desktop" << 'EOF'
+[Desktop Entry]
+Type=Application
+Name=NubiferAI
+Comment=AI-native cloud operations
+Exec=/usr/local/bin/nubiferai-gtk
+Icon=weather-overcast-symbolic
+Terminal=false
+Categories=Development;Utility;
+Keywords=ai;cloud;nubifer;
+EOF
+
+    build_package "nubifer-ai"
+
+    # Cleanup clone
+    rm -rf "$NUBIFERAI_CLONE_DIR"
+else
+    echo ""
+    echo "--- Skipping nubifer-ai (could not clone $NUBIFERAI_REPO) ---"
+fi
 
 # ============================================
 # Summary
