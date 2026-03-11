@@ -120,7 +120,7 @@ bootstrap_debian() {
     debootstrap \
         --arch="${ARCH}" \
         --variant=minbase \
-        --include=systemd,systemd-sysv,udev,dbus,sudo,wget,ca-certificates,gnupg \
+        --include=systemd,systemd-sysv,systemd-timesyncd,udev,dbus,sudo,wget,ca-certificates,gnupg \
         "${BASE_CODENAME}" \
         "${CHROOT_DIR}" \
         "${DEBIAN_MIRROR}"
@@ -166,7 +166,11 @@ EOF
     
     # Configure locale
     echo "en_US.UTF-8 UTF-8" > "${CHROOT_DIR}/etc/locale.gen"
-    
+
+    # Enable NTP time sync (critical for cloud API authentication)
+    ln -sf /lib/systemd/system/systemd-timesyncd.service \
+        "${CHROOT_DIR}/etc/systemd/system/sysinit.target.wants/systemd-timesyncd.service"
+
     log "INFO" "✓ Base system configured"
 }
 

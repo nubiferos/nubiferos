@@ -83,13 +83,9 @@ _nubifer_audit_get_cred_hint() {
             ;;
     esac
 
-    if command -v pass &>/dev/null; then
-        local value
-        value=$(pass show "$pass_path" 2>/dev/null)
-        if [ -n "$value" ]; then
-            local last4="${value: -4}"
-            hint="****${last4}"
-        fi
+    # Use NUBIFER_CRED_HINT if already set by the wrapper (avoids extra GPG decryption)
+    if [ -n "${NUBIFER_CRED_HINT:-}" ]; then
+        hint="$NUBIFER_CRED_HINT"
     fi
 
     echo "$hint"

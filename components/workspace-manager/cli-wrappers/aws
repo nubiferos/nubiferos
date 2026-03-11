@@ -66,11 +66,13 @@ fi
 CRED_NAME="${NUBIFER_AWS_CREDENTIAL:-${NUBIFER_WORKSPACE_NAME:-default}}"
 
 # Check if credentials exist in pass for this workspace
-PASS_PATH="nubifer/${NUBIFER_WORKSPACE_ID}/cloud/aws/${CRED_NAME}/access-key-id"
-if ! pass show "$PASS_PATH" &>/dev/null; then
+# Use file existence check instead of pass show (avoids GPG decryption/pinentry hang)
+PASS_STORE="${PASSWORD_STORE_DIR:-$HOME/.password-store}"
+PASS_FILE="${PASS_STORE}/nubifer/${NUBIFER_WORKSPACE_ID}/cloud/aws/${CRED_NAME}/access-key-id.gpg"
+if [ ! -f "$PASS_FILE" ]; then
     # Try with 'default' credential name
-    PASS_PATH="nubifer/${NUBIFER_WORKSPACE_ID}/cloud/aws/default/access-key-id"
-    if ! pass show "$PASS_PATH" &>/dev/null; then
+    PASS_FILE="${PASS_STORE}/nubifer/${NUBIFER_WORKSPACE_ID}/cloud/aws/default/access-key-id.gpg"
+    if [ ! -f "$PASS_FILE" ]; then
         echo "⚠️  No AWS credentials found for workspace." >&2
         echo "   Add credentials: nubifer-creds add -t aws -n <profile-name>" >&2
         echo "   Running without credentials..." >&2

@@ -41,3 +41,4 @@ gpg-private-key-backup.asc
 # Website content export (temporary)
 website/
 components/workspace-manager/aws/
+components/audit-trail/__pycache__/
