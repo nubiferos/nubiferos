@@ -1,0 +1,166 @@
+name: Test ISO
+
+on:
+  # Auto-trigger after build completes
+  workflow_run:
+    workflows: ["Build NubiferOS ISO"]
+    types: [completed]
+
+  # Manual re-run (no rebuild needed)
+  workflow_dispatch:
+    inputs:
+      commit_sha:
+        description: 'Build commit SHA (leave empty for latest)'
+        required: false
+        type: string
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  ISO_BUCKET: nubiferos-iso
+  AWS_REGION: us-east-1
+
+jobs:
+  test-iso:
+    runs-on: ubuntu-latest
+    # Skip if auto-triggered by a failed build
+    if: >
+      github.event_name == 'workflow_dispatch' ||
+      github.event.workflow_run.conclusion == 'success'
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Install test dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y squashfs-tools xorriso genisoimage python3-pip
+        pip3 install pytest
+
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+        aws-region: ${{ env.AWS_REGION }}
+
+    - name: Find staging ISO
+      id: find_iso
+      run: |
+        VERSION=$(grep 'BRAND_VERSION=' brand/brand.conf | cut -d'"' -f2)
+        COMMIT_SHA="${{ inputs.commit_sha }}"
+
+        if [ -n "$COMMIT_SHA" ]; then
+          # Specific build requested
+          STAGING_PATH="staging/builds/${COMMIT_SHA}"
+        else
+          # Find latest build from manifest
+          if aws s3 cp "s3://${{ env.ISO_BUCKET }}/staging/builds.json" /tmp/builds.json 2>/dev/null; then
+            LATEST_COMMIT=$(jq -r '.builds[0].commit // empty' /tmp/builds.json)
+            if [ -n "$LATEST_COMMIT" ]; then
+              STAGING_PATH="staging/builds/${LATEST_COMMIT}"
+              COMMIT_SHA="$LATEST_COMMIT"
+            fi
+          fi
+        fi
+
+        # Fallback to version path
+        if [ -z "$STAGING_PATH" ] || ! aws s3 ls "s3://${{ env.ISO_BUCKET }}/${STAGING_PATH}/" > /dev/null 2>&1; then
+          STAGING_PATH="staging/${VERSION}"
+        fi
+
+        echo "Checking: s3://${{ env.ISO_BUCKET }}/${STAGING_PATH}/"
+        ISO_FILE=$(aws s3 ls "s3://${{ env.ISO_BUCKET }}/${STAGING_PATH}/" | grep '\.iso$' | grep -v '\.asc' | awk '{print $4}' | head -1)
+
+        if [ -z "$ISO_FILE" ]; then
+          echo "No ISO found in staging!"
+          exit 1
+        fi
+
+        echo "Found: ${ISO_FILE}"
+        echo "staging_path=$STAGING_PATH" >> $GITHUB_OUTPUT
+        echo "iso_file=$ISO_FILE" >> $GITHUB_OUTPUT
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+        echo "commit_sha=${COMMIT_SHA:-unknown}" >> $GITHUB_OUTPUT
+
+    - name: Download ISO from staging
+      run: |
+        mkdir -p output
+        STAGING_PATH="${{ steps.find_iso.outputs.staging_path }}"
+        ISO_FILE="${{ steps.find_iso.outputs.iso_file }}"
+
+        echo "Downloading: s3://${{ env.ISO_BUCKET }}/${STAGING_PATH}/${ISO_FILE}"
+        aws s3 cp "s3://${{ env.ISO_BUCKET }}/${STAGING_PATH}/${ISO_FILE}" "output/${ISO_FILE}"
+
+        ls -lh "output/${ISO_FILE}"
+
+    - name: Run ISO tests
+      run: |
+        ISO_FILE="${{ steps.find_iso.outputs.iso_file }}"
+        export ISO_PATH="$(realpath output/${ISO_FILE})"
+
+        echo "=========================================="
+        echo "Testing: ${ISO_FILE}"
+        echo "=========================================="
+
+        pytest testing/test-iso-pytest.py::TestISOBasics \
+               testing/test-iso-pytest.py::TestSquashfsContents \
+               testing/test-iso-pytest.py::TestISOMetadata \
+               -v -s --tb=short --junitxml=test-results.xml
+
+    - name: Update build manifest with test results
+      if: always()
+      run: |
+        COMMIT_SHA="${{ steps.find_iso.outputs.commit_sha }}"
+        TEST_STATUS="${{ job.status }}"
+
+        if aws s3 cp "s3://${{ env.ISO_BUCKET }}/staging/builds.json" /tmp/builds.json 2>/dev/null; then
+          if [ "$TEST_STATUS" = "success" ]; then
+            STATUS="tested"
+          else
+            STATUS="test-failed"
+          fi
+
+          jq --arg sha "$COMMIT_SHA" --arg status "$STATUS" \
+            '.builds = [.builds[] | if .commit == $sha then .status = $status else . end]' \
+            /tmp/builds.json > /tmp/builds_updated.json
+
+          aws s3 cp /tmp/builds_updated.json "s3://${{ env.ISO_BUCKET }}/staging/builds.json" \
+            --content-type "application/json" --cache-control "max-age=60"
+
+          echo "Updated build manifest: ${COMMIT_SHA} -> ${STATUS}"
+        fi
+
+    - name: Upload test results
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: test-results
+        path: test-results.xml
+        retention-days: 30
+
+    - name: Test summary
+      if: always()
+      run: |
+        cat >> $GITHUB_STEP_SUMMARY << EOF
+        # 🧪 ISO Test Results
+
+        ## Build Info
+        - **Version:** ${{ steps.find_iso.outputs.version }}
+        - **Commit:** \`${{ steps.find_iso.outputs.commit_sha }}\`
+        - **ISO:** ${{ steps.find_iso.outputs.iso_file }}
+        - **Result:** ${{ job.status == 'success' && '✅ PASSED' || '❌ FAILED' }}
+
+        ## Tests Run
+        - ISO format & size validation
+        - Squashfs content verification (version, components, configs)
+        - Volume label & metadata checks
+        - Security checks (no leaked credentials)
+
+        ## ⏭️ Pipeline
+        1. ✅ **Build** — complete
+        2. ${{ job.status == 'success' && '✅' || '❌' }} **Test** — ${{ job.status }}
+        3. ⏳ **Release** — ${{ job.status == 'success' && 'ready to run [Release to Production](/' || 'fix tests and re-run before releasing' }}${{ job.status == 'success' && format('{0}/actions/workflows/release.yml)', github.repository) || '' }}
+        EOF

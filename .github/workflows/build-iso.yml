@@ -42,8 +42,7 @@ jobs:
         sudo apt-get install -y \
           debootstrap squashfs-tools xorriso isolinux syslinux-efi \
           grub-pc-bin grub-efi-amd64-bin mtools dosfstools wget curl \
-          git qemu-system-x86 qemu-utils genisoimage python3-pip gnupg
-        pip3 install pytest
+          git genisoimage gnupg
 
     - name: Install security scanning tools
       run: |
@@ -181,11 +180,6 @@ jobs:
         echo "iso_file=$ISO_FILE" >> $GITHUB_OUTPUT
         echo "iso_size=$ISO_SIZE" >> $GITHUB_OUTPUT
 
-    - name: Run ISO validation tests
-      run: |
-        export ISO_PATH=$(realpath output/*.iso)
-        pytest testing/test-iso-pytest.py::TestISOBasics -v -s
-
     - name: Generate release notes
       id: release_notes
       run: |
@@ -315,11 +309,8 @@ jobs:
         ## Release Notes
         $(echo ${{ steps.release_notes.outputs.notes }} | jq -r .)
 
-        ## ⏭️ Next Step
-        After testing, run the **[Release to Production](/${{ github.repository }}/actions/workflows/release.yml)** workflow to:
-        1. Choose version bump (patch/minor/major)
-        2. Promote ISO to production
-        3. Create GitHub Release
-        4. Publish APT packages
-        5. Trigger website rebuild
+        ## ⏭️ Pipeline
+        1. ✅ **Build** — complete
+        2. ⏳ **Test** — auto-triggered (or re-run manually via [Test ISO](/${{ github.repository }}/actions/workflows/test-iso.yml))
+        3. ⏳ **Release** — run [Release to Production](/${{ github.repository }}/actions/workflows/release.yml) after tests pass
         EOF
