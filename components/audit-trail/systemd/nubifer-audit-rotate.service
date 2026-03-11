@@ -1,0 +1,6 @@
+[Unit]
+Description=NubiferOS audit log rotation
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/nubifer-audit rotate --days 90

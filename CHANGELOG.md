@@ -9,6 +9,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+#### CLI Audit Trail (March 2026)
+- **Local cloud command history** — SQLite database at `~/.local/share/nubifer/audit/commands.db`
+- Logs ALL cloud CLI commands (aws, az, gcloud, oci, terraform) with timestamp, workspace, provider, account, credential hint (last 4 chars), and outcome (allowed/blocked)
+- **`nubifer-audit` CLI tool** with subcommands: log, search, stats, rotate, export
+- Filtering by provider, workspace, date range, blocked/allowed, credential hint
+- JSON and CSV export formats
+- Auto-rotation via systemd timer (90-day retention)
+- Shell alias `na` for quick access
+
+#### 3-Stage CI/CD Pipeline (March 2026)
+- **Decoupled build/test/release** — each stage independently re-runnable without rebuilding
+- `test-iso.yml` — auto-triggers after build, downloads ISO from S3, runs 12+ squashfs content tests
+- Tests verify: version, credential manager, workspace manager, CLI wrappers, Calamares config, helper scripts, GRUB wrapper, Plymouth theme, installer user, no leaked secrets
+- Build manifest tracks status: untested → tested/test-failed
+
 #### OTA Update Infrastructure (March 2026)
 - **APT package repository** hosted on S3 with CloudFront CDN at `packages.nubiferos.org`
 - **GPG-signed repository** with Release file signing for package integrity

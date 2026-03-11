@@ -589,7 +589,20 @@ EOF
     
     # Note: CLI wrapper symlinks will be created during post-install
     # This allows users to opt-in to Firejail isolation
-    
+
+    # Install audit trail
+    log "INFO" "Installing CLI Audit Trail..."
+    cp "${PROJECT_ROOT}/components/audit-trail/audit-functions.sh" "${CHROOT_DIR}/etc/nubifer/audit-functions.sh"
+    cp "${PROJECT_ROOT}/components/audit-trail/schema.sql" "${CHROOT_DIR}/etc/nubifer/audit-schema.sql"
+    cp "${PROJECT_ROOT}/components/audit-trail/nubifer-audit" "${CHROOT_DIR}/usr/local/bin/nubifer-audit"
+    chmod 644 "${CHROOT_DIR}/etc/nubifer/audit-functions.sh"
+    chmod 644 "${CHROOT_DIR}/etc/nubifer/audit-schema.sql"
+    chmod 755 "${CHROOT_DIR}/usr/local/bin/nubifer-audit"
+    # Systemd timer for log rotation
+    cp "${PROJECT_ROOT}/components/audit-trail/systemd/nubifer-audit-rotate.timer" "${CHROOT_DIR}/etc/systemd/user/"
+    cp "${PROJECT_ROOT}/components/audit-trail/systemd/nubifer-audit-rotate.service" "${CHROOT_DIR}/etc/systemd/user/"
+    log "INFO" "  ✓ CLI Audit Trail installed"
+
     # Install systemd tmpfiles configuration for XDG_RUNTIME_DIR
     log "INFO" "Installing systemd tmpfiles configuration..."
     mkdir -p "${CHROOT_DIR}/etc/tmpfiles.d"

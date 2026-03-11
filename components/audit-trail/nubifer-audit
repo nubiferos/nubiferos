@@ -1,0 +1,413 @@
+#!/usr/bin/env python3
+"""NubiferOS CLI Audit Trail - Local cloud command history.
+
+Query and manage the local audit log of all cloud CLI commands run
+through NubiferOS workspace wrappers.
+
+Usage:
+    nubifer-audit log                          Show recent commands
+    nubifer-audit log --provider aws           Filter by provider
+    nubifer-audit log --workspace <id>         Filter by workspace
+    nubifer-audit log --blocked                Show blocked commands only
+    nubifer-audit log --from 2026-03-01        Date range filter
+    nubifer-audit search "s3 cp"               Search commands
+    nubifer-audit stats                        Summary statistics
+    nubifer-audit rotate                       Prune old entries
+    nubifer-audit export --format json         Export full log
+"""
+
+import argparse
+import csv
+import io
+import json
+import os
+import sqlite3
+import sys
+from datetime import datetime, timedelta
+from pathlib import Path
+
+VERSION = "0.1.0"
+AUDIT_DIR = Path.home() / ".local" / "share" / "nubifer" / "audit"
+AUDIT_DB = AUDIT_DIR / "commands.db"
+DEFAULT_LIMIT = 50
+DEFAULT_RETENTION_DAYS = 90
+
+
+def get_db():
+    """Get a database connection."""
+    if not AUDIT_DB.exists():
+        print("No audit log found. Run a cloud CLI command to start logging.", file=sys.stderr)
+        sys.exit(1)
+    conn = sqlite3.connect(str(AUDIT_DB))
+    conn.row_factory = sqlite3.Row
+    return conn
+
+
+def format_timestamp(ts):
+    """Shorten ISO timestamp for table display."""
+    if not ts:
+        return ""
+    # Remove fractional seconds
+    if "." in ts:
+        ts = ts.split(".")[0]
+    return ts
+
+
+def truncate(s, maxlen):
+    """Truncate string with ellipsis."""
+    if not s:
+        return ""
+    return s if len(s) <= maxlen else s[: maxlen - 2] + ".."
+
+
+def print_table(rows, columns):
+    """Print rows as a formatted table."""
+    if not rows:
+        print("No entries found.")
+        return
+
+    # Calculate column widths
+    widths = {}
+    for col in columns:
+        header = col["header"]
+        key = col["key"]
+        fmt = col.get("fmt")
+        maxw = col.get("max", 999)
+        values = [truncate(fmt(r[key]) if fmt else str(r[key] or ""), maxw) for r in rows]
+        widths[key] = max(len(header), max(len(v) for v in values))
+
+    # Print header
+    header_line = "  ".join(col["header"].ljust(widths[col["key"]]) for col in columns)
+    print(f"\033[1m{header_line}\033[0m")
+    print("-" * len(header_line))
+
+    # Print rows
+    for row in rows:
+        parts = []
+        for col in columns:
+            key = col["key"]
+            fmt = col.get("fmt")
+            maxw = col.get("max", 999)
+            val = truncate(fmt(row[key]) if fmt else str(row[key] or ""), maxw)
+
+            # Color the outcome column
+            if key == "outcome":
+                if val == "blocked":
+                    val = f"\033[91m{val}\033[0m"
+                    # Pad for ANSI escape codes
+                    parts.append(val + " " * (widths[key] - len("blocked")))
+                    continue
+                elif val == "allowed":
+                    val = f"\033[92m{val}\033[0m"
+                    parts.append(val + " " * (widths[key] - len("allowed")))
+                    continue
+
+            parts.append(val.ljust(widths[key]))
+        print("  ".join(parts))
+
+
+def cmd_log(args):
+    """Show recent audit log entries."""
+    conn = get_db()
+    conditions = []
+    params = []
+
+    if args.provider:
+        conditions.append("provider = ?")
+        params.append(args.provider)
+    if args.workspace:
+        conditions.append("(workspace_id = ? OR workspace_name = ?)")
+        params.extend([args.workspace, args.workspace])
+    if args.blocked:
+        conditions.append("outcome = 'blocked'")
+    if args.allowed:
+        conditions.append("outcome = 'allowed'")
+    if args.user:
+        conditions.append("user = ?")
+        params.append(args.user)
+    if args.cred_hint:
+        conditions.append("credential_hint LIKE ?")
+        params.append(f"%{args.cred_hint}")
+    if getattr(args, "from_date", None):
+        conditions.append("timestamp >= ?")
+        params.append(args.from_date)
+    if args.to:
+        conditions.append("timestamp <= ?")
+        params.append(args.to + "T23:59:59")
+
+    where = " AND ".join(conditions) if conditions else "1=1"
+    limit = args.n or DEFAULT_LIMIT
+
+    query = f"""
+        SELECT timestamp, provider, workspace_name, cloud_account, command, args,
+               credential_hint, outcome, read_only, user
+        FROM command_log
+        WHERE {where}
+        ORDER BY timestamp DESC
+        LIMIT ?
+    """
+    params.append(limit)
+
+    rows = conn.execute(query, params).fetchall()
+    conn.close()
+
+    if not rows:
+        print("No entries found.")
+        return
+
+    # Reverse so oldest is first (chronological)
+    rows = list(reversed(rows))
+
+    if args.json:
+        entries = [dict(r) for r in rows]
+        print(json.dumps(entries, indent=2))
+        return
+
+    if args.csv:
+        writer = csv.writer(sys.stdout)
+        writer.writerow(["timestamp", "provider", "workspace", "account", "command", "args", "credential", "outcome"])
+        for r in rows:
+            writer.writerow([r["timestamp"], r["provider"], r["workspace_name"],
+                             r["cloud_account"], r["command"], r["args"],
+                             r["credential_hint"], r["outcome"]])
+        return
+
+    columns = [
+        {"header": "TIMESTAMP", "key": "timestamp", "fmt": format_timestamp, "max": 19},
+        {"header": "PROVIDER", "key": "provider", "max": 10},
+        {"header": "WORKSPACE", "key": "workspace_name", "max": 16},
+        {"header": "ACCOUNT", "key": "cloud_account", "max": 16},
+        {"header": "COMMAND", "key": "args", "max": 40},
+        {"header": "CRED", "key": "credential_hint", "max": 10},
+        {"header": "STATUS", "key": "outcome", "max": 12},
+    ]
+    print_table(rows, columns)
+    print(f"\n{len(rows)} entries (newest last). Use -n to show more.")
+
+
+def cmd_search(args):
+    """Search audit log by command text."""
+    conn = get_db()
+    query = """
+        SELECT timestamp, provider, workspace_name, cloud_account, command, args,
+               credential_hint, outcome, read_only, user
+        FROM command_log
+        WHERE args LIKE ? OR command LIKE ?
+        ORDER BY timestamp DESC
+        LIMIT ?
+    """
+    pattern = f"%{args.query}%"
+    limit = args.n or DEFAULT_LIMIT
+    rows = conn.execute(query, [pattern, pattern, limit]).fetchall()
+    conn.close()
+
+    rows = list(reversed(rows))
+
+    if args.json:
+        print(json.dumps([dict(r) for r in rows], indent=2))
+        return
+
+    columns = [
+        {"header": "TIMESTAMP", "key": "timestamp", "fmt": format_timestamp, "max": 19},
+        {"header": "PROVIDER", "key": "provider", "max": 10},
+        {"header": "WORKSPACE", "key": "workspace_name", "max": 16},
+        {"header": "COMMAND", "key": "args", "max": 50},
+        {"header": "CRED", "key": "credential_hint", "max": 10},
+        {"header": "STATUS", "key": "outcome", "max": 12},
+    ]
+    print_table(rows, columns)
+
+
+def cmd_stats(args):
+    """Show audit trail statistics."""
+    conn = get_db()
+
+    total = conn.execute("SELECT COUNT(*) FROM command_log").fetchone()[0]
+    if total == 0:
+        print("No audit entries yet.")
+        conn.close()
+        return
+
+    blocked = conn.execute("SELECT COUNT(*) FROM command_log WHERE outcome = 'blocked'").fetchone()[0]
+    allowed = conn.execute("SELECT COUNT(*) FROM command_log WHERE outcome = 'allowed'").fetchone()[0]
+    no_ws = conn.execute("SELECT COUNT(*) FROM command_log WHERE outcome = 'no_workspace'").fetchone()[0]
+
+    first = conn.execute("SELECT MIN(timestamp) FROM command_log").fetchone()[0]
+    last = conn.execute("SELECT MAX(timestamp) FROM command_log").fetchone()[0]
+
+    print(f"\033[1mNubiferOS Audit Trail Statistics\033[0m")
+    print(f"{'='*40}")
+    print(f"Total commands:     {total}")
+    print(f"  Allowed:          \033[92m{allowed}\033[0m")
+    print(f"  Blocked:          \033[91m{blocked}\033[0m")
+    print(f"  No workspace:     {no_ws}")
+    print(f"First entry:        {format_timestamp(first)}")
+    print(f"Last entry:         {format_timestamp(last)}")
+
+    # Per-provider breakdown
+    print(f"\n\033[1mBy Provider\033[0m")
+    print(f"{'-'*40}")
+    providers = conn.execute(
+        "SELECT provider, COUNT(*) as cnt, SUM(CASE WHEN outcome='blocked' THEN 1 ELSE 0 END) as blk "
+        "FROM command_log GROUP BY provider ORDER BY cnt DESC"
+    ).fetchall()
+    for p in providers:
+        blk_str = f" (\033[91m{p['blk']} blocked\033[0m)" if p["blk"] > 0 else ""
+        print(f"  {p['provider']:12s} {p['cnt']:>6d}{blk_str}")
+
+    # Per-workspace breakdown
+    if args.workspace:
+        ws_rows = conn.execute(
+            "SELECT provider, COUNT(*) as cnt, SUM(CASE WHEN outcome='blocked' THEN 1 ELSE 0 END) as blk "
+            "FROM command_log WHERE workspace_id = ? OR workspace_name = ? "
+            "GROUP BY provider ORDER BY cnt DESC",
+            [args.workspace, args.workspace]
+        ).fetchall()
+        print(f"\n\033[1mWorkspace: {args.workspace}\033[0m")
+        print(f"{'-'*40}")
+        for p in ws_rows:
+            blk_str = f" (\033[91m{p['blk']} blocked\033[0m)" if p["blk"] > 0 else ""
+            print(f"  {p['provider']:12s} {p['cnt']:>6d}{blk_str}")
+    else:
+        print(f"\n\033[1mBy Workspace\033[0m")
+        print(f"{'-'*40}")
+        workspaces = conn.execute(
+            "SELECT COALESCE(workspace_name, '(none)') as ws, COUNT(*) as cnt "
+            "FROM command_log GROUP BY workspace_name ORDER BY cnt DESC LIMIT 10"
+        ).fetchall()
+        for w in workspaces:
+            print(f"  {w['ws']:20s} {w['cnt']:>6d}")
+
+    # Most common commands (top 5)
+    print(f"\n\033[1mTop Commands\033[0m")
+    print(f"{'-'*40}")
+    top = conn.execute(
+        "SELECT command || ' ' || SUBSTR(args, 1, INSTR(args || ' ', ' ') - 1) as cmd, COUNT(*) as cnt "
+        "FROM command_log GROUP BY cmd ORDER BY cnt DESC LIMIT 5"
+    ).fetchall()
+    for t in top:
+        print(f"  {t['cmd']:30s} {t['cnt']:>6d}")
+
+    conn.close()
+
+
+def cmd_rotate(args):
+    """Prune old audit entries."""
+    conn = get_db()
+    days = args.days or DEFAULT_RETENTION_DAYS
+    cutoff = (datetime.now() - timedelta(days=days)).strftime("%Y-%m-%dT%H:%M:%S")
+
+    count = conn.execute("SELECT COUNT(*) FROM command_log WHERE timestamp < ?", [cutoff]).fetchone()[0]
+
+    if count == 0:
+        print(f"No entries older than {days} days.")
+        conn.close()
+        return
+
+    if args.dry_run:
+        print(f"Would delete {count} entries older than {days} days (before {cutoff})")
+        conn.close()
+        return
+
+    conn.execute("DELETE FROM command_log WHERE timestamp < ?", [cutoff])
+    conn.execute("VACUUM")
+    conn.commit()
+    conn.close()
+    print(f"Deleted {count} entries older than {days} days.")
+
+
+def cmd_export(args):
+    """Export full audit log."""
+    conn = get_db()
+    rows = conn.execute(
+        "SELECT * FROM command_log ORDER BY timestamp"
+    ).fetchall()
+    conn.close()
+
+    if args.format == "json":
+        entries = [dict(r) for r in rows]
+        print(json.dumps(entries, indent=2))
+    elif args.format == "csv":
+        if rows:
+            writer = csv.writer(sys.stdout)
+            writer.writerow(rows[0].keys())
+            for r in rows:
+                writer.writerow(list(r))
+    print(f"\nExported {len(rows)} entries.", file=sys.stderr)
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        prog="nubifer-audit",
+        description="NubiferOS CLI Audit Trail - local cloud command history"
+    )
+    parser.add_argument("--version", action="version", version=f"nubifer-audit {VERSION}")
+    sub = parser.add_subparsers(dest="command")
+
+    # log
+    log_p = sub.add_parser("log", help="Show recent commands")
+    log_p.add_argument("-n", type=int, help=f"Number of entries (default: {DEFAULT_LIMIT})")
+    log_p.add_argument("--provider", help="Filter by provider (aws, azure, gcp, oracle, terraform)")
+    log_p.add_argument("--workspace", help="Filter by workspace ID or name")
+    log_p.add_argument("--blocked", action="store_true", help="Show blocked commands only")
+    log_p.add_argument("--allowed", action="store_true", help="Show allowed commands only")
+    log_p.add_argument("--user", help="Filter by username")
+    log_p.add_argument("--cred-hint", help="Filter by credential hint (last 4 chars)")
+    log_p.add_argument("--from", dest="from_date", help="Start date (YYYY-MM-DD)")
+    log_p.add_argument("--to", help="End date (YYYY-MM-DD)")
+    log_p.add_argument("--json", action="store_true", help="JSON output")
+    log_p.add_argument("--csv", action="store_true", help="CSV output")
+
+    # search
+    search_p = sub.add_parser("search", help="Search commands by text")
+    search_p.add_argument("query", help="Search text")
+    search_p.add_argument("-n", type=int, help=f"Number of results (default: {DEFAULT_LIMIT})")
+    search_p.add_argument("--json", action="store_true", help="JSON output")
+
+    # stats
+    stats_p = sub.add_parser("stats", help="Show audit statistics")
+    stats_p.add_argument("--workspace", help="Show stats for specific workspace")
+
+    # rotate
+    rotate_p = sub.add_parser("rotate", help="Prune old entries")
+    rotate_p.add_argument("--days", type=int, help=f"Retention period in days (default: {DEFAULT_RETENTION_DAYS})")
+    rotate_p.add_argument("--dry-run", action="store_true", help="Show what would be deleted")
+
+    # export
+    export_p = sub.add_parser("export", help="Export full audit log")
+    export_p.add_argument("--format", choices=["json", "csv"], default="json", help="Export format")
+
+    args = parser.parse_args()
+
+    if not args.command:
+        # Default to log
+        args.command = "log"
+        args.n = DEFAULT_LIMIT
+        args.provider = None
+        args.workspace = None
+        args.blocked = False
+        args.allowed = False
+        args.user = None
+        args.cred_hint = None
+        args.from_date = None
+        args.to = None
+        args.json = False
+        args.csv = False
+
+    commands = {
+        "log": cmd_log,
+        "search": cmd_search,
+        "stats": cmd_stats,
+        "rotate": cmd_rotate,
+        "export": cmd_export,
+    }
+
+    fn = commands.get(args.command)
+    if fn:
+        fn(args)
+    else:
+        parser.print_help()
+
+
+if __name__ == "__main__":
+    main()

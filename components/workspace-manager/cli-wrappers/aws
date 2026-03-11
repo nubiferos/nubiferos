@@ -6,10 +6,14 @@
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 FIREJAIL_WRAPPER="${SCRIPT_DIR}/../firejail-wrapper.sh"
 
+# Load audit trail
+source /etc/nubifer/audit-functions.sh 2>/dev/null
+
 # Check if workspace is active
 if [ -z "$NUBIFER_WORKSPACE_ID" ]; then
     echo "⚠️  No active workspace. Running AWS CLI without isolation." >&2
     echo "   Activate workspace: nubifer-workspace switch <workspace-id>" >&2
+    _nubifer_audit_log aws no_workspace "$@" 2>/dev/null
     exec /usr/bin/aws "$@"
 fi
 
@@ -35,9 +39,10 @@ if [ "$NUBIFER_WORKSPACE_READ_ONLY" = "true" ]; then
         echo "  For timed write access (auto-reverts):" >&2
         echo "    sudo nubifer-workspace rw $NUBIFER_WORKSPACE_ID -d 30  # 30 minutes" >&2
         echo "" >&2
+        _nubifer_audit_log aws blocked "$@" 2>/dev/null
         exit 1
     fi
-    
+
     # Check for S3 shorthand write commands (mb=make bucket, rb=remove bucket, etc.)
     if echo "$*" | grep -qE "^s3\s+($s3_write_commands)\b"; then
         echo "" >&2
@@ -52,6 +57,7 @@ if [ "$NUBIFER_WORKSPACE_READ_ONLY" = "true" ]; then
         echo "  For timed write access (auto-reverts):" >&2
         echo "    sudo nubifer-workspace rw $NUBIFER_WORKSPACE_ID -d 30  # 30 minutes" >&2
         echo "" >&2
+        _nubifer_audit_log aws blocked "$@" 2>/dev/null
         exit 1
     fi
 fi
@@ -107,6 +113,9 @@ export NUBIFER_WORKSPACE="$NUBIFER_WORKSPACE_ID"
 # Disable AWS pager to prevent terminal corruption on Ctrl+C
 # Users can re-enable with: export AWS_PAGER="less"
 export AWS_PAGER=""
+
+# Log allowed command
+_nubifer_audit_log aws allowed "$@" 2>/dev/null
 
 # Run with Firejail isolation if available
 if [ -x "$FIREJAIL_WRAPPER" ]; then

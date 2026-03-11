@@ -75,17 +75,26 @@ Fixed critical bugs:
 
 ---
 
-### 6. CLI Audit Trail for Read-Only Overrides
+### 6. CLI Audit Trail
 
 | | |
 |---|---|
 | **Priority** | HIGH |
 | **Source** | `.kiro/specs/read-only-mode/requirements.md` US-3 |
-| **Status** | **Planned** |
+| **Status** | **Done** (March 2026) |
 
-**What exists**: sudo logs capture `nubifer-workspace rw` invocations.
+Local cloud command history — logs ALL commands through CLI wrappers, not just blocked ones:
+- **SQLite database** at `~/.local/share/nubifer/audit/commands.db` (WAL mode for concurrent writes)
+- **Logged fields**: timestamp, user, workspace, provider, cloud account, full command, read-only status, allowed/blocked, credential hint (last 4 chars), session ID
+- **`nubifer-audit` CLI**: log (with filtering), search, stats, rotate, export (JSON/CSV)
+- **All wrappers instrumented**: aws, az, gcloud, oci, terraform
+- **Auto-rotation**: systemd timer prunes entries older than 90 days
+- **Shell alias**: `na` for quick access
 
-**What's missing**: No dedicated audit log (`~/.local/share/nubifer/audit.log`). No `nubifer-audit log` command. No `nubifer-exec --force` emergency override with logging. No security dashboard integration.
+**Remaining gaps** (non-blocking):
+- No `nubifer-exec --force` emergency override with logging
+- No security dashboard integration for audit data
+- Exit code capture requires replacing `exec` in wrappers (deferred)
 
 ---
 

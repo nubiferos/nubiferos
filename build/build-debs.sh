@@ -221,6 +221,16 @@ chmod +x "$PKG/usr/local/lib/nubifer/firejail-wrapper.sh"
 cp "$PROJECT_ROOT/components/workspace-manager/cli-wrappers/"* "$PKG/usr/local/lib/nubifer/cli-wrappers/" 2>/dev/null || true
 chmod +x "$PKG/usr/local/lib/nubifer/cli-wrappers/"* 2>/dev/null || true
 
+# Audit trail
+mkdir -p "$PKG/etc/nubifer"
+cp "$PROJECT_ROOT/components/audit-trail/audit-functions.sh" "$PKG/etc/nubifer/"
+cp "$PROJECT_ROOT/components/audit-trail/schema.sql" "$PKG/etc/nubifer/audit-schema.sql"
+cp "$PROJECT_ROOT/components/audit-trail/nubifer-audit" "$PKG/usr/local/bin/"
+chmod +x "$PKG/usr/local/bin/nubifer-audit"
+# Audit rotation timer
+cp "$PROJECT_ROOT/components/audit-trail/systemd/nubifer-audit-rotate.timer" "$PKG/usr/lib/systemd/user/"
+cp "$PROJECT_ROOT/components/audit-trail/systemd/nubifer-audit-rotate.service" "$PKG/usr/lib/systemd/user/"
+
 build_package "nubifer-workspace"
 
 # ============================================

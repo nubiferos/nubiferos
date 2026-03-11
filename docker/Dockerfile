@@ -101,6 +101,11 @@ COPY components/workspace-manager/shell-integration.sh /etc/nubifer/shell-integr
 # CLI wrappers (read-only mode enforcement)
 COPY components/workspace-manager/cli-wrappers/ /usr/local/lib/nubifer/cli-wrappers/
 
+# Audit trail
+COPY components/audit-trail/audit-functions.sh /etc/nubifer/audit-functions.sh
+COPY components/audit-trail/schema.sql /etc/nubifer/audit-schema.sql
+COPY components/audit-trail/nubifer-audit /usr/local/bin/nubifer-audit
+
 RUN chmod +x /usr/local/bin/nubifer-* \
     && chmod +x /usr/local/lib/nubifer/cli-wrappers/*
 

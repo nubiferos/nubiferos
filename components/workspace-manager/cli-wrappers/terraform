@@ -6,6 +6,9 @@
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 FIREJAIL_WRAPPER="${SCRIPT_DIR}/../firejail-wrapper.sh"
 
+# Load audit trail
+source /etc/nubifer/audit-functions.sh 2>/dev/null
+
 # Find real terraform binary (skip this wrapper)
 TERRAFORM_BIN=""
 for dir in /usr/bin /usr/local/bin /snap/bin; do
@@ -23,6 +26,7 @@ fi
 if [ -z "$NUBIFER_WORKSPACE_ID" ]; then
     echo "⚠️  No active workspace. Running Terraform without isolation." >&2
     echo "   Activate workspace: nubifer-workspace switch <workspace-id>" >&2
+    _nubifer_audit_log terraform no_workspace "$@" 2>/dev/null
     exec "$TERRAFORM_BIN" "$@"
 fi
 
@@ -67,6 +71,7 @@ if [ "$NUBIFER_WORKSPACE_READ_ONLY" = "true" ]; then
                 echo "  To enable writes (requires sudo):" >&2
                 echo "    sudo nubifer-workspace rw $NUBIFER_WORKSPACE_ID" >&2
                 echo "" >&2
+                _nubifer_audit_log terraform blocked "$@" 2>/dev/null
                 exit 1
             fi
             ;;
@@ -82,12 +87,16 @@ if [ "$NUBIFER_WORKSPACE_READ_ONLY" = "true" ]; then
             echo "  For timed write access (auto-reverts):" >&2
             echo "    sudo nubifer-workspace rw $NUBIFER_WORKSPACE_ID -d 30  # 30 minutes" >&2
             echo "" >&2
+            _nubifer_audit_log terraform blocked "$@" 2>/dev/null
             exit 1
             ;;
         # These are safe read-only commands: plan, validate, fmt, init, show,
         # output, state list, state show, graph, providers, version, etc.
     esac
 fi
+
+# Log allowed command
+_nubifer_audit_log terraform allowed "$@" 2>/dev/null
 
 # Run with Firejail isolation
 if [ -x "$FIREJAIL_WRAPPER" ]; then

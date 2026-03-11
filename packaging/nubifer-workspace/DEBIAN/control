@@ -3,7 +3,7 @@ Version: __VERSION__
 Section: admin
 Priority: optional
 Architecture: all
-Depends: bash, python3, python3-dbus, python3-gi, firejail, wmctrl
+Depends: bash, python3, python3-dbus, python3-gi, firejail, wmctrl, sqlite3
 Recommends: nubifer-creds
 Maintainer: NubiferOS Project <info@nubiferos.org>
 Homepage: https://nubiferos.org

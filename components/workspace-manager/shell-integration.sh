@@ -207,12 +207,16 @@ nubifer_gcloud_wrapper() {
     command gcloud "$@"
 }
 
+# Audit trail session ID (unique per shell session)
+export NUBIFER_AUDIT_SESSION="${BASHPID:-$$}-$(date +%s)"
+
 # Aliases for convenience
 alias nw='nubifer-workspace'
 alias nw-switch='nubifer_switch'
 alias nw-context='nubifer_context'
 alias nw-activate='nubifer_activate'
 alias nc='nubifer-creds'
+alias na='nubifer-audit'
 
 # Initialize last workspace tracker
 _NUBIFER_LAST_WORKSPACE="$NUBIFER_WORKSPACE_ID"
@@ -233,6 +237,6 @@ PROMPT_COMMAND="_nubifer_check_workspace_change${PROMPT_COMMAND:+; $PROMPT_COMMA
 # Show welcome message only for interactive shells (not installer/kiosk)
 if [ -n "$PS1" ] && [ "$(whoami)" != "installer" ] && [ ! -f /tmp/.nubifer-shell-init-done ]; then
     echo "NubiferOS Workspace Integration loaded"
-    echo "Commands: nw (workspace), nc (credentials), nw-switch, nw-context"
+    echo "Commands: nw (workspace), nc (credentials), na (audit), nw-switch, nw-context"
     touch /tmp/.nubifer-shell-init-done
 fi
