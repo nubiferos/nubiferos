@@ -782,7 +782,7 @@ button-layout='appmenu:minimize,maximize,close'
 
 [org/gnome/shell]
 enabled-extensions=['nubiferos-context@nubiferos.org', 'ding@rastersoft.com']
-favorite-apps=['firefox-esr.desktop', 'org.gnome.Terminal.desktop', 'org.gnome.Nautilus.desktop', 'nubifer-dashboard.desktop', 'nubifer-software.desktop', 'ai.nubiferos.nubiferai.desktop']
+favorite-apps=['firefox-esr.desktop', 'org.gnome.Terminal.desktop', 'org.gnome.Nautilus.desktop', 'nubifer-dashboard.desktop', 'nubifer-audit-viewer.desktop', 'nubifer-software.desktop', 'ai.nubiferos.nubiferai.desktop']
 EOF
 
 cat > "$PKG/etc/dconf/db/local.d/02-nubiferos-workspaces" << 'EOF'

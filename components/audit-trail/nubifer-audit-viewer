@@ -128,7 +128,7 @@ class AuditViewer(Gtk.Window):
         # Detail panel
         detail_scroll = Gtk.ScrolledWindow()
         detail_scroll.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
-        detail_scroll.set_min_content_height(120)
+        detail_scroll.set_min_content_height(200)
 
         self.detail_label = Gtk.Label()
         self.detail_label.set_halign(Gtk.Align.START)
@@ -144,7 +144,7 @@ class AuditViewer(Gtk.Window):
         detail_scroll.add(self.detail_label)
 
         paned.pack2(detail_scroll, resize=False, shrink=False)
-        paned.set_position(480)
+        paned.set_position(400)
 
         main_box.pack_start(paned, True, True, 0)
 
