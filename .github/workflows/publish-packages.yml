@@ -45,10 +45,11 @@ jobs:
         if [ -n "${{ inputs.version_override }}" ]; then
           VERSION="${{ inputs.version_override }}"
         else
-          VERSION=$(grep 'BRAND_VERSION=' brand/brand.conf | cut -d'"' -f2)
-          # Append commit short SHA for non-release builds
-          COMMIT_SHA=$(git rev-parse --short HEAD)
-          VERSION="${VERSION}.${COMMIT_SHA}"
+          # Use VERSION file (matches what build-debs.sh uses)
+          VERSION=$(cat VERSION 2>/dev/null | tr -d '\n')
+          if [ -z "$VERSION" ]; then
+            VERSION=$(grep 'BRAND_VERSION=' brand/brand.conf | cut -d'"' -f2)
+          fi
         fi
         echo "version=$VERSION" >> $GITHUB_OUTPUT
         echo "Version: $VERSION"

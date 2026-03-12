@@ -276,43 +276,6 @@ jobs:
         done
         echo "✓ Cleaned up old builds (kept last 3)"
 
-    - name: Publish APT repository
-      continue-on-error: true
-      env:
-        GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
-        GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
-      run: |
-        echo "=========================================="
-        echo "Publishing signed APT repository"
-        echo "=========================================="
-
-        # Build .deb packages (if not already built by ISO build)
-        if ! ls output/debs/*.deb 1>/dev/null 2>&1; then
-          bash build/build-debs.sh
-        fi
-
-        # Set up GPG for signing
-        if [ -n "$GPG_PRIVATE_KEY" ]; then
-          export GNUPGHOME=$(mktemp -d -t gpg-repo-XXXXXX)
-          chmod 700 "$GNUPGHOME"
-          echo "$GPG_PRIVATE_KEY" | gpg --batch --import 2>&1
-
-          KEY_ID=$(gpg --list-secret-keys --keyid-format LONG | grep sec | head -1 | awk '{print $2}' | cut -d'/' -f2)
-
-          if [ -n "$KEY_ID" ]; then
-            export GPG_KEY="$KEY_ID"
-            bash build/publish-repo.sh --gpg-key "$KEY_ID"
-          else
-            echo "WARNING: Could not determine GPG key ID, publishing unsigned"
-            bash build/publish-repo.sh
-          fi
-
-          rm -rf "$GNUPGHOME"
-        else
-          echo "WARNING: No GPG key configured, publishing unsigned"
-          bash build/publish-repo.sh
-        fi
-
     - name: Generate staging presigned URL
       id: staging_url
       run: |
@@ -346,12 +309,10 @@ jobs:
         ## Release Notes
         $(echo ${{ steps.release_notes.outputs.notes }} | jq -r .)
 
-        ## OTA Updates
-        APT repository published to \`packages.nubiferos.org\` — existing installs will receive updates via \`apt upgrade\`.
-
         ## ⏭️ Pipeline
         1. ✅ **Build** — complete
-        2. ✅ **APT Repo** — published (signed)
-        3. ⏳ **Test** — auto-triggered (or re-run manually via [Test ISO](/${{ github.repository }}/actions/workflows/test-iso.yml))
-        4. ⏳ **Release** — run [Release to Production](/${{ github.repository }}/actions/workflows/release.yml) after tests pass
+        2. ⏳ **Test** — auto-triggered (or re-run manually via [Test ISO](/${{ github.repository }}/actions/workflows/test-iso.yml))
+        3. ⏳ **Release** — run [Release to Production](/${{ github.repository }}/actions/workflows/release.yml) after tests pass
+
+        > **Note:** APT packages are published separately via the [Build & Publish Packages](/${{ github.repository }}/actions/workflows/publish-packages.yml) workflow.
         EOF
