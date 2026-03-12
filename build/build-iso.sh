@@ -716,16 +716,17 @@ APT_EOF
 
     # Fetch the APT signing key from S3 (published by publish-repo.sh)
     log "INFO" "Fetching NubiferOS APT signing key..."
-    if curl -fsSL "https://packages.nubiferos.org/nubiferos-apt-key.gpg" \
-         -o "${CHROOT_DIR}/etc/apt/keyrings/nubiferos.gpg" 2>/dev/null; then
+    if curl -fsSL "https://packages.nubiferos.org/nubiferos-apt-key.gpg" -o /tmp/nubiferos-apt-key.gpg 2>/dev/null; then
+        # Key is ASCII-armored; APT signed-by requires binary format
+        gpg --dearmor < /tmp/nubiferos-apt-key.gpg \
+            > "${CHROOT_DIR}/etc/apt/keyrings/nubiferos.gpg" 2>/dev/null
+        rm -f /tmp/nubiferos-apt-key.gpg
         chmod 644 "${CHROOT_DIR}/etc/apt/keyrings/nubiferos.gpg"
         log "INFO" "  ✓ APT signing key installed"
     elif [ -f "${PROJECT_ROOT}/output/nubiferos-signing-key.pub" ]; then
         # Fallback: use local signing key from ISO build
         gpg --dearmor < "${PROJECT_ROOT}/output/nubiferos-signing-key.pub" \
-            > "${CHROOT_DIR}/etc/apt/keyrings/nubiferos.gpg" 2>/dev/null || \
-        cp "${PROJECT_ROOT}/output/nubiferos-signing-key.pub" \
-           "${CHROOT_DIR}/etc/apt/keyrings/nubiferos.gpg"
+            > "${CHROOT_DIR}/etc/apt/keyrings/nubiferos.gpg" 2>/dev/null
         chmod 644 "${CHROOT_DIR}/etc/apt/keyrings/nubiferos.gpg"
         log "INFO" "  ✓ APT signing key installed (from local build)"
     else
@@ -821,6 +822,20 @@ TIMER_EOF
 
     log "INFO" "  ✓ Update service installed (checks every 6h)"
     log "INFO" "  ✓ NubiferOS APT repository configured (packages.nubiferos.org)"
+
+    # Register nubifer packages with dpkg so APT can track OTA updates
+    log "INFO" "Registering NubiferOS packages with dpkg..."
+    local DEB_OUTPUT="${PROJECT_ROOT}/output/debs"
+    if [ -d "$DEB_OUTPUT" ] && ls "$DEB_OUTPUT"/*.deb 1>/dev/null 2>&1; then
+        mkdir -p "${CHROOT_DIR}/tmp/nubifer-debs"
+        cp "$DEB_OUTPUT"/*.deb "${CHROOT_DIR}/tmp/nubifer-debs/"
+        # Force install to register with dpkg (files already in place)
+        chroot_exec "dpkg --force-overwrite -i /tmp/nubifer-debs/*.deb 2>/dev/null || true"
+        rm -rf "${CHROOT_DIR}/tmp/nubifer-debs"
+        log "INFO" "  ✓ NubiferOS packages registered with dpkg"
+    else
+        log "WARNING" "No .deb packages found - run build-debs.sh first for OTA update support"
+    fi
 
     log "INFO" "✓ NubiferOS components installed"
 }

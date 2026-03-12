@@ -130,6 +130,18 @@ aws s3 cp "s3://${BUCKET}/dists/${DIST}/${COMPONENT}/binary-${ARCH}/Packages.gz"
     "s3://${BUCKET}/dists/${DIST}/${COMPONENT}/binary-${ARCH}/Packages.gz" \
     --content-type "application/gzip" --metadata-directive REPLACE
 
+# Invalidate CloudFront cache so clients get fresh metadata immediately
+CF_DIST_ID=$(aws cloudfront list-distributions \
+    --query "DistributionList.Items[?contains(Aliases.Items, 'packages.nubiferos.org')].Id" \
+    --output text 2>/dev/null || true)
+if [ -n "$CF_DIST_ID" ] && [ "$CF_DIST_ID" != "None" ]; then
+    echo "Invalidating CloudFront cache (${CF_DIST_ID})..."
+    aws cloudfront create-invalidation --distribution-id "$CF_DIST_ID" \
+        --paths "/dists/*" "/pool/*" 2>/dev/null && \
+        echo "  -> Cache invalidation started" || \
+        echo "  -> Cache invalidation failed (non-critical)"
+fi
+
 echo ""
 echo "=========================================="
 echo "APT Repository Published!"
