@@ -38,6 +38,7 @@ fi
 rm -rf "$REPO_DIR"
 mkdir -p "$REPO_DIR/pool/main/n"
 mkdir -p "$REPO_DIR/dists/${DIST}/${COMPONENT}/binary-${ARCH}"
+mkdir -p "$REPO_DIR/dists/${DIST}/${COMPONENT}/binary-amd64"
 
 # Copy debs to pool
 for deb in "$DEB_DIR"/*.deb; do
@@ -52,6 +53,10 @@ cd "$REPO_DIR"
 dpkg-scanpackages --arch "$ARCH" pool/ > "dists/${DIST}/${COMPONENT}/binary-${ARCH}/Packages"
 gzip -k "dists/${DIST}/${COMPONENT}/binary-${ARCH}/Packages"
 
+# Copy to binary-amd64 so amd64 systems can find arch:all packages
+cp "dists/${DIST}/${COMPONENT}/binary-${ARCH}/Packages" "dists/${DIST}/${COMPONENT}/binary-amd64/Packages"
+gzip -k "dists/${DIST}/${COMPONENT}/binary-amd64/Packages"
+
 echo "  Generated Packages index ($(wc -l < "dists/${DIST}/${COMPONENT}/binary-${ARCH}/Packages") lines)"
 
 # Generate Release file
@@ -62,7 +67,7 @@ Label: NubiferOS
 Suite: ${DIST}
 Codename: ${DIST}
 Version: 1.0
-Architectures: ${ARCH}
+Architectures: ${ARCH} amd64
 Components: ${COMPONENT}
 Description: NubiferOS package repository
 Date: $(date -Ru)
