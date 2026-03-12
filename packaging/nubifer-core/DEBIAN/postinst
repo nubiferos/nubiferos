@@ -69,4 +69,14 @@ for path in ["/usr/share/firefox-esr/distribution", "/etc/firefox/policies"]:
 PYEOF
 fi
 
+# Fix third-party APT sources that used NubiferOS codename instead of Debian codename
+# (e.g. Trivy repo had "nimbus" instead of "bookworm")
+for src in /etc/apt/sources.list.d/*.list; do
+    [ -f "$src" ] || continue
+    if grep -q " nimbus " "$src" 2>/dev/null; then
+        sed -i 's/ nimbus / bookworm /g' "$src"
+        echo "nubifer-core: fixed codename in $src (nimbus -> bookworm)"
+    fi
+done
+
 echo "nubifer-core: installation complete"
