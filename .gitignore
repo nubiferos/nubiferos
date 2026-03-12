@@ -38,6 +38,9 @@ security/scan-results/
 gpg-private-key-backup.asc
 .git-backup/
 
+# Draft content (local only)
+docs/reddit-launch-posts.md
+
 # Website content export (temporary)
 website/
 components/workspace-manager/aws/

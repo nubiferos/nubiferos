@@ -2,7 +2,7 @@
 """
 Token Cache for NubiferOS Credential Manager
 
-Caches STS temporary tokens using OS keyring (with encrypted file fallback).
+Caches STS temporary tokens using encrypted files (Fernet/PBKDF2 with machine-id key).
 Metadata (expiration times) stored in SQLite.
 """
 
@@ -30,8 +30,7 @@ class TokenCache:
     """
     Cache for STS temporary tokens.
 
-    Primary storage: OS keyring (GNOME Keyring / libsecret)
-    Fallback: Encrypted file in ~/.config/nubiferos/token_cache/
+    Storage: Encrypted file in ~/.config/nubiferos/token_cache/
     Metadata: SQLite database for expiration tracking
     """
 
@@ -47,19 +46,7 @@ class TokenCache:
         self.cache_dir = config_dir / "token_cache"
         self.cache_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
 
-        self._keyring_available = self._check_keyring()
         self._init_database()
-
-    def _check_keyring(self) -> bool:
-        """Check if OS keyring is available"""
-        try:
-            import keyring
-            # Try a test operation to verify keyring is functional
-            keyring.get_keyring()
-            return True
-        except Exception as e:
-            logger.warning(f"Keyring not available, using encrypted file fallback: {e}")
-            return False
 
     def _init_database(self):
         """Initialize SQLite database for token metadata"""
@@ -100,10 +87,6 @@ class TokenCache:
         conn.close()
 
         logger.debug(f"Initialized token cache database: {self.db_path}")
-
-    def _get_cache_key(self, workspace: str, provider: str, credential_name: str) -> str:
-        """Generate cache key for token storage"""
-        return f"nubiferos-token:{workspace}:{provider}:{credential_name}"
 
     def _get_file_path(self, workspace: str, provider: str, credential_name: str) -> Path:
         """Get file path for encrypted file fallback"""
@@ -208,33 +191,18 @@ class TokenCache:
         Returns:
             True if successful
         """
-        cache_key = self._get_cache_key(workspace, provider, credential_name)
-        token_json = json.dumps(token_data)
-        storage_type = 'keyring'
+        storage_type = 'file'
 
-        # Try keyring first
-        if self._keyring_available:
-            try:
-                import keyring
-                keyring.set_password("nubiferos", cache_key, token_json)
-                logger.debug(f"Stored token in keyring: {cache_key}")
-            except Exception as e:
-                logger.warning(f"Failed to store in keyring, using file fallback: {e}")
-                self._keyring_available = False
-                storage_type = 'file'
-
-        # Fallback to encrypted file
-        if not self._keyring_available:
-            try:
-                file_path = self._get_file_path(workspace, provider, credential_name)
-                encrypted = self._encrypt_token(token_data)
-                file_path.write_bytes(encrypted)
-                file_path.chmod(0o600)
-                storage_type = 'file'
-                logger.debug(f"Stored token in encrypted file: {file_path}")
-            except Exception as e:
-                logger.error(f"Failed to store token: {e}")
-                return False
+        # Store token in encrypted file
+        try:
+            file_path = self._get_file_path(workspace, provider, credential_name)
+            encrypted = self._encrypt_token(token_data)
+            file_path.write_bytes(encrypted)
+            file_path.chmod(0o600)
+            logger.debug(f"Stored token in encrypted file: {file_path}")
+        except Exception as e:
+            logger.error(f"Failed to store token: {e}")
+            return False
 
         # Store metadata in SQLite
         conn = sqlite3.connect(self.db_path)
@@ -310,19 +278,7 @@ class TokenCache:
             logger.debug(f"Token expired or near expiry: {workspace}/{provider}/{credential_name}")
             return None
 
-        # Retrieve token from storage
-        cache_key = self._get_cache_key(workspace, provider, credential_name)
-
-        if storage_type == 'keyring' and self._keyring_available:
-            try:
-                import keyring
-                token_json = keyring.get_password("nubiferos", cache_key)
-                if token_json:
-                    return json.loads(token_json)
-            except Exception as e:
-                logger.warning(f"Failed to retrieve from keyring: {e}")
-
-        # Try encrypted file
+        # Retrieve token from encrypted file
         file_path = self._get_file_path(workspace, provider, credential_name)
         if file_path.exists():
             try:
@@ -335,16 +291,6 @@ class TokenCache:
 
     def clear_token(self, workspace: str, provider: str, credential_name: str) -> bool:
         """Clear a cached token"""
-        cache_key = self._get_cache_key(workspace, provider, credential_name)
-
-        # Remove from keyring
-        if self._keyring_available:
-            try:
-                import keyring
-                keyring.delete_password("nubiferos", cache_key)
-            except Exception:
-                pass  # Ignore if not found
-
         # Remove encrypted file
         file_path = self._get_file_path(workspace, provider, credential_name)
         if file_path.exists():
