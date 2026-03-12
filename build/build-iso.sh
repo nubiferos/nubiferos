@@ -204,7 +204,13 @@ build_iso() {
     # Step 7.6: Security cleanup - remove packages with known CVEs
     log "INFO" "Step 7.6/8: Running security cleanup..."
     "${SCRIPT_DIR}/security-cleanup.sh"
-    
+
+    # Step 7.7: Final security upgrade (ensure all packages including kernel are patched)
+    log "INFO" "Step 7.7/8: Applying final security upgrades..."
+    chroot_exec "apt-get update -qq"
+    chroot_exec "DEBIAN_FRONTEND=noninteractive apt-get dist-upgrade -y"
+    chroot_exec "apt-get clean"
+
     # Step 8: Create bootable ISO
     log "INFO" "Creating bootable ISO..."
     create_bootable_iso
