@@ -838,6 +838,8 @@ TIMER_EOF
         # Force install to register with dpkg (files already in place)
         chroot_exec "dpkg --force-overwrite -i /tmp/nubifer-debs/*.deb 2>/dev/null || true"
         rm -rf "${CHROOT_DIR}/tmp/nubifer-debs"
+        # Mark as manually installed so apt autoremove won't remove them
+        chroot_exec "apt-mark manual nubifer-core nubifer-creds nubifer-workspace nubifer-dashboard nubifer-tools nubifer-welcome nubifer-updater nubifer-security nubifer-branding nubifer-ai 2>/dev/null || true"
         log "INFO" "  ✓ NubiferOS packages registered with dpkg"
     else
         log "WARNING" "No .deb packages found - run build-debs.sh first for OTA update support"
