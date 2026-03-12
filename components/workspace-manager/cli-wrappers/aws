@@ -112,6 +112,13 @@ EOF
 # Set workspace environment for credential helper
 export NUBIFER_WORKSPACE="$NUBIFER_WORKSPACE_ID"
 
+# Pre-warm GPG agent so credential_process (no terminal) can decrypt
+# The wrapper runs in the user's terminal, so pinentry can prompt here.
+# Once cached, the credential helper subprocess won't need to prompt.
+export GPG_TTY=$(tty 2>/dev/null || echo "${GPG_TTY:-}")
+pass show "nubifer/${NUBIFER_WORKSPACE_ID}/cloud/aws/${CRED_NAME}/access-key-id" >/dev/null 2>&1 || \
+    pass show "nubifer/${NUBIFER_WORKSPACE_ID}/cloud/aws/${CRED_NAME}/access-key-id" >/dev/null
+
 # Disable AWS pager to prevent terminal corruption on Ctrl+C
 # Users can re-enable with: export AWS_PAGER="less"
 export AWS_PAGER=""
