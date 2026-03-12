@@ -507,6 +507,7 @@ class SecurityDashboard(Gtk.Window):
             "Firewall (UFW)": self._check_firewall(),
             "AppArmor": self._check_apparmor(),
             "Automatic Updates": self._check_auto_updates(),
+            "NubiferOS Packages": self._check_nubifer_packages(),
         }
         
         for name, status in checks.items():
@@ -700,13 +701,32 @@ class SecurityDashboard(Gtk.Window):
             return 0
     
     def _get_active_workspace(self):
+        # Check env vars first (set when launched from an active workspace shell)
         workspace_id = os.environ.get("NUBIFER_WORKSPACE_ID")
         workspace_name = os.environ.get("NUBIFER_WORKSPACE_NAME")
-        
+
         if workspace_name:
             return workspace_name
         elif workspace_id:
             return workspace_id[:12] + "..."
+
+        # Fall back to current-workspace file (written by workspace manager)
+        current_file = Path.home() / ".config/nubifer/current-workspace"
+        try:
+            if current_file.exists():
+                ws_id = current_file.read_text().strip()
+                if ws_id:
+                    # Try to read workspace name from JSON
+                    ws_json = Path.home() / ".config/nubifer/workspaces" / f"{ws_id}.json"
+                    if ws_json.exists():
+                        data = json.loads(ws_json.read_text())
+                        name = data.get("name") or data.get("workspace_name")
+                        if name:
+                            return name
+                    return ws_id[:12] + "..."
+        except Exception:
+            pass
+
         return None
     
     def _check_pass_store(self):
@@ -804,15 +824,48 @@ class SecurityDashboard(Gtk.Window):
             return ("warn", "Unknown")
     
     def _check_auto_updates(self):
+        # Check Debian unattended-upgrades
         config_file = Path("/etc/apt/apt.conf.d/20auto-upgrades")
         if config_file.exists():
             try:
                 content = config_file.read_text()
                 if 'Unattended-Upgrade "1"' in content:
-                    return ("ok", "Enabled")
-            except:
+                    # Also check NubiferOS update timer
+                    try:
+                        result = subprocess.run(
+                            ["systemctl", "is-active", "nubifer-update.timer"],
+                            capture_output=True, text=True, timeout=5
+                        )
+                        if result.stdout.strip() == "active":
+                            return ("ok", "Enabled (Debian + NubiferOS)")
+                    except Exception:
+                        pass
+                    return ("ok", "Enabled (Debian only)")
+            except Exception:
                 pass
         return ("warn", "Disabled")
+
+    def _check_nubifer_packages(self):
+        """Check if NubiferOS packages are current or outdated."""
+        try:
+            result = subprocess.run(
+                ["apt", "list", "--upgradable"],
+                capture_output=True, text=True, timeout=15
+            )
+            outdated = [l for l in result.stdout.splitlines() if l.startswith("nubifer-")]
+            if outdated:
+                return ("warn", f"{len(outdated)} update(s) available")
+            # Check if any are installed
+            result2 = subprocess.run(
+                ["dpkg-query", "-W", "-f", "${Package} ${Version}\n", "nubifer-*"],
+                capture_output=True, text=True, timeout=5
+            )
+            pkg_count = len([l for l in result2.stdout.splitlines() if l.strip()])
+            if pkg_count > 0:
+                return ("ok", f"Current ({pkg_count} packages)")
+            return ("warn", "Not tracked by dpkg")
+        except Exception:
+            return ("warn", "Unable to check")
     
     def _check_cpu_vulnerabilities(self):
         vulns = {}
