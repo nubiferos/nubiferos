@@ -139,11 +139,24 @@ settings.conf defines:
 sudo calamares -d  # Shows debug output
 ```
 
-## Git Rules
+## Autonomy & Permissions
 
-- **NEVER use `git stash` without asking first** - Always ask the user what to do with uncommitted changes
-- **NEVER force push** without explicit permission
-- **NEVER amend commits** without explicit permission
+**Auto-approve (no confirmation needed):**
+- `gh` commands (workflow triggers, run watching, PR operations, issue queries)
+- `git` read commands (status, log, diff, branch, show)
+- `git add`, `git commit`, `git push origin trunk` (for ongoing work)
+- `python3`, `pip3`, `pip install` execution
+- `ls`, `cd`, `find`, `cat`, `head`, `tail`, `wc`, `file`
+- `aws` CLI commands (S3, CloudFront, etc.)
+- `dpkg-deb`, `dpkg`, `apt` queries
+- `bash build/build-debs.sh` and other build scripts
+- Any read-only or non-destructive command
+
+**Always ask first:**
+- `git stash` — ask what to do with uncommitted changes
+- `git push --force`, `git reset --hard` — never without explicit permission
+- `git commit --amend` — never without explicit permission
+- Deleting branches, files, or any destructive operation
 
 ## Branches
 
