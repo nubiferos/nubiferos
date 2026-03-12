@@ -1,0 +1,580 @@
+#!/usr/bin/env python3
+"""
+NubiferOS Audit Trail Viewer
+GTK3 application for viewing and filtering cloud CLI command history.
+"""
+
+import gi
+gi.require_version('Gtk', '3.0')
+from gi.repository import Gtk, GLib, Gdk, Pango
+import sqlite3
+import os
+import json
+import csv
+import io
+from pathlib import Path
+from datetime import datetime, timedelta
+
+
+AUDIT_DB = Path.home() / ".local" / "share" / "nubifer" / "audit" / "commands.db"
+
+# Provider display info
+PROVIDER_COLORS = {
+    "aws": "#FF9900",
+    "azure": "#0078D4",
+    "gcp": "#4285F4",
+    "oracle": "#F80000",
+    "terraform": "#7B42BC",
+}
+
+OUTCOME_COLORS = {
+    "allowed": "#4CAF50",
+    "blocked": "#F44336",
+    "no_workspace": "#FF9800",
+}
+
+
+class AuditViewer(Gtk.Window):
+    def __init__(self):
+        super().__init__(title="NubiferOS Audit Trail")
+        self.set_default_size(1100, 700)
+        self.set_border_width(0)
+
+        self._apply_css()
+
+        # Main layout
+        main_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+        self.add(main_box)
+
+        # Header bar
+        header = self._build_header()
+        main_box.pack_start(header, False, False, 0)
+
+        # Filter bar
+        filter_bar = self._build_filter_bar()
+        main_box.pack_start(filter_bar, False, False, 0)
+
+        # Stats bar
+        self.stats_bar = Gtk.Label()
+        self.stats_bar.set_halign(Gtk.Align.START)
+        self.stats_bar.set_margin_start(12)
+        self.stats_bar.set_margin_top(4)
+        self.stats_bar.set_margin_bottom(4)
+        self.stats_bar.get_style_context().add_class("stats-bar")
+        main_box.pack_start(self.stats_bar, False, False, 0)
+
+        # Command list (TreeView in ScrolledWindow)
+        scrolled = Gtk.ScrolledWindow()
+        scrolled.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
+        scrolled.set_vexpand(True)
+
+        self.liststore = Gtk.ListStore(
+            str,  # 0: timestamp
+            str,  # 1: provider
+            str,  # 2: workspace
+            str,  # 3: command + args
+            str,  # 4: credential hint
+            str,  # 5: outcome
+            str,  # 6: user
+            str,  # 7: account
+            str,  # 8: full args (for detail panel)
+            int,  # 9: row id
+        )
+
+        self.treeview = Gtk.TreeView(model=self.liststore)
+        self.treeview.set_headers_clickable(True)
+        self.treeview.set_enable_search(True)
+        self.treeview.set_search_column(3)
+        self.treeview.get_style_context().add_class("audit-table")
+
+        # Selection handler for detail panel
+        self.treeview.get_selection().connect("changed", self._on_selection_changed)
+
+        columns = [
+            ("Time", 0, 170),
+            ("Provider", 1, 80),
+            ("Workspace", 2, 140),
+            ("Command", 3, 350),
+            ("Credential", 4, 80),
+            ("Status", 5, 80),
+            ("User", 6, 80),
+        ]
+
+        for title, col_idx, width in columns:
+            renderer = Gtk.CellRendererText()
+            renderer.set_property("ellipsize", Pango.EllipsizeMode.END)
+
+            if col_idx == 5:  # outcome column - custom rendering
+                col = Gtk.TreeViewColumn(title, renderer, text=col_idx)
+                col.set_cell_data_func(renderer, self._render_outcome)
+            elif col_idx == 1:  # provider column
+                col = Gtk.TreeViewColumn(title, renderer, text=col_idx)
+                col.set_cell_data_func(renderer, self._render_provider)
+            else:
+                col = Gtk.TreeViewColumn(title, renderer, text=col_idx)
+
+            col.set_resizable(True)
+            col.set_min_width(60)
+            col.set_fixed_width(width)
+            col.set_sort_column_id(col_idx)
+            self.treeview.append_column(col)
+
+        scrolled.add(self.treeview)
+
+        # Paned: list on top, detail on bottom
+        paned = Gtk.Paned(orientation=Gtk.Orientation.VERTICAL)
+        paned.pack1(scrolled, resize=True, shrink=False)
+
+        # Detail panel
+        detail_scroll = Gtk.ScrolledWindow()
+        detail_scroll.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
+        detail_scroll.set_min_content_height(120)
+
+        self.detail_label = Gtk.Label()
+        self.detail_label.set_halign(Gtk.Align.START)
+        self.detail_label.set_valign(Gtk.Align.START)
+        self.detail_label.set_selectable(True)
+        self.detail_label.set_line_wrap(True)
+        self.detail_label.set_margin_start(12)
+        self.detail_label.set_margin_top(8)
+        self.detail_label.set_margin_end(12)
+        self.detail_label.set_margin_bottom(8)
+        self.detail_label.get_style_context().add_class("detail-panel")
+        self.detail_label.set_markup("<i>Select a command to see details</i>")
+        detail_scroll.add(self.detail_label)
+
+        paned.pack2(detail_scroll, resize=False, shrink=False)
+        paned.set_position(480)
+
+        main_box.pack_start(paned, True, True, 0)
+
+        # Load data
+        self._load_data()
+
+    def _apply_css(self):
+        css = b"""
+        window {
+            background-color: #1a1a2e;
+            color: #e0e0e0;
+        }
+        .header-bar {
+            background-color: #16213e;
+            padding: 12px 16px;
+        }
+        .header-title {
+            color: #00ffff;
+            font-size: 18px;
+            font-weight: bold;
+        }
+        .header-subtitle {
+            color: #888;
+            font-size: 11px;
+        }
+        .filter-bar {
+            background-color: #1a1a3e;
+            padding: 8px 12px;
+            border-bottom: 1px solid #333;
+        }
+        .filter-label {
+            color: #aaa;
+            font-size: 11px;
+            margin-right: 4px;
+        }
+        .stats-bar {
+            color: #888;
+            font-size: 11px;
+        }
+        .audit-table {
+            background-color: #0f0f23;
+            color: #e0e0e0;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        .audit-table :selected {
+            background-color: #1a3a5c;
+        }
+        .detail-panel {
+            background-color: #12122a;
+            color: #ccc;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        combobox, entry {
+            background-color: #2a2a4a;
+            color: #e0e0e0;
+            border: 1px solid #444;
+            min-height: 28px;
+            padding: 0 6px;
+        }
+        button {
+            background-color: #2a2a4a;
+            color: #e0e0e0;
+            border: 1px solid #444;
+            padding: 4px 12px;
+            min-height: 28px;
+        }
+        button:hover {
+            background-color: #3a3a5a;
+        }
+        .export-btn {
+            background-color: #1a4a3a;
+            color: #4CAF50;
+        }
+        .refresh-btn {
+            background-color: #1a3a5c;
+            color: #00bfff;
+        }
+        """
+        provider = Gtk.CssProvider()
+        provider.load_from_data(css)
+        Gtk.StyleContext.add_provider_for_screen(
+            Gdk.Screen.get_default(), provider,
+            Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
+        )
+
+    def _build_header(self):
+        box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
+        box.get_style_context().add_class("header-bar")
+
+        # Title
+        title_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+        title = Gtk.Label()
+        title.set_markup("<span font_weight='bold' font_size='large' foreground='#00ffff'>Audit Trail</span>")
+        title.set_halign(Gtk.Align.START)
+        title_box.pack_start(title, False, False, 0)
+
+        subtitle = Gtk.Label()
+        subtitle.set_markup("<span foreground='#888' font_size='small'>Cloud CLI command history</span>")
+        subtitle.set_halign(Gtk.Align.START)
+        title_box.pack_start(subtitle, False, False, 0)
+
+        box.pack_start(title_box, True, True, 0)
+
+        # Buttons
+        btn_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+
+        refresh_btn = Gtk.Button(label="Refresh")
+        refresh_btn.get_style_context().add_class("refresh-btn")
+        refresh_btn.connect("clicked", lambda w: self._load_data())
+        btn_box.pack_start(refresh_btn, False, False, 0)
+
+        export_btn = Gtk.Button(label="Export")
+        export_btn.get_style_context().add_class("export-btn")
+        export_btn.connect("clicked", self._on_export)
+        btn_box.pack_start(export_btn, False, False, 0)
+
+        box.pack_end(btn_box, False, False, 0)
+
+        return box
+
+    def _build_filter_bar(self):
+        box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
+        box.get_style_context().add_class("filter-bar")
+
+        # Search
+        search_label = Gtk.Label(label="Search:")
+        search_label.get_style_context().add_class("filter-label")
+        box.pack_start(search_label, False, False, 0)
+
+        self.search_entry = Gtk.Entry()
+        self.search_entry.set_placeholder_text("Filter commands...")
+        self.search_entry.set_width_chars(25)
+        self.search_entry.connect("changed", self._on_filter_changed)
+        box.pack_start(self.search_entry, False, False, 0)
+
+        # Provider filter
+        prov_label = Gtk.Label(label="Provider:")
+        prov_label.get_style_context().add_class("filter-label")
+        box.pack_start(prov_label, False, False, 0)
+
+        self.provider_combo = Gtk.ComboBoxText()
+        self.provider_combo.append("all", "All")
+        for p in ["aws", "azure", "gcp", "oracle", "terraform"]:
+            self.provider_combo.append(p, p.upper() if p != "terraform" else "Terraform")
+        self.provider_combo.set_active_id("all")
+        self.provider_combo.connect("changed", self._on_filter_changed)
+        box.pack_start(self.provider_combo, False, False, 0)
+
+        # Outcome filter
+        status_label = Gtk.Label(label="Status:")
+        status_label.get_style_context().add_class("filter-label")
+        box.pack_start(status_label, False, False, 0)
+
+        self.outcome_combo = Gtk.ComboBoxText()
+        self.outcome_combo.append("all", "All")
+        self.outcome_combo.append("allowed", "Allowed")
+        self.outcome_combo.append("blocked", "Blocked")
+        self.outcome_combo.append("no_workspace", "No Workspace")
+        self.outcome_combo.set_active_id("all")
+        self.outcome_combo.connect("changed", self._on_filter_changed)
+        box.pack_start(self.outcome_combo, False, False, 0)
+
+        # Workspace filter
+        ws_label = Gtk.Label(label="Workspace:")
+        ws_label.get_style_context().add_class("filter-label")
+        box.pack_start(ws_label, False, False, 0)
+
+        self.workspace_combo = Gtk.ComboBoxText()
+        self.workspace_combo.append("all", "All")
+        self.workspace_combo.set_active_id("all")
+        self.workspace_combo.connect("changed", self._on_filter_changed)
+        box.pack_start(self.workspace_combo, False, False, 0)
+
+        # Limit
+        limit_label = Gtk.Label(label="Show:")
+        limit_label.get_style_context().add_class("filter-label")
+        box.pack_start(limit_label, False, False, 0)
+
+        self.limit_combo = Gtk.ComboBoxText()
+        for n in ["50", "100", "250", "500", "All"]:
+            self.limit_combo.append(n, n)
+        self.limit_combo.set_active_id("100")
+        self.limit_combo.connect("changed", self._on_filter_changed)
+        box.pack_start(self.limit_combo, False, False, 0)
+
+        return box
+
+    def _render_outcome(self, column, renderer, model, iter_, data=None):
+        outcome = model.get_value(iter_, 5)
+        color = OUTCOME_COLORS.get(outcome, "#888")
+        renderer.set_property("foreground", color)
+        renderer.set_property("weight", Pango.Weight.BOLD)
+
+    def _render_provider(self, column, renderer, model, iter_, data=None):
+        provider = model.get_value(iter_, 1)
+        color = PROVIDER_COLORS.get(provider, "#e0e0e0")
+        renderer.set_property("foreground", color)
+        renderer.set_property("weight", Pango.Weight.BOLD)
+
+    def _on_selection_changed(self, selection):
+        model, iter_ = selection.get_selected()
+        if iter_ is None:
+            self.detail_label.set_markup("<i>Select a command to see details</i>")
+            return
+
+        timestamp = model.get_value(iter_, 0)
+        provider = model.get_value(iter_, 1)
+        workspace = model.get_value(iter_, 2) or "(none)"
+        full_args = model.get_value(iter_, 8)
+        cred = model.get_value(iter_, 4) or "-"
+        outcome = model.get_value(iter_, 5)
+        user = model.get_value(iter_, 6)
+        account = model.get_value(iter_, 7) or "-"
+
+        outcome_color = OUTCOME_COLORS.get(outcome, "#888")
+        provider_color = PROVIDER_COLORS.get(provider, "#e0e0e0")
+
+        markup = (
+            f"<b>Timestamp:</b>  {GLib.markup_escape_text(timestamp)}\n"
+            f"<b>Provider:</b>   <span foreground='{provider_color}'>{GLib.markup_escape_text(provider)}</span>\n"
+            f"<b>Workspace:</b>  {GLib.markup_escape_text(workspace)}\n"
+            f"<b>Account:</b>    {GLib.markup_escape_text(account)}\n"
+            f"<b>User:</b>       {GLib.markup_escape_text(user)}\n"
+            f"<b>Credential:</b> {GLib.markup_escape_text(cred)}\n"
+            f"<b>Status:</b>     <span foreground='{outcome_color}'><b>{GLib.markup_escape_text(outcome)}</b></span>\n"
+            f"\n<b>Full Command:</b>\n"
+            f"<span font_family='monospace'>{GLib.markup_escape_text(provider)} {GLib.markup_escape_text(full_args or '')}</span>"
+        )
+        self.detail_label.set_markup(markup)
+
+    def _get_db(self):
+        if not AUDIT_DB.exists():
+            return None
+        conn = sqlite3.connect(str(AUDIT_DB))
+        conn.row_factory = sqlite3.Row
+        return conn
+
+    def _load_data(self):
+        conn = self._get_db()
+        if conn is None:
+            self.stats_bar.set_text("No audit database found. Run a cloud CLI command to start logging.")
+            self.liststore.clear()
+            return
+
+        # Populate workspace filter
+        active_ws = self.workspace_combo.get_active_id()
+        self.workspace_combo.remove_all()
+        self.workspace_combo.append("all", "All")
+        try:
+            workspaces = conn.execute(
+                "SELECT DISTINCT workspace_name FROM command_log WHERE workspace_name IS NOT NULL ORDER BY workspace_name"
+            ).fetchall()
+            for ws in workspaces:
+                self.workspace_combo.append(ws["workspace_name"], ws["workspace_name"])
+        except Exception:
+            pass
+        self.workspace_combo.set_active_id(active_ws or "all")
+
+        # Build query
+        self._refresh_list(conn)
+        conn.close()
+
+    def _refresh_list(self, conn=None):
+        close_conn = False
+        if conn is None:
+            conn = self._get_db()
+            if conn is None:
+                return
+            close_conn = True
+
+        conditions = []
+        params = []
+
+        # Provider filter
+        provider = self.provider_combo.get_active_id()
+        if provider and provider != "all":
+            conditions.append("provider = ?")
+            params.append(provider)
+
+        # Outcome filter
+        outcome = self.outcome_combo.get_active_id()
+        if outcome and outcome != "all":
+            conditions.append("outcome = ?")
+            params.append(outcome)
+
+        # Workspace filter
+        workspace = self.workspace_combo.get_active_id()
+        if workspace and workspace != "all":
+            conditions.append("workspace_name = ?")
+            params.append(workspace)
+
+        # Search filter
+        search = self.search_entry.get_text().strip()
+        if search:
+            conditions.append("(args LIKE ? OR command LIKE ? OR workspace_name LIKE ?)")
+            pattern = f"%{search}%"
+            params.extend([pattern, pattern, pattern])
+
+        where = " AND ".join(conditions) if conditions else "1=1"
+
+        # Limit
+        limit_str = self.limit_combo.get_active_id()
+        limit_clause = "" if limit_str == "All" else f"LIMIT {int(limit_str or 100)}"
+
+        query = f"""
+            SELECT id, timestamp, provider, workspace_name, cloud_account,
+                   command, args, credential_hint, outcome, user
+            FROM command_log
+            WHERE {where}
+            ORDER BY timestamp DESC
+            {limit_clause}
+        """
+
+        try:
+            rows = conn.execute(query, params).fetchall()
+        except sqlite3.Error as e:
+            self.stats_bar.set_text(f"Query error: {e}")
+            if close_conn:
+                conn.close()
+            return
+
+        # Get total stats
+        try:
+            total = conn.execute("SELECT COUNT(*) FROM command_log").fetchone()[0]
+            blocked = conn.execute("SELECT COUNT(*) FROM command_log WHERE outcome = 'blocked'").fetchone()[0]
+            allowed = conn.execute("SELECT COUNT(*) FROM command_log WHERE outcome = 'allowed'").fetchone()[0]
+        except sqlite3.Error:
+            total = blocked = allowed = 0
+
+        if close_conn:
+            conn.close()
+
+        # Update stats
+        self.stats_bar.set_text(
+            f"Showing {len(rows)} of {total} commands  |  "
+            f"Allowed: {allowed}  |  Blocked: {blocked}"
+        )
+
+        # Populate list
+        self.liststore.clear()
+        for row in reversed(rows):  # oldest first (chronological)
+            ts = row["timestamp"] or ""
+            if "." in ts:
+                ts = ts.split(".")[0]
+
+            self.liststore.append([
+                ts,
+                row["provider"] or "",
+                row["workspace_name"] or "",
+                f"{row['command'] or ''} {row['args'] or ''}".strip(),
+                row["credential_hint"] or "",
+                row["outcome"] or "",
+                row["user"] or "",
+                row["cloud_account"] or "",
+                row["args"] or "",
+                row["id"],
+            ])
+
+    def _on_filter_changed(self, widget):
+        self._refresh_list()
+
+    def _on_export(self, widget):
+        dialog = Gtk.FileChooserDialog(
+            title="Export Audit Log",
+            parent=self,
+            action=Gtk.FileChooserAction.SAVE,
+        )
+        dialog.add_buttons(
+            Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL,
+            Gtk.STOCK_SAVE, Gtk.ResponseType.OK,
+        )
+        dialog.set_current_name(f"audit-export-{datetime.now().strftime('%Y%m%d')}.json")
+        dialog.set_do_overwrite_confirmation(True)
+
+        # File filters
+        json_filter = Gtk.FileFilter()
+        json_filter.set_name("JSON files")
+        json_filter.add_pattern("*.json")
+        dialog.add_filter(json_filter)
+
+        csv_filter = Gtk.FileFilter()
+        csv_filter.set_name("CSV files")
+        csv_filter.add_pattern("*.csv")
+        dialog.add_filter(csv_filter)
+
+        response = dialog.run()
+        if response == Gtk.ResponseType.OK:
+            filepath = dialog.get_filename()
+            self._export_to_file(filepath)
+
+        dialog.destroy()
+
+    def _export_to_file(self, filepath):
+        conn = self._get_db()
+        if conn is None:
+            return
+
+        rows = conn.execute("SELECT * FROM command_log ORDER BY timestamp").fetchall()
+        conn.close()
+
+        if filepath.endswith(".csv"):
+            with open(filepath, "w", newline="") as f:
+                writer = csv.writer(f)
+                if rows:
+                    writer.writerow(rows[0].keys())
+                    for r in rows:
+                        writer.writerow(list(r))
+        else:
+            with open(filepath, "w") as f:
+                json.dump([dict(r) for r in rows], f, indent=2)
+
+        dialog = Gtk.MessageDialog(
+            transient_for=self,
+            flags=0,
+            message_type=Gtk.MessageType.INFO,
+            buttons=Gtk.ButtonsType.OK,
+            text=f"Exported {len(rows)} entries to {os.path.basename(filepath)}",
+        )
+        dialog.run()
+        dialog.destroy()
+
+
+def main():
+    win = AuditViewer()
+    win.connect("destroy", Gtk.main_quit)
+    win.show_all()
+    Gtk.main()
+
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Audit Trail
+Comment=View cloud CLI command history
+Exec=/usr/local/bin/nubifer-audit-viewer
+Icon=document-open-recent-symbolic
+Terminal=false
+Categories=System;Security;
+Keywords=audit;log;cloud;history;
