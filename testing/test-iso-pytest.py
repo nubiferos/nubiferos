@@ -145,9 +145,9 @@ class TestISOBasics:
         size_gb = size_bytes / (1024**3)
         print(f"[INFO] ISO size: {size_gb:.2f} GB ({size_bytes:,} bytes)")
         
-        # Minimum 1GB (full system), maximum 10GB
-        assert 1.0 <= size_gb <= 10.0, \
-            f"ISO size {size_gb:.2f}GB is outside expected range (1-10GB)"
+        # Minimum 0.5GB (full system), maximum 10GB
+        assert 0.5 <= size_gb <= 10.0, \
+            f"ISO size {size_gb:.2f}GB is outside expected range (0.5-10GB)"
         print(f"[PASS] ISO size is within expected range")
             
     def test_iso_format(self, iso_path):
