@@ -87,54 +87,38 @@ class SecurityDashboard(Gtk.Window):
         main_box.pack_start(scrolled, True, True, 0)
         
         # Content grid
-        content = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=16)
-        content.set_margin_start(24)
-        content.set_margin_end(24)
-        content.set_margin_top(16)
-        content.set_margin_bottom(24)
+        content = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+        content.set_margin_start(12)
+        content.set_margin_end(12)
+        content.set_margin_top(8)
+        content.set_margin_bottom(12)
         scrolled.add(content)
         
-        # Security Score Section (compacted)
+        # Row 1: Security Score | Workspaces & Credentials (side by side)
+        top_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
         score_section = self._create_score_section()
-        content.pack_start(score_section, False, False, 0)
+        top_row.pack_start(score_section, True, True, 0)
+        workspace_card = self._create_workspace_card()
+        top_row.pack_start(workspace_card, True, True, 0)
+        content.pack_start(top_row, False, False, 0)
 
-        # Scan cards row (2 cards side-by-side)
-        scan_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=16)
+        # Row 2: Vulnerability Scan | Hardening Audit (side by side)
+        scan_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
         vuln_card = self._create_vuln_scan_card()
         scan_row.pack_start(vuln_card, True, True, 0)
         compliance_card = self._create_compliance_scan_card()
         scan_row.pack_start(compliance_card, True, True, 0)
         content.pack_start(scan_row, False, False, 0)
 
-        # Two-column layout for remaining cards
-        cards_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=16)
-        content.pack_start(cards_box, False, False, 0)
-
-        # Left column
-        left_col = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=16)
-        left_col.set_hexpand(True)
-        cards_box.pack_start(left_col, True, True, 0)
-
-        # Right column
-        right_col = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=16)
-        right_col.set_hexpand(True)
-        cards_box.pack_start(right_col, True, True, 0)
-
-        # NubiferOS Components Card
+        # Row 3: Components | System Security | CPU Mitigations (3 columns)
+        bottom_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
         components_card = self._create_components_card()
-        left_col.pack_start(components_card, False, False, 0)
-
-        # Workspaces & Credentials Card
-        workspace_card = self._create_workspace_card()
-        left_col.pack_start(workspace_card, False, False, 0)
-
-        # System Security Card
+        bottom_row.pack_start(components_card, True, True, 0)
         system_card = self._create_system_security_card()
-        right_col.pack_start(system_card, False, False, 0)
-
-        # CPU Security Card
+        bottom_row.pack_start(system_card, True, True, 0)
         cpu_card = self._create_cpu_security_card()
-        right_col.pack_start(cpu_card, False, False, 0)
+        bottom_row.pack_start(cpu_card, True, True, 0)
+        content.pack_start(bottom_row, False, False, 0)
         
         self.show_all()
     
@@ -145,44 +129,44 @@ class SecurityDashboard(Gtk.Window):
         }
         .header-bar {
             background: linear-gradient(to right, #16213e, #1a1a2e);
-            padding: 16px 24px;
+            padding: 8px 16px;
         }
         .header-title {
             color: #00d4ff;
-            font-size: 20px;
+            font-size: 16px;
             font-weight: bold;
         }
         .score-box {
             background: linear-gradient(135deg, #1e3a5f, #16213e);
-            border-radius: 16px;
-            padding: 24px;
+            border-radius: 12px;
+            padding: 12px 16px;
         }
         .score-label {
             color: #00d4ff;
-            font-size: 48px;
+            font-size: 36px;
             font-weight: bold;
         }
         .score-text {
             color: #a0a0a0;
-            font-size: 14px;
+            font-size: 12px;
         }
         .card {
             background-color: #252540;
-            border-radius: 12px;
-            padding: 20px;
+            border-radius: 10px;
+            padding: 10px 14px;
         }
         .card-title {
             color: #00d4ff;
-            font-size: 16px;
+            font-size: 14px;
             font-weight: bold;
-            margin-bottom: 12px;
+            margin-bottom: 6px;
         }
         .status-row {
-            padding: 8px 0;
+            padding: 3px 0;
         }
         .status-label {
             color: #ccc;
-            font-size: 13px;
+            font-size: 12px;
         }
         .status-ok {
             color: #00ff88;
@@ -205,10 +189,10 @@ class SecurityDashboard(Gtk.Window):
             border: 1px solid rgba(0, 212, 255, 0.3);
             border-radius: 50%;
             color: #00d4ff;
-            font-size: 11px;
+            font-size: 10px;
             padding: 0;
-            min-width: 20px;
-            min-height: 20px;
+            min-width: 16px;
+            min-height: 16px;
             opacity: 0.7;
         }
         .info-button:hover {
@@ -218,32 +202,32 @@ class SecurityDashboard(Gtk.Window):
         }
         .metric-value {
             color: #ffffff;
-            font-size: 24px;
+            font-size: 20px;
             font-weight: bold;
         }
         .metric-label {
             color: #888;
-            font-size: 12px;
+            font-size: 11px;
         }
         .vuln-critical {
             background-color: rgba(255, 68, 68, 0.2);
             border-left: 3px solid #ff4444;
-            padding: 8px 12px;
-            margin: 4px 0;
+            padding: 4px 8px;
+            margin: 2px 0;
             border-radius: 4px;
         }
         .vuln-high {
             background-color: rgba(255, 170, 0, 0.2);
             border-left: 3px solid #ffaa00;
-            padding: 8px 12px;
-            margin: 4px 0;
+            padding: 4px 8px;
+            margin: 2px 0;
             border-radius: 4px;
         }
         .vuln-medium {
             background-color: rgba(0, 212, 255, 0.15);
             border-left: 3px solid #00d4ff;
-            padding: 8px 12px;
-            margin: 4px 0;
+            padding: 4px 8px;
+            margin: 2px 0;
             border-radius: 4px;
         }
         .vuln-id {
@@ -275,7 +259,8 @@ class SecurityDashboard(Gtk.Window):
             color: #00d4ff;
             border: 1px solid #00d4ff;
             border-radius: 6px;
-            padding: 8px 16px;
+            padding: 4px 12px;
+            font-size: 12px;
         }
         .scan-button:hover {
             background-color: #2a4a6f;
@@ -285,22 +270,22 @@ class SecurityDashboard(Gtk.Window):
         }
         .section-subtitle {
             color: #888;
-            font-size: 12px;
-            margin-bottom: 8px;
+            font-size: 11px;
+            margin-bottom: 4px;
         }
         .no-data {
             color: #666;
             font-style: italic;
-            padding: 16px;
+            padding: 8px;
         }
         .scan-card {
             background-color: #252540;
-            border-radius: 12px;
-            padding: 20px;
+            border-radius: 10px;
+            padding: 10px 14px;
             border-left: 3px solid #00d4ff;
         }
         .scan-card-header {
-            padding-bottom: 8px;
+            padding-bottom: 4px;
         }
         .score-grid {
             padding: 0;
@@ -309,8 +294,8 @@ class SecurityDashboard(Gtk.Window):
             background: transparent;
             color: #00d4ff;
             border: none;
-            padding: 4px 8px;
-            font-size: 12px;
+            padding: 2px 6px;
+            font-size: 11px;
             opacity: 0.8;
         }
         .log-button:hover {
@@ -319,8 +304,8 @@ class SecurityDashboard(Gtk.Window):
         }
         .severity-badge {
             border-radius: 4px;
-            padding: 2px 8px;
-            font-size: 11px;
+            padding: 1px 6px;
+            font-size: 10px;
             font-weight: bold;
         }
         .severity-badge-critical {
@@ -360,31 +345,31 @@ class SecurityDashboard(Gtk.Window):
         return header
     
     def _create_score_section(self):
-        box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=24)
+        box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=16)
         box.get_style_context().add_class("score-box")
-        
+
         # Calculate score
         score, details = self._calculate_security_score()
-        
+
         # Score display
         score_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
         score_box.set_valign(Gtk.Align.CENTER)
-        
+
         score_label = Gtk.Label(label=str(score))
         score_label.get_style_context().add_class("score-label")
         score_box.pack_start(score_label, False, False, 0)
-        
+
         score_text = Gtk.Label(label="Security Score")
         score_text.get_style_context().add_class("score-text")
         score_box.pack_start(score_text, False, False, 0)
-        
-        box.pack_start(score_box, False, False, 24)
-        
+
+        box.pack_start(score_box, False, False, 12)
+
         # Score breakdown as 2x3 grid
         grid = Gtk.Grid()
         grid.get_style_context().add_class("score-grid")
-        grid.set_column_spacing(24)
-        grid.set_row_spacing(6)
+        grid.set_column_spacing(16)
+        grid.set_row_spacing(2)
         grid.set_valign(Gtk.Align.CENTER)
 
         items = list(details.items())
@@ -450,9 +435,9 @@ class SecurityDashboard(Gtk.Window):
         active_workspace = self._get_active_workspace()
         
         # Metrics row
-        metrics = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=32)
-        metrics.set_margin_top(12)
-        metrics.set_margin_bottom(12)
+        metrics = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=24)
+        metrics.set_margin_top(6)
+        metrics.set_margin_bottom(6)
         
         # Workspaces metric
         ws_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
