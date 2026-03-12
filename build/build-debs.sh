@@ -680,46 +680,18 @@ BSITE=$(grep 'BRAND_WEBSITE=' "$PROJECT_ROOT/brand/brand.conf" | cut -d'"' -f2)
 BTAG=$(grep 'BRAND_TAGLINE=' "$PROJECT_ROOT/brand/brand.conf" | cut -d'"' -f2)
 BCODE_LC=$(echo "$BCODE" | tr '[:upper:]' '[:lower:]')
 
-mkdir -p "$PKG/etc"
-cat > "$PKG/etc/os-release" << OSEOF
-PRETTY_NAME="${BNAME} ${BVER} (${BCODE})"
-NAME="${BNAME}"
-VERSION_ID="${BVER}"
-VERSION="${BVER} (${BCODE})"
-VERSION_CODENAME=${BCODE_LC}
-ID=nubiferos
-ID_LIKE=debian
-HOME_URL="${BSITE}"
-SUPPORT_URL="https://github.com/nubiferos/nubiferos/issues"
-BUG_REPORT_URL="https://github.com/nubiferos/nubiferos/issues"
-OSEOF
-
-cat > "$PKG/etc/lsb-release" << LSBEOF
-DISTRIB_ID=${BNAME}
-DISTRIB_RELEASE=${BVER}
-DISTRIB_CODENAME=${BCODE_LC}
-DISTRIB_DESCRIPTION="${BNAME} ${BVER} (${BCODE})"
-LSBEOF
-
-cat > "$PKG/etc/issue" << ISSEOF
-${BNAME} ${BVER} (${BCODE}) - ${BTAG}
-Kernel \r on \m (\l)
-
-ISSEOF
-
-cat > "$PKG/etc/issue.net" << ISSNETEOF
-${BNAME} ${BVER} (${BCODE})
-ISSNETEOF
-
-cat > "$PKG/etc/motd" << MOTDEOF
-
-Welcome to ${BNAME} ${BVER} (${BCODE})
-${BTAG}
-
-  * Documentation: ${BSITE}
-  * Support:       https://github.com/nubiferos/nubiferos/issues
-
-MOTDEOF
+# Store branding values for postinst to generate /etc files
+# (os-release, lsb-release, issue, issue.net, motd conflict with base-files
+# so we write them in postinst instead of shipping them in the package)
+mkdir -p "$PKG/etc/nubiferos"
+cat > "$PKG/etc/nubiferos/branding.conf" << BRANDEOF
+BRAND_NAME="${BNAME}"
+BRAND_VERSION="${BVER}"
+BRAND_CODENAME="${BCODE}"
+BRAND_CODENAME_LC="${BCODE_LC}"
+BRAND_WEBSITE="${BSITE}"
+BRAND_TAGLINE="${BTAG}"
+BRANDEOF
 
 # Wallpapers
 mkdir -p "$PKG/usr/share/backgrounds/nubiferos"

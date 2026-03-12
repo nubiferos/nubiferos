@@ -1,6 +1,55 @@
 #!/bin/bash
 set -e
 
+# Generate system identity files from branding config
+# These files are owned by base-files, so we overwrite them at install time
+# rather than shipping them in the package (which would cause dpkg conflicts)
+if [ -f /etc/nubiferos/branding.conf ]; then
+    . /etc/nubiferos/branding.conf
+
+    cat > /etc/os-release << EOF
+PRETTY_NAME="${BRAND_NAME} ${BRAND_VERSION} (${BRAND_CODENAME})"
+NAME="${BRAND_NAME}"
+VERSION_ID="${BRAND_VERSION}"
+VERSION="${BRAND_VERSION} (${BRAND_CODENAME})"
+VERSION_CODENAME=${BRAND_CODENAME_LC}
+ID=nubiferos
+ID_LIKE=debian
+HOME_URL="${BRAND_WEBSITE}"
+SUPPORT_URL="https://github.com/nubiferos/nubiferos/issues"
+BUG_REPORT_URL="https://github.com/nubiferos/nubiferos/issues"
+EOF
+
+    cat > /etc/lsb-release << EOF
+DISTRIB_ID=${BRAND_NAME}
+DISTRIB_RELEASE=${BRAND_VERSION}
+DISTRIB_CODENAME=${BRAND_CODENAME_LC}
+DISTRIB_DESCRIPTION="${BRAND_NAME} ${BRAND_VERSION} (${BRAND_CODENAME})"
+EOF
+
+    cat > /etc/issue << EOF
+${BRAND_NAME} ${BRAND_VERSION} (${BRAND_CODENAME}) - ${BRAND_TAGLINE}
+Kernel \r on \m (\l)
+
+EOF
+
+    cat > /etc/issue.net << EOF
+${BRAND_NAME} ${BRAND_VERSION} (${BRAND_CODENAME})
+EOF
+
+    cat > /etc/motd << EOF
+
+Welcome to ${BRAND_NAME} ${BRAND_VERSION} (${BRAND_CODENAME})
+${BRAND_TAGLINE}
+
+  * Documentation: ${BRAND_WEBSITE}
+  * Support:       https://github.com/nubiferos/nubiferos/issues
+
+EOF
+
+    echo "nubifer-branding: system identity files updated"
+fi
+
 # Set Plymouth theme and update initramfs
 if command -v plymouth-set-default-theme >/dev/null 2>&1; then
     plymouth-set-default-theme nubiferos 2>/dev/null || true
