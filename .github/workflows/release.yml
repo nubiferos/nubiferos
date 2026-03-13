@@ -50,26 +50,13 @@ jobs:
     - name: Calculate release version
       id: version
       run: |
-        git fetch --tags
-        # Filter out legacy v1.x tags from before alpha versioning reset
-        LATEST_TAG=$(git tag -l 'v0.*' --sort=-v:refname | head -1)
-
-        if [ -z "$LATEST_TAG" ]; then
-          CURRENT="0.1.0"
-        else
-          CURRENT="${LATEST_TAG#v}"
+        # Use VERSION file as the single source of truth
+        VERSION=$(cat VERSION 2>/dev/null | tr -d '\n')
+        if [ -z "$VERSION" ]; then
+          echo "ERROR: VERSION file not found or empty"
+          exit 1
         fi
 
-        IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT"
-        PATCH=${PATCH:-0}
-
-        case "${{ inputs.release_type }}" in
-          major) MAJOR=$((MAJOR + 1)); MINOR=0; PATCH=0 ;;
-          minor) MINOR=$((MINOR + 1)); PATCH=0 ;;
-          patch) PATCH=$((PATCH + 1)) ;;
-        esac
-
-        VERSION="${MAJOR}.${MINOR}.${PATCH}"
         RELEASE_TAG="v${VERSION}"
         COMMIT_SHA=$(git rev-parse --short HEAD)
 
@@ -78,24 +65,22 @@ jobs:
         echo "commit_sha=$COMMIT_SHA" >> $GITHUB_OUTPUT
 
         echo "=========================================="
-        echo "Release: $RELEASE_TAG (${{ inputs.release_type }} bump)"
-        echo "Previous: ${LATEST_TAG:-none}"
+        echo "Release: $RELEASE_TAG (from VERSION file)"
         echo "Commit: $COMMIT_SHA"
         echo "=========================================="
 
     - name: Verify staging build exists
       id: staging
       run: |
-        BRAND_VERSION=$(grep 'BRAND_VERSION=' brand/brand.conf | cut -d'"' -f2)
+        VERSION="${{ steps.version.outputs.version }}"
 
-        echo "Looking for staging build..."
-        if aws s3 ls "s3://${{ env.ISO_BUCKET }}/staging/${BRAND_VERSION}/" > /tmp/staging_listing.txt 2>/dev/null; then
+        echo "Looking for staging build (version ${VERSION})..."
+        if aws s3 ls "s3://${{ env.ISO_BUCKET }}/staging/${VERSION}/" > /tmp/staging_listing.txt 2>/dev/null; then
           ISO_FILE=$(grep '\.iso$' /tmp/staging_listing.txt | grep -v '\.asc' | awk '{print $4}' | head -1)
           if [ -n "$ISO_FILE" ]; then
             ISO_SIZE=$(grep '\.iso$' /tmp/staging_listing.txt | grep -v '\.asc' | awk '{print $3}' | head -1)
             echo "Found: $ISO_FILE (${ISO_SIZE} bytes)"
             echo "iso_file=$ISO_FILE" >> $GITHUB_OUTPUT
-            echo "brand_version=$BRAND_VERSION" >> $GITHUB_OUTPUT
             echo "has_staging=true" >> $GITHUB_OUTPUT
           else
             echo "No ISO found in staging"
@@ -109,11 +94,10 @@ jobs:
     - name: Promote staging to production
       if: steps.staging.outputs.has_staging == 'true'
       run: |
-        BRAND_VERSION="${{ steps.staging.outputs.brand_version }}"
         VERSION="${{ steps.version.outputs.version }}"
 
         echo "=========================================="
-        echo "Promoting to PRODUCTION"
+        echo "Promoting to PRODUCTION (v${VERSION})"
         echo "=========================================="
 
         # Clean old artifacts from prod version directory
@@ -121,7 +105,7 @@ jobs:
 
         # Copy from staging to versioned prod directory
         aws s3 sync \
-          "s3://${{ env.ISO_BUCKET }}/staging/${BRAND_VERSION}/" \
+          "s3://${{ env.ISO_BUCKET }}/staging/${VERSION}/" \
           "s3://${{ env.ISO_BUCKET }}/prod/${VERSION}/" \
           --storage-class INTELLIGENT_TIERING
 

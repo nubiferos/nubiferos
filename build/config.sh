@@ -13,7 +13,8 @@ source "${PROJECT_ROOT}/brand/brand.conf"
 # Distribution Information
 # ============================================================================
 DISTRO_NAME="${BRAND_NAME}"
-DISTRO_VERSION="${BRAND_VERSION}"
+DISTRO_VERSION=$(cat "${PROJECT_ROOT}/VERSION" 2>/dev/null | tr -d '\n')
+DISTRO_VERSION="${DISTRO_VERSION:-${BRAND_VERSION}}"
 DISTRO_CODENAME="${BRAND_CODENAME}"
 DISTRO_DESCRIPTION="${BRAND_TAGLINE}"
 

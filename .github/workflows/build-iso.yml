@@ -53,7 +53,10 @@ jobs:
       id: version
       run: |
         sudo mkdir -p /var/cache/apt/archives output
-        VERSION=$(grep 'BRAND_VERSION=' brand/brand.conf | cut -d'"' -f2)
+        VERSION=$(cat VERSION 2>/dev/null | tr -d '\n')
+        if [ -z "$VERSION" ]; then
+          VERSION=$(grep 'BRAND_VERSION=' brand/brand.conf | cut -d'"' -f2)
+        fi
         TIMESTAMP=$(date +%Y%m%d-%H%M%S)
         COMMIT_SHA=$(git rev-parse --short HEAD)
         ISO_NAME="nubiferos-${VERSION}-${TIMESTAMP}-${COMMIT_SHA}-amd64.iso"
