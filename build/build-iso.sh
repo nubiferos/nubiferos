@@ -837,6 +837,8 @@ TIMER_EOF
         cp "$DEB_OUTPUT"/*.deb "${CHROOT_DIR}/tmp/nubifer-debs/"
         # Force install to register with dpkg (files already in place)
         chroot_exec "dpkg --force-overwrite -i /tmp/nubifer-debs/*.deb 2>/dev/null || true"
+        # Resolve any missing dependencies introduced by the .deb packages
+        chroot_exec "apt-get -f install -y 2>/dev/null || true"
         rm -rf "${CHROOT_DIR}/tmp/nubifer-debs"
         # Mark as manually installed so apt autoremove won't remove them
         chroot_exec "apt-mark manual nubifer-core nubifer-creds nubifer-workspace nubifer-dashboard nubifer-tools nubifer-welcome nubifer-updater nubifer-security nubifer-branding nubifer-ai 2>/dev/null || true"
