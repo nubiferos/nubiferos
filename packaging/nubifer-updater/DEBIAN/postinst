@@ -7,9 +7,9 @@ if [ -f /usr/share/nubifer/apt-signing-key.gpg ]; then
     chmod 644 /etc/apt/keyrings/nubiferos.gpg
 fi
 
-# Enable and start the update timer
-if command -v systemctl >/dev/null 2>&1; then
-    systemctl daemon-reload
+# Enable and start the update timer (skip in chroot where systemd isn't running)
+if command -v systemctl >/dev/null 2>&1 && systemctl --version >/dev/null 2>&1; then
+    systemctl daemon-reload 2>/dev/null || true
     systemctl enable nubifer-update.timer 2>/dev/null || true
     systemctl start nubifer-update.timer 2>/dev/null || true
 fi
