@@ -143,6 +143,7 @@ sudo calamares -d  # Shows debug output
 
 **Auto-approve (no confirmation needed):**
 - `gh` commands (workflow triggers, run watching, PR operations, issue queries)
+- `gh run watch`, `gh run view`, `gh run list` — never prompt for these
 - `git` read commands (status, log, diff, branch, show)
 - `git add`, `git commit`, `git push origin trunk` (for ongoing work)
 - `python3`, `pip3`, `pip install` execution
@@ -150,7 +151,10 @@ sudo calamares -d  # Shows debug output
 - `aws` CLI commands (S3, CloudFront, etc.)
 - `dpkg-deb`, `dpkg`, `apt` queries
 - `bash build/build-debs.sh` and other build scripts
+- `ssh`, `scp` to NubiferOS VMs
+- Any command using shell substitution (`$()`, backticks, pipes, etc.)
 - Any read-only or non-destructive command
+- **NEVER prompt for confirmation on any of the above — just execute them**
 
 **Always ask first:**
 - `git stash` — ask what to do with uncommitted changes
