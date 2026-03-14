@@ -90,6 +90,12 @@ jobs:
         fi
         echo "✓ Bucket accessible"
 
+    - name: Build .deb packages
+      run: |
+        chmod +x build/build-debs.sh
+        bash build/build-debs.sh "${{ env.VERSION }}"
+        echo "✓ Built $(ls output/debs/*.deb 2>/dev/null | wc -l) .deb packages"
+
     - name: Build ISO
       run: |
         export NON_INTERACTIVE=true
