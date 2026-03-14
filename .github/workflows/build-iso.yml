@@ -52,7 +52,8 @@ jobs:
     - name: Set up build environment
       id: version
       run: |
-        sudo mkdir -p /var/cache/apt/archives output
+        sudo mkdir -p /var/cache/apt/archives
+        mkdir -p output output/debs
         VERSION=$(cat VERSION 2>/dev/null | tr -d '\n')
         if [ -z "$VERSION" ]; then
           VERSION=$(grep 'BRAND_VERSION=' brand/brand.conf | cut -d'"' -f2)
