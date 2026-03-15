@@ -27,7 +27,7 @@ class SecurityDashboard(Gtk.Window):
         "AWS Credential Helper": "Provides on-demand AWS credentials to CLI tools via credential_process. Credentials exist only in memory during API calls.",
         "CLI Wrappers": "Intercept cloud CLI commands (aws, az, gcloud) to inject workspace-specific credentials automatically.",
         "Context Indicator": "GNOME Shell extension showing active workspace in the top panel. Helps prevent accidental cross-account operations.",
-        "NubiferAI": "AI-native cloud operations assistant. Natural language queries across AWS, Azure, and GCP.\n\nStatus: Installed + Enabled (green), Installed + Disabled (yellow), or Not Installed (yellow).\n\nEnable with: nubiferai config --provider <provider>\nInstall with: sudo apt install nubifer-ai",
+        "NubiferAI": "AI-native cloud operations assistant. Natural language queries across AWS, Azure, and GCP.\n\nStatus: Installed (green) or Not Installed (yellow, optional).\n\nRun with: nubiferai front\nInstall with: sudo apt install nubifer-ai",
         
         # Workspace & Credentials
         "Active Workspace": "Currently selected workspace. All cloud operations use this workspace's credentials and region settings.",
@@ -840,23 +840,7 @@ class SecurityDashboard(Gtk.Window):
         # NubiferAI (optional)
         nubiferai_bin = "/usr/local/bin/nubiferai"
         if os.path.exists(nubiferai_bin):
-            # Check if enabled in config
-            ai_enabled = False
-            config_path = "/etc/nubiferai/config.toml"
-            try:
-                with open(config_path) as f:
-                    for line in f:
-                        stripped = line.strip()
-                        if stripped.startswith("enabled") and "=" in stripped:
-                            val = stripped.split("=", 1)[1].strip().lower()
-                            ai_enabled = val == "true"
-                            break
-            except (FileNotFoundError, PermissionError):
-                pass
-            if ai_enabled:
-                components["NubiferAI"] = ("ok", "Enabled")
-            else:
-                components["NubiferAI"] = ("warn", "Disabled")
+            components["NubiferAI"] = ("ok", "Installed")
         else:
             components["NubiferAI"] = ("warn", "Not Installed")
 
