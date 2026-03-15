@@ -14,8 +14,12 @@ if [ -d /proc/1 ]; then
 fi
 
 # Enable firewall with defaults
+# In a chroot (ISO build), ufw enable fails — set defaults and the systemd
+# service will activate UFW on first real boot
 ufw --force default deny incoming 2>/dev/null || true
 ufw --force default allow outgoing 2>/dev/null || true
+# Allow SSH so remote access isn't locked out
+ufw --force allow ssh 2>/dev/null || true
 ufw --force enable 2>/dev/null || true
 
 # Configure needrestart for automatic restarts (non-interactive)

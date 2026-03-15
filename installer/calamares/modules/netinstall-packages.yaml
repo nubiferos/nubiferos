@@ -11,14 +11,14 @@
 # AI ASSISTANT (Optional)
 # ============================================
 - name: "🤖 NubiferAI - AI Cloud Assistant"
-  description: "AI-powered cloud resource management with natural language queries"
-  selected: false
+  description: "AI-powered cloud resource management (pre-installed, disabled by default)"
+  selected: true
   critical: false
   expanded: true
   subgroups:
-    - name: "🌐 NubiferAI"
-      description: "Natural language queries across AWS, Azure, and GCP. Privacy-first with local LLM support via Ollama. Workspace-scoped access, fully auditable."
-      selected: false
+    - name: "📦 NubiferAI"
+      description: "Natural language queries across AWS, Azure, and GCP. Privacy-first with local LLM support via Ollama. Workspace-scoped access, fully auditable. AI is disabled until you configure a provider."
+      selected: true
       packages: []
 
 # ============================================

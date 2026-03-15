@@ -50,10 +50,14 @@ EOF
     echo "nubifer-branding: system identity files updated"
 fi
 
-# Set Plymouth theme and update initramfs
+# Set Plymouth theme and update initramfs (only if theme changed)
 if command -v plymouth-set-default-theme >/dev/null 2>&1; then
-    plymouth-set-default-theme nubiferos 2>/dev/null || true
-    update-initramfs -u 2>/dev/null || true
+    CURRENT_THEME=$(plymouth-set-default-theme 2>/dev/null || echo "")
+    if [ "$CURRENT_THEME" != "nubiferos" ]; then
+        plymouth-set-default-theme nubiferos 2>/dev/null || true
+        update-initramfs -u 2>/dev/null || true
+        echo "nubifer-branding: Plymouth theme set and initramfs updated"
+    fi
 fi
 
 # Update icon cache

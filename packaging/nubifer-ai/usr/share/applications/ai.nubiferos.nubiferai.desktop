@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=NubiferAI
+Comment=AI-native cloud operations assistant
+Exec=sh -c 'if command -v nubiferai-gtk >/dev/null 2>&1; then nubiferai-gtk; else gnome-terminal -- bash -c "nubiferai front; exec bash"; fi'
+Icon=weather-overcast-symbolic
+Terminal=false
+Categories=Development;Utility;
+Keywords=ai;cloud;nubifer;assistant;

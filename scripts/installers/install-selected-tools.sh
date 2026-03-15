@@ -166,7 +166,18 @@ install_if_selected "newman" "install-newman.sh" "false"
 # ============================================
 log ""
 log "--- AI Assistant ---"
-install_if_selected "nubiferai" "install-nubiferai.sh" "true"
+# NubiferAI is pre-installed via the nubifer-ai .deb package in the ISO.
+# If the user deselected it, remove it. Otherwise, no action needed.
+if [ -f "$MARKER_DIR/skip-nubiferai" ]; then
+    log "NubiferAI deselected by user — removing..."
+    apt-get remove -y nubifer-ai 2>/dev/null || dpkg --remove nubifer-ai 2>/dev/null || true
+    rm -rf /opt/nubiferos/addons/nubiferai
+    rm -f /usr/local/bin/nubiferai /usr/local/bin/nubiferai-gtk
+    rm -f /usr/share/applications/ai.nubiferos.nubiferai.desktop
+    log "✓ NubiferAI removed"
+else
+    log "✓ NubiferAI pre-installed via .deb package"
+fi
 
 log ""
 log "=========================================="

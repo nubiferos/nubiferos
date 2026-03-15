@@ -27,6 +27,7 @@ class SecurityDashboard(Gtk.Window):
         "AWS Credential Helper": "Provides on-demand AWS credentials to CLI tools via credential_process. Credentials exist only in memory during API calls.",
         "CLI Wrappers": "Intercept cloud CLI commands (aws, az, gcloud) to inject workspace-specific credentials automatically.",
         "Context Indicator": "GNOME Shell extension showing active workspace in the top panel. Helps prevent accidental cross-account operations.",
+        "NubiferAI": "AI-native cloud operations assistant. Natural language queries across AWS, Azure, and GCP.\n\nStatus: Installed + Enabled (green), Installed + Disabled (yellow), or Not Installed (yellow).\n\nEnable with: nubiferai config --provider <provider>\nInstall with: sudo apt install nubifer-ai",
         
         # Workspace & Credentials
         "Active Workspace": "Currently selected workspace. All cloud operations use this workspace's credentials and region settings.",
@@ -34,7 +35,7 @@ class SecurityDashboard(Gtk.Window):
         
         # System Security
         "LUKS Encryption": "Full disk encryption protects data at rest. Critical for protecting credentials if device is lost or stolen.",
-        "Firewall (UFW)": "Uncomplicated Firewall controls network access. Enable with 'sudo ufw enable' for basic protection.",
+        "Firewall (UFW)": "Uncomplicated Firewall controls network access.\n\nStatus: Active (green), Inactive/Disabled (yellow), or Not Installed (red).\n\nEnable with: sudo ufw enable",
         "AppArmor": "Mandatory Access Control system that confines programs to limited resources. Provides defense-in-depth.",
         "Automatic Updates": "Unattended security updates keep system patched against known vulnerabilities.",
         
@@ -829,7 +830,30 @@ class SecurityDashboard(Gtk.Window):
                 break
         else:
             components["Context Indicator"] = ("warn", "Not Found")
-        
+
+        # NubiferAI (optional)
+        nubiferai_bin = "/usr/local/bin/nubiferai"
+        if os.path.exists(nubiferai_bin):
+            # Check if enabled in config
+            ai_enabled = False
+            config_path = "/etc/nubiferai/config.toml"
+            try:
+                with open(config_path) as f:
+                    for line in f:
+                        stripped = line.strip()
+                        if stripped.startswith("enabled") and "=" in stripped:
+                            val = stripped.split("=", 1)[1].strip().lower()
+                            ai_enabled = val == "true"
+                            break
+            except (FileNotFoundError, PermissionError):
+                pass
+            if ai_enabled:
+                components["NubiferAI"] = ("ok", "Enabled")
+            else:
+                components["NubiferAI"] = ("warn", "Disabled")
+        else:
+            components["NubiferAI"] = ("warn", "Not Installed")
+
         return components
     
     def _count_workspaces(self):
@@ -914,12 +938,12 @@ class SecurityDashboard(Gtk.Window):
             return ("error", "Check Failed")
     
     def _check_firewall(self):
-        # Check if ufw is installed and try to get status
+        # Check if ufw is installed
         if not os.path.exists("/usr/sbin/ufw"):
             return ("error", "Not Installed")
-        
+
         try:
-            # Try without sudo first (may work if user has permissions)
+            # Try ufw status (may need sudo)
             result = subprocess.run(
                 ["ufw", "status"],
                 capture_output=True,
@@ -930,8 +954,18 @@ class SecurityDashboard(Gtk.Window):
                 return ("ok", "Active")
             elif "Status: inactive" in result.stdout:
                 return ("warn", "Inactive")
-            
-            # If we can't read status, check if the service is enabled
+
+            # ufw status needs root — fall back to systemctl (no root needed)
+            result = subprocess.run(
+                ["systemctl", "is-active", "ufw"],
+                capture_output=True,
+                text=True,
+                timeout=5
+            )
+            if result.stdout.strip() == "active":
+                return ("ok", "Active")
+
+            # Service exists but not running
             result = subprocess.run(
                 ["systemctl", "is-enabled", "ufw"],
                 capture_output=True,
@@ -939,11 +973,10 @@ class SecurityDashboard(Gtk.Window):
                 timeout=5
             )
             if result.stdout.strip() == "enabled":
-                return ("ok", "Enabled")
+                return ("warn", "Enabled (Not Active)")
             return ("warn", "Disabled")
         except:
-            # Binary exists but we can't check status
-            return ("ok", "Installed")
+            return ("warn", "Installed (Status Unknown)")
     
     def _check_apparmor(self):
         # Check if AppArmor is installed
