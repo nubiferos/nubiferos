@@ -952,18 +952,18 @@ if git clone --branch "$NUBIFERAI_BRANCH" --depth 1 "$NUBIFERAI_REPO" "$NUBIFERA
         cp "$NUBIFERAI_CLONE_DIR/seeds/"*.toml "$PKG/etc/nubiferai/seeds/" 2>/dev/null || true
     fi
 
-    # Desktop entry
+    # Desktop entry — uses GTK if available, falls back to CLI in terminal
     mkdir -p "$PKG/usr/share/applications"
     cat > "$PKG/usr/share/applications/ai.nubiferos.nubiferai.desktop" << 'EOF'
 [Desktop Entry]
 Type=Application
 Name=NubiferAI
-Comment=AI-native cloud operations
-Exec=/usr/local/bin/nubiferai-gtk
+Comment=AI-native cloud operations assistant
+Exec=sh -c 'if command -v nubiferai-gtk >/dev/null 2>&1; then nubiferai-gtk; else gnome-terminal -- bash -c "nubiferai front; exec bash"; fi'
 Icon=weather-overcast-symbolic
 Terminal=false
 Categories=Development;Utility;
-Keywords=ai;cloud;nubifer;
+Keywords=ai;cloud;nubifer;assistant;
 EOF
 
     build_package "nubifer-ai"
