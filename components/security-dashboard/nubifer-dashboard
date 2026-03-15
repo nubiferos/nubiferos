@@ -75,7 +75,10 @@ class SecurityDashboard(Gtk.Window):
         self._compliance_status_label = None
         self._kernel_status_label = None
         self._vuln_details_box = None
-        
+        self._console_buffer = None
+        self._console_view = None
+        self._console_expander = None
+
         self._apply_css()
         
         # Main container
@@ -124,7 +127,11 @@ class SecurityDashboard(Gtk.Window):
         cpu_card = self._create_cpu_security_card()
         bottom_row.pack_start(cpu_card, True, True, 0)
         content.pack_start(bottom_row, False, False, 0)
-        
+
+        # Console output panel
+        console_panel = self._create_console_panel()
+        main_box.pack_end(console_panel, False, False, 0)
+
         self.show_all()
     
     def _apply_css(self):
@@ -320,6 +327,35 @@ class SecurityDashboard(Gtk.Window):
         }
         .upgrade-button:disabled {
             opacity: 0.5;
+        }
+        .console-panel {
+            background-color: #0d0d1a;
+            border-top: 1px solid #333;
+        }
+        .console-header {
+            background-color: #16213e;
+            padding: 4px 12px;
+        }
+        .console-title {
+            color: #888;
+            font-size: 11px;
+        }
+        .console-view {
+            background-color: #0d0d1a;
+            color: #00ff88;
+            font-family: monospace;
+            font-size: 11px;
+            padding: 6px 10px;
+        }
+        .console-clear-btn {
+            background: transparent;
+            color: #666;
+            border: none;
+            padding: 2px 8px;
+            font-size: 10px;
+        }
+        .console-clear-btn:hover {
+            color: #aaa;
         }
         .severity-badge {
             border-radius: 4px;
@@ -627,6 +663,75 @@ class SecurityDashboard(Gtk.Window):
 
         return row
     
+    # ==================== Console Panel ====================
+
+    def _create_console_panel(self):
+        """Create expandable console output panel at bottom of dashboard."""
+        panel = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+        panel.get_style_context().add_class("console-panel")
+
+        # Expander header
+        self._console_expander = Gtk.Expander(label="Console Output")
+        self._console_expander.get_style_context().add_class("console-header")
+
+        # Console content box
+        console_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+
+        # Clear button row
+        btn_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
+        btn_row.set_margin_start(8)
+        btn_row.set_margin_end(8)
+        clear_btn = Gtk.Button(label="Clear")
+        clear_btn.get_style_context().add_class("console-clear-btn")
+        clear_btn.connect("clicked", self._on_console_clear)
+        btn_row.pack_end(clear_btn, False, False, 0)
+        console_box.pack_start(btn_row, False, False, 0)
+
+        # Scrollable text view
+        scrolled = Gtk.ScrolledWindow()
+        scrolled.set_min_content_height(120)
+        scrolled.set_max_content_height(200)
+        scrolled.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
+
+        self._console_buffer = Gtk.TextBuffer()
+        self._console_view = Gtk.TextView(buffer=self._console_buffer)
+        self._console_view.set_editable(False)
+        self._console_view.set_cursor_visible(False)
+        self._console_view.set_wrap_mode(Gtk.WrapMode.WORD_CHAR)
+        self._console_view.get_style_context().add_class("console-view")
+        scrolled.add(self._console_view)
+
+        console_box.pack_start(scrolled, True, True, 0)
+        self._console_expander.add(console_box)
+        panel.pack_start(self._console_expander, False, False, 0)
+
+        return panel
+
+    def _console_log(self, text):
+        """Append text to console output (thread-safe via GLib.idle_add)."""
+        GLib.idle_add(self._console_log_main, text)
+
+    def _console_log_main(self, text):
+        """Append text to console (must be called from main thread)."""
+        if not self._console_buffer:
+            return False
+        end_iter = self._console_buffer.get_end_iter()
+        self._console_buffer.insert(end_iter, text + "\n")
+        # Auto-scroll to bottom
+        if self._console_view:
+            end_mark = self._console_buffer.create_mark(None, self._console_buffer.get_end_iter(), False)
+            self._console_view.scroll_mark_onscreen(end_mark)
+            self._console_buffer.delete_mark(end_mark)
+        # Auto-expand when content arrives
+        if self._console_expander and not self._console_expander.get_expanded():
+            self._console_expander.set_expanded(True)
+        return False
+
+    def _on_console_clear(self, button):
+        """Clear console output."""
+        if self._console_buffer:
+            self._console_buffer.set_text("")
+
     # ==================== Data Collection Methods ====================
     
     def _calculate_security_score(self):
@@ -1009,21 +1114,37 @@ class SecurityDashboard(Gtk.Window):
         thread.start()
 
     def _kernel_upgrade_thread(self, button):
-        """Background thread for kernel upgrade."""
+        """Background thread for kernel upgrade with streaming output."""
         try:
-            # Use pkexec for graphical sudo prompt
-            result = subprocess.run(
+            self._console_log("[kernel] Starting kernel upgrade from bookworm-backports...")
+            self._console_log("[kernel] $ pkexec apt-get install -y -t bookworm-backports linux-image-amd64")
+
+            proc = subprocess.Popen(
                 ["pkexec", "apt-get", "install", "-y", "-t", "bookworm-backports", "linux-image-amd64"],
-                capture_output=True, text=True, timeout=300
+                stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                text=True, bufsize=1
             )
-            if result.returncode == 0:
+
+            for line in proc.stdout:
+                line = line.rstrip()
+                if line:
+                    self._console_log(f"  {line}")
+
+            proc.wait(timeout=300)
+
+            if proc.returncode == 0:
+                self._console_log("[kernel] Upgrade complete. Reboot to use new kernel.")
                 GLib.idle_add(self._kernel_upgrade_complete, button, True, None)
             else:
-                error = result.stderr.strip()[-100:] if result.stderr else f"Exit code {result.returncode}"
-                GLib.idle_add(self._kernel_upgrade_complete, button, False, error)
+                self._console_log(f"[kernel] Failed with exit code {proc.returncode}")
+                GLib.idle_add(self._kernel_upgrade_complete, button, False, f"Exit code {proc.returncode}")
         except subprocess.TimeoutExpired:
+            self._console_log("[kernel] ERROR: Upgrade timed out")
+            if proc:
+                proc.kill()
             GLib.idle_add(self._kernel_upgrade_complete, button, False, "Timed out")
         except Exception as e:
+            self._console_log(f"[kernel] ERROR: {e}")
             GLib.idle_add(self._kernel_upgrade_complete, button, False, str(e))
 
     def _kernel_upgrade_complete(self, button, success, error):
@@ -1399,27 +1520,36 @@ class SecurityDashboard(Gtk.Window):
         try:
             scan_script = self._find_scan_script()
             if not scan_script:
+                self._console_log("[vuln-scan] ERROR: Scan script not found")
                 GLib.idle_add(self._vuln_scan_complete, button, False, "Scan script not found")
                 return
-            result = subprocess.run(
+            self._console_log(f"[vuln-scan] Running grype vulnerability scan...")
+            self._console_log(f"[vuln-scan] $ {scan_script} --vuln-scan")
+
+            proc = subprocess.Popen(
                 [scan_script, "--vuln-scan"],
-                capture_output=True,
-                text=True,
-                timeout=600
+                stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                text=True, bufsize=1
             )
-            success = result.returncode in (0, 2)
+            for line in proc.stdout:
+                line = line.rstrip()
+                if line:
+                    self._console_log(f"  {line}")
+            proc.wait(timeout=600)
+
+            success = proc.returncode in (0, 2)
             error_msg = None
-            if not success:
-                if "grype" in result.stderr.lower() or "not found" in result.stderr.lower():
-                    error_msg = "grype not installed"
-                elif result.stderr:
-                    error_msg = result.stderr[:100]
-                else:
-                    error_msg = f"Exit code {result.returncode}"
+            if success:
+                self._console_log("[vuln-scan] Scan complete.")
+            else:
+                error_msg = f"Exit code {proc.returncode}"
+                self._console_log(f"[vuln-scan] Failed: {error_msg}")
             GLib.idle_add(self._vuln_scan_complete, button, success, error_msg)
         except subprocess.TimeoutExpired:
+            self._console_log("[vuln-scan] ERROR: Scan timed out")
             GLib.idle_add(self._vuln_scan_complete, button, False, "Scan timed out")
         except Exception as e:
+            self._console_log(f"[vuln-scan] ERROR: {e}")
             GLib.idle_add(self._vuln_scan_complete, button, False, str(e))
 
     def _vuln_scan_complete(self, button, success, error=None):
@@ -1456,27 +1586,36 @@ class SecurityDashboard(Gtk.Window):
         try:
             scan_script = self._find_scan_script()
             if not scan_script:
+                self._console_log("[compliance] ERROR: Scan script not found")
                 GLib.idle_add(self._compliance_scan_complete, button, False, "Scan script not found")
                 return
-            result = subprocess.run(
+            self._console_log("[compliance] Running lynis hardening audit...")
+            self._console_log(f"[compliance] $ {scan_script} --compliance")
+
+            proc = subprocess.Popen(
                 [scan_script, "--compliance"],
-                capture_output=True,
-                text=True,
-                timeout=600
+                stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                text=True, bufsize=1
             )
-            success = result.returncode == 0
+            for line in proc.stdout:
+                line = line.rstrip()
+                if line:
+                    self._console_log(f"  {line}")
+            proc.wait(timeout=600)
+
+            success = proc.returncode == 0
             error_msg = None
-            if not success:
-                if "lynis" in result.stderr.lower():
-                    error_msg = "lynis not installed"
-                elif result.stderr:
-                    error_msg = result.stderr[:100]
-                else:
-                    error_msg = f"Exit code {result.returncode}"
+            if success:
+                self._console_log("[compliance] Audit complete.")
+            else:
+                error_msg = f"Exit code {proc.returncode}"
+                self._console_log(f"[compliance] Failed: {error_msg}")
             GLib.idle_add(self._compliance_scan_complete, button, success, error_msg)
         except subprocess.TimeoutExpired:
+            self._console_log("[compliance] ERROR: Scan timed out")
             GLib.idle_add(self._compliance_scan_complete, button, False, "Scan timed out")
         except Exception as e:
+            self._console_log(f"[compliance] ERROR: {e}")
             GLib.idle_add(self._compliance_scan_complete, button, False, str(e))
 
     def _compliance_scan_complete(self, button, success, error=None):
