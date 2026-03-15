@@ -1619,10 +1619,12 @@ class SecurityDashboard(Gtk.Window):
             self._console_log(f"[vuln-scan] Running grype vulnerability scan...")
             self._console_log(f"[vuln-scan] $ {scan_script} --vuln-scan")
 
+            env = os.environ.copy()
+            env["PYTHONUNBUFFERED"] = "1"
             proc = subprocess.Popen(
                 [scan_script, "--vuln-scan"],
                 stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                text=True, bufsize=1
+                text=True, bufsize=1, env=env
             )
             for line in proc.stdout:
                 line = line.rstrip()
@@ -1685,10 +1687,12 @@ class SecurityDashboard(Gtk.Window):
             self._console_log("[compliance] Running lynis hardening audit...")
             self._console_log(f"[compliance] $ {scan_script} --compliance")
 
+            env = os.environ.copy()
+            env["PYTHONUNBUFFERED"] = "1"
             proc = subprocess.Popen(
                 [scan_script, "--compliance"],
                 stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                text=True, bufsize=1
+                text=True, bufsize=1, env=env
             )
             for line in proc.stdout:
                 line = line.rstrip()
@@ -1752,10 +1756,21 @@ class SecurityDashboard(Gtk.Window):
         return False
     
     def _on_refresh(self, button):
+        # Save console content before rebuild
+        saved_console_text = None
+        if self._console_buffer:
+            start = self._console_buffer.get_start_iter()
+            end = self._console_buffer.get_end_iter()
+            saved_console_text = self._console_buffer.get_text(start, end, True)
+
         # Rebuild the window
         for child in self.get_children():
             child.destroy()
         self.__init__()
+
+        # Restore console content
+        if saved_console_text and saved_console_text.strip() and self._console_buffer:
+            self._console_buffer.set_text(saved_console_text)
 
 
 def main():
