@@ -45,6 +45,9 @@ class SecurityDashboard(Gtk.Window):
         "Retbleed": "Return instruction speculation vulnerability. Mitigated via IBRS or return thunks.",
         "Mds": "Microarchitectural Data Sampling. Mitigated via CPU microcode updates and buffer clearing.",
         
+        # Kernel
+        "Kernel": "Linux kernel version. Newer kernels include security patches, hardware support, and performance improvements. Backports kernels are tested stable releases.",
+
         # Score breakdown
         "Disk Encryption": "LUKS full disk encryption protects all data at rest including credentials and workspace configurations.",
         "Firewall Active": "Network firewall prevents unauthorized inbound connections and limits attack surface.",
@@ -67,8 +70,10 @@ class SecurityDashboard(Gtk.Window):
         # Track independent scan states
         self._vuln_scan_running = False
         self._compliance_scan_running = False
+        self._kernel_upgrading = False
         self._vuln_status_label = None
         self._compliance_status_label = None
+        self._kernel_status_label = None
         self._vuln_details_box = None
         
         self._apply_css()
@@ -302,6 +307,20 @@ class SecurityDashboard(Gtk.Window):
             opacity: 1.0;
             text-decoration: underline;
         }
+        .upgrade-button {
+            background-color: #1e3a5f;
+            color: #00ff88;
+            border: 1px solid #00ff88;
+            border-radius: 4px;
+            padding: 2px 8px;
+            font-size: 10px;
+        }
+        .upgrade-button:hover {
+            background-color: #2a4a6f;
+        }
+        .upgrade-button:disabled {
+            opacity: 0.5;
+        }
         .severity-badge {
             border-radius: 4px;
             padding: 1px 6px;
@@ -480,12 +499,12 @@ class SecurityDashboard(Gtk.Window):
     def _create_system_security_card(self):
         card = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
         card.get_style_context().add_class("card")
-        
+
         title = Gtk.Label(label="System Security")
         title.get_style_context().add_class("card-title")
         title.set_halign(Gtk.Align.START)
         card.pack_start(title, False, False, 0)
-        
+
         # Check various security features
         checks = {
             "LUKS Encryption": self._check_luks(),
@@ -494,13 +513,63 @@ class SecurityDashboard(Gtk.Window):
             "Automatic Updates": self._check_auto_updates(),
             "NubiferOS Packages": self._check_nubifer_packages(),
         }
-        
+
         for name, status in checks.items():
             tooltip = self.TOOLTIPS.get(name)
             row = self._create_status_row(name, status, tooltip)
             card.pack_start(row, False, False, 0)
-        
+
+        # Kernel row with upgrade button
+        kernel_row = self._create_kernel_row()
+        card.pack_start(kernel_row, False, False, 0)
+
         return card
+
+    def _create_kernel_row(self):
+        """Create kernel info row with optional upgrade button."""
+        row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        row.get_style_context().add_class("status-row")
+
+        label = Gtk.Label(label="Kernel")
+        label.get_style_context().add_class("status-label")
+        label.set_halign(Gtk.Align.START)
+        tooltip = self.TOOLTIPS.get("Kernel")
+        if tooltip:
+            label.set_tooltip_text(tooltip)
+        row.pack_start(label, True, True, 0)
+
+        current, backports = self._check_kernel_versions()
+
+        if backports and backports != current:
+            # Upgrade available
+            self._kernel_status_label = Gtk.Label(label=current)
+            self._kernel_status_label.get_style_context().add_class("status-warn")
+            self._kernel_status_label.set_tooltip_text(f"Backports kernel {backports} available")
+            row.pack_end(self._kernel_status_label, False, False, 0)
+
+            upgrade_btn = Gtk.Button(label="Upgrade")
+            upgrade_btn.get_style_context().add_class("upgrade-button")
+            upgrade_btn.set_tooltip_text(f"Install kernel {backports} from bookworm-backports")
+            upgrade_btn.connect("clicked", self._on_kernel_upgrade)
+            row.pack_end(upgrade_btn, False, False, 4)
+        else:
+            self._kernel_status_label = Gtk.Label(label=current)
+            self._kernel_status_label.get_style_context().add_class("status-ok")
+            if backports:
+                self._kernel_status_label.set_tooltip_text("Running latest available kernel")
+            else:
+                self._kernel_status_label.set_tooltip_text("No backports kernel available")
+            row.pack_end(self._kernel_status_label, False, False, 0)
+
+        if tooltip:
+            info_btn = Gtk.Button(label="ℹ")
+            info_btn.get_style_context().add_class("info-button")
+            info_btn.set_tooltip_text(tooltip)
+            info_btn.set_relief(Gtk.ReliefStyle.NONE)
+            info_btn.set_can_focus(False)
+            row.pack_end(info_btn, False, False, 0)
+
+        return row
     
     def _create_cpu_security_card(self):
         card = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
@@ -880,6 +949,102 @@ class SecurityDashboard(Gtk.Window):
                     pass
         
         return vulns
+
+    def _check_kernel_versions(self):
+        """Return (current_version, backports_version) or (current, None)."""
+        # Get running kernel version
+        try:
+            result = subprocess.run(
+                ["uname", "-r"], capture_output=True, text=True, timeout=5
+            )
+            current = result.stdout.strip()
+        except Exception:
+            current = "unknown"
+
+        # Check backports for newer kernel
+        backports = None
+        try:
+            result = subprocess.run(
+                ["apt-cache", "-t", "bookworm-backports", "show", "linux-image-amd64"],
+                capture_output=True, text=True, timeout=10
+            )
+            if result.returncode == 0:
+                for line in result.stdout.splitlines():
+                    if line.startswith("Depends:"):
+                        # e.g. "Depends: linux-image-6.11.10-amd64"
+                        dep = line.split("Depends:")[-1].strip().split(",")[0].strip()
+                        if dep.startswith("linux-image-"):
+                            backports = dep.replace("linux-image-", "")
+                            break
+                    elif line.startswith("Version:"):
+                        # Fallback: use package version
+                        ver = line.split(":")[-1].strip()
+                        if not backports:
+                            backports = ver
+        except Exception:
+            pass
+
+        # Compare: strip architecture suffix for comparison
+        if backports:
+            # If current kernel version string contains the backports version, it's up to date
+            bp_base = backports.split("-")[0] if "-" in backports else backports
+            if bp_base in current:
+                backports = current  # Same version, no upgrade needed
+
+        return current, backports
+
+    def _on_kernel_upgrade(self, button):
+        """Launch kernel upgrade in background thread."""
+        if getattr(self, '_kernel_upgrading', False):
+            return
+        self._kernel_upgrading = True
+        button.set_sensitive(False)
+        if self._kernel_status_label:
+            self._kernel_status_label.set_text("Upgrading...")
+            self._kernel_status_label.get_style_context().remove_class("status-warn")
+            self._kernel_status_label.get_style_context().add_class("status-info")
+
+        thread = threading.Thread(target=self._kernel_upgrade_thread, args=(button,))
+        thread.daemon = True
+        thread.start()
+
+    def _kernel_upgrade_thread(self, button):
+        """Background thread for kernel upgrade."""
+        try:
+            # Use pkexec for graphical sudo prompt
+            result = subprocess.run(
+                ["pkexec", "apt-get", "install", "-y", "-t", "bookworm-backports", "linux-image-amd64"],
+                capture_output=True, text=True, timeout=300
+            )
+            if result.returncode == 0:
+                GLib.idle_add(self._kernel_upgrade_complete, button, True, None)
+            else:
+                error = result.stderr.strip()[-100:] if result.stderr else f"Exit code {result.returncode}"
+                GLib.idle_add(self._kernel_upgrade_complete, button, False, error)
+        except subprocess.TimeoutExpired:
+            GLib.idle_add(self._kernel_upgrade_complete, button, False, "Timed out")
+        except Exception as e:
+            GLib.idle_add(self._kernel_upgrade_complete, button, False, str(e))
+
+    def _kernel_upgrade_complete(self, button, success, error):
+        """Called when kernel upgrade finishes."""
+        self._kernel_upgrading = False
+        button.set_sensitive(True)
+        if success:
+            if self._kernel_status_label:
+                self._kernel_status_label.set_text("Reboot required")
+                self._kernel_status_label.get_style_context().remove_class("status-info")
+                self._kernel_status_label.get_style_context().add_class("status-ok")
+                self._kernel_status_label.set_tooltip_text("Kernel upgraded. Reboot to use the new kernel.")
+        else:
+            if self._kernel_status_label:
+                err_text = error[:30] + "..." if error and len(error) > 30 else (error or "Failed")
+                self._kernel_status_label.set_text(err_text)
+                self._kernel_status_label.get_style_context().remove_class("status-info")
+                self._kernel_status_label.get_style_context().add_class("status-error")
+                if error:
+                    self._kernel_status_label.set_tooltip_text(f"Upgrade failed: {error}")
+        return False
 
     def _check_scan_tool(self, tool):
         """Check if a security scan tool is installed."""
