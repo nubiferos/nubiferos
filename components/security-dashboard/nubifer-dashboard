@@ -1315,7 +1315,7 @@ class SecurityDashboard(Gtk.Window):
             high = counts.get("High", 0)
             total = sum(counts.values())
             if crit == 0 and high == 0 and total == 0:
-                self._vuln_status_label.set_text("Secure — no CVEs found")
+                self._vuln_status_label.set_text("Secure — no actionable CVEs (Debian tracker verified)")
                 self._vuln_status_label.get_style_context().add_class("status-ok")
             elif crit > 0 or high > 0:
                 parts = []
@@ -1340,17 +1340,38 @@ class SecurityDashboard(Gtk.Window):
                 badges_box.pack_start(badge, False, False, 0)
             card.pack_start(badges_box, False, False, 0)
 
-            # Show filtered false positives count if present
+            # Show filtered false positives count with explanation
             filtered = vuln_data.get("filtered_false_positives", 0)
             if filtered > 0:
-                fp_label = Gtk.Label(label=f"{filtered} Debian false positives filtered out")
+                fp_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+                fp_box.set_margin_top(4)
+
+                fp_label = Gtk.Label(
+                    label=f"{filtered:,} NVD generic matches filtered (not applicable to Debian)"
+                )
                 fp_label.get_style_context().add_class("status-label")
                 fp_label.set_halign(Gtk.Align.START)
                 fp_label.set_tooltip_text(
-                    "Grype's CPE matcher flags CVEs that Debian has already "
-                    "backport-patched. These are filtered using the dpkg matcher."
+                    "Why filtered?\n\n"
+                    "Grype's NVD/CPE scanner flags CVEs based on software version\n"
+                    "numbers alone. However, Debian backports security fixes into\n"
+                    "older package versions without changing the version number.\n\n"
+                    "These matches are NOT real vulnerabilities — Debian's own\n"
+                    "security tracker (security-tracker.debian.org) confirms they\n"
+                    "are already patched in the installed versions.\n\n"
+                    "Only CVEs confirmed by Debian's security tracker are shown\n"
+                    "above. You can verify at: https://security-tracker.debian.org"
                 )
-                card.pack_start(fp_label, False, False, 0)
+                fp_box.pack_start(fp_label, False, False, 0)
+
+                info_btn = Gtk.Button(label="ℹ")
+                info_btn.get_style_context().add_class("info-button")
+                info_btn.set_relief(Gtk.ReliefStyle.NONE)
+                info_btn.set_can_focus(False)
+                info_btn.set_tooltip_text(fp_label.get_tooltip_text())
+                fp_box.pack_start(info_btn, False, False, 0)
+
+                card.pack_start(fp_box, False, False, 0)
 
             # Vulnerability details expander
             if vuln_data.get("vulnerabilities"):
