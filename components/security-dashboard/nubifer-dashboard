@@ -883,16 +883,11 @@ class SecurityDashboard(Gtk.Window):
 
     def _check_scan_tool(self, tool):
         """Check if a security scan tool is installed."""
-        try:
-            result = subprocess.run(
-                ["which", tool],
-                capture_output=True,
-                text=True,
-                timeout=5
-            )
-            return result.returncode == 0
-        except:
-            return False
+        # Check common paths directly (lynis is in /usr/sbin which may not be in user PATH)
+        for path in [f"/usr/sbin/{tool}", f"/usr/bin/{tool}", f"/usr/local/bin/{tool}"]:
+            if os.path.exists(path):
+                return True
+        return False
 
     # ==================== Security Scan Cards ====================
 
