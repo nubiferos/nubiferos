@@ -120,26 +120,41 @@ cd "$REPO_DIR"
 echo ""
 echo "Uploading to s3://${BUCKET}/..."
 
-aws s3 sync "$REPO_DIR/" "s3://${BUCKET}/" \
-    --delete \
-    --cache-control "max-age=300" \
+# Upload pool (debs) with normal caching
+aws s3 sync "$REPO_DIR/pool/" "s3://${BUCKET}/pool/" \
+    --cache-control "max-age=86400" \
     --exclude ".git/*"
 
-# Set correct content types
-aws s3 cp "s3://${BUCKET}/dists/${DIST}/${COMPONENT}/binary-${ARCH}/Packages.gz" \
-    "s3://${BUCKET}/dists/${DIST}/${COMPONENT}/binary-${ARCH}/Packages.gz" \
-    --content-type "application/gzip" --metadata-directive REPLACE
+# Upload dists (metadata) with no caching to prevent hash mismatches
+aws s3 sync "$REPO_DIR/dists/" "s3://${BUCKET}/dists/" \
+    --delete \
+    --cache-control "no-cache, no-store, must-revalidate" \
+    --exclude ".git/*"
+
+# Upload signing key
+if [ -f "$REPO_DIR/nubiferos-apt-key.gpg" ]; then
+    aws s3 cp "$REPO_DIR/nubiferos-apt-key.gpg" "s3://${BUCKET}/nubiferos-apt-key.gpg" \
+        --cache-control "max-age=3600"
+fi
 
 # Invalidate CloudFront cache so clients get fresh metadata immediately
 CF_DIST_ID=$(aws cloudfront list-distributions \
     --query "DistributionList.Items[?contains(Aliases.Items, 'packages.nubiferos.org')].Id" \
     --output text 2>/dev/null || true)
+if [ -z "$CF_DIST_ID" ] || [ "$CF_DIST_ID" = "None" ]; then
+    # Fallback: try without alias filter
+    CF_DIST_ID=$(aws cloudfront list-distributions \
+        --query "DistributionList.Items[0].Id" \
+        --output text 2>/dev/null || true)
+fi
 if [ -n "$CF_DIST_ID" ] && [ "$CF_DIST_ID" != "None" ]; then
     echo "Invalidating CloudFront cache (${CF_DIST_ID})..."
     aws cloudfront create-invalidation --distribution-id "$CF_DIST_ID" \
-        --paths "/dists/*" "/pool/*" 2>/dev/null && \
+        --paths "/dists/*" "/pool/*" "/nubiferos-apt-key.gpg" 2>/dev/null && \
         echo "  -> Cache invalidation started" || \
         echo "  -> Cache invalidation failed (non-critical)"
+else
+    echo "  WARNING: No CloudFront distribution found, skipping invalidation"
 fi
 
 echo ""
