@@ -45,11 +45,12 @@ jobs:
         if [ -n "${{ inputs.version_override }}" ]; then
           VERSION="${{ inputs.version_override }}"
         else
-          # Use VERSION file (matches what build-debs.sh uses)
-          VERSION=$(cat VERSION 2>/dev/null | tr -d '\n')
-          if [ -z "$VERSION" ]; then
-            VERSION=$(grep 'BRAND_VERSION=' brand/brand.conf | cut -d'"' -f2)
+          # Base version from VERSION file + build number suffix
+          BASE_VERSION=$(cat VERSION 2>/dev/null | tr -d '\n')
+          if [ -z "$BASE_VERSION" ]; then
+            BASE_VERSION=$(grep 'BRAND_VERSION=' brand/brand.conf | cut -d'"' -f2)
           fi
+          VERSION="${BASE_VERSION}-build.${{ github.run_number }}"
         fi
         echo "version=$VERSION" >> $GITHUB_OUTPUT
         echo "Version: $VERSION"
@@ -98,7 +99,7 @@ jobs:
         cat >> $GITHUB_STEP_SUMMARY << EOF
         # 📦 NubiferOS Packages Published
 
-        ## Version: ${{ steps.version.outputs.version }}
+        ## Package Version: ${{ steps.version.outputs.version }}
 
         ## Packages Built
         \`\`\`
