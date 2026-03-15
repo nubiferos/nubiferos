@@ -708,9 +708,15 @@ class SecurityDashboard(Gtk.Window):
 
         return panel
 
+    @staticmethod
+    def _strip_ansi(text):
+        """Remove ANSI escape codes from text."""
+        import re
+        return re.sub(r'\x1b\[[0-9;]*m', '', text)
+
     def _console_log(self, text):
         """Append text to console output (thread-safe via GLib.idle_add)."""
-        GLib.idle_add(self._console_log_main, text)
+        GLib.idle_add(self._console_log_main, self._strip_ansi(text))
 
     def _console_log_main(self, text):
         """Append text to console (must be called from main thread)."""
