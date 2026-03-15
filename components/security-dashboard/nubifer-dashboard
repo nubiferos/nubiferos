@@ -948,10 +948,24 @@ class SecurityDashboard(Gtk.Window):
         if not os.path.exists("/usr/sbin/ufw"):
             return ("error", "Not Installed")
 
+        # Check /etc/ufw/ufw.conf first — most reliable, no root needed
+        # ufw status requires root and ufw binary may not be in GUI PATH
         try:
-            # Try ufw status (works if running as root)
+            with open("/etc/ufw/ufw.conf") as f:
+                for line in f:
+                    if line.strip().startswith("ENABLED="):
+                        val = line.strip().split("=", 1)[1].lower()
+                        if val == "yes":
+                            return ("ok", "Active")
+                        else:
+                            return ("warn", "Inactive")
+        except (FileNotFoundError, PermissionError):
+            pass
+
+        # Fallback: try ufw status (works if running as root)
+        try:
             result = subprocess.run(
-                ["ufw", "status"],
+                ["/usr/sbin/ufw", "status"],
                 capture_output=True,
                 text=True,
                 timeout=5
@@ -960,24 +974,10 @@ class SecurityDashboard(Gtk.Window):
                 return ("ok", "Active")
             elif "Status: inactive" in result.stdout:
                 return ("warn", "Inactive")
-
-            # ufw status needs root — check /etc/ufw/ufw.conf instead
-            # This file stores ENABLED=yes/no and is readable without root
-            try:
-                with open("/etc/ufw/ufw.conf") as f:
-                    for line in f:
-                        if line.strip().startswith("ENABLED="):
-                            val = line.strip().split("=", 1)[1].lower()
-                            if val == "yes":
-                                return ("ok", "Active")
-                            else:
-                                return ("warn", "Inactive")
-            except (FileNotFoundError, PermissionError):
-                pass
-
-            return ("warn", "Installed (Status Unknown)")
         except:
-            return ("warn", "Installed (Status Unknown)")
+            pass
+
+        return ("warn", "Installed (Status Unknown)")
     
     def _check_apparmor(self):
         # Check if AppArmor is installed
