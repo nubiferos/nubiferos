@@ -1152,6 +1152,8 @@ class SecurityDashboard(Gtk.Window):
         self._kernel_upgrading = False
         button.set_sensitive(True)
         if success:
+            # Invalidate vuln scan — packages changed, results are stale
+            self._mark_vuln_scan_stale("Kernel upgraded — rescan recommended")
             if self._kernel_status_label:
                 self._kernel_status_label.set_text("Reboot required")
                 self._kernel_status_label.get_style_context().remove_class("status-info")
@@ -1165,6 +1167,47 @@ class SecurityDashboard(Gtk.Window):
                 self._kernel_status_label.get_style_context().add_class("status-error")
                 if error:
                     self._kernel_status_label.set_tooltip_text(f"Upgrade failed: {error}")
+        return False
+
+    def _mark_vuln_scan_stale(self, reason="Packages changed"):
+        """Mark existing vuln scan results as stale."""
+        results_file = self.SCAN_RESULTS_DIR / "vuln-scan.json"
+        if results_file.exists():
+            try:
+                with open(results_file) as f:
+                    data = json.load(f)
+                data["stale"] = True
+                data["stale_reason"] = reason
+                with open(results_file, "w") as f:
+                    json.dump(data, f, indent=2)
+                self._console_log(f"[vuln-scan] Results marked stale: {reason}")
+            except Exception:
+                pass
+
+    def _check_scan_staleness(self, scan_timestamp):
+        """Check if packages were upgraded after the last scan."""
+        if not scan_timestamp:
+            return False
+        try:
+            scan_time = datetime.fromisoformat(scan_timestamp)
+            # Check dpkg log for package installs/upgrades after scan
+            dpkg_log = Path("/var/log/dpkg.log")
+            if dpkg_log.exists():
+                stat = dpkg_log.stat()
+                log_mtime = datetime.fromtimestamp(stat.st_mtime)
+                if log_mtime > scan_time:
+                    # dpkg log was modified after scan — check for actual upgrades
+                    with open(dpkg_log) as f:
+                        for line in f:
+                            if " upgrade " in line or " install " in line:
+                                try:
+                                    log_date = datetime.strptime(line[:19], "%Y-%m-%d %H:%M:%S")
+                                    if log_date > scan_time:
+                                        return True
+                                except (ValueError, IndexError):
+                                    continue
+        except Exception:
+            pass
         return False
 
     def _check_scan_tool(self, tool):
@@ -1226,6 +1269,11 @@ class SecurityDashboard(Gtk.Window):
         elif not vuln_data or "error" in vuln_data:
             self._vuln_status_label.set_text("Not scanned")
             self._vuln_status_label.get_style_context().add_class("status-warn")
+        elif vuln_data.get("stale"):
+            reason = vuln_data.get("stale_reason", "Packages changed since last scan")
+            self._vuln_status_label.set_text(f"Stale — {reason}")
+            self._vuln_status_label.get_style_context().add_class("status-warn")
+            self._vuln_status_label.set_tooltip_text("Run a new scan to get accurate results")
         else:
             # Build status from severity counts
             counts = vuln_data.get("by_severity", {})
@@ -1268,13 +1316,18 @@ class SecurityDashboard(Gtk.Window):
                 details_expander.add(self._vuln_details_box)
                 card.pack_start(details_expander, False, False, 0)
 
-        # Last scan timestamp
-        if vuln_data:
+        # Last scan timestamp + staleness check
+        if vuln_data and not vuln_data.get("stale"):
             timestamp = vuln_data.get("timestamp")
             if timestamp:
                 time_str = self._format_scan_time(timestamp)
-                time_label = Gtk.Label(label=f"Last scan: {time_str}")
-                time_label.get_style_context().add_class("status-label")
+                # Check if packages changed since scan
+                if self._check_scan_staleness(timestamp):
+                    time_label = Gtk.Label(label=f"Last scan: {time_str} (packages changed — rescan recommended)")
+                    time_label.get_style_context().add_class("status-warn")
+                else:
+                    time_label = Gtk.Label(label=f"Last scan: {time_str}")
+                    time_label.get_style_context().add_class("status-label")
                 time_label.set_halign(Gtk.Align.START)
                 time_label.set_margin_top(4)
                 card.pack_start(time_label, False, False, 0)
