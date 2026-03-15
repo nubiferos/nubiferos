@@ -72,33 +72,66 @@ def install_tool(tool, install_cmd, quiet=False):
     return result is not None and result.returncode == 0
 
 
+def filter_debian_false_positives(matches):
+    """Filter out grype false positives caused by CPE matching on Debian.
+
+    Grype's CPE matcher doesn't understand Debian's backported patches,
+    so it flags CVEs that are already fixed in the installed Debian version.
+    We keep only matches from the dpkg matcher (which uses Debian's own
+    security tracker data) and discard pure CPE-based matches for OS packages.
+    """
+    filtered = []
+    for match in matches:
+        match_details = match.get("matchDetails", [])
+        artifact = match.get("artifact", {})
+        pkg_type = artifact.get("type", "")
+
+        # For dpkg (OS) packages, only trust the dpkg matcher
+        if pkg_type == "deb":
+            has_dpkg_match = any(
+                d.get("matcher", "") in ("dpkg-matcher", "debian-matcher")
+                for d in match_details
+            )
+            # If only CPE/stock matchers flagged this deb package, skip it
+            if not has_dpkg_match:
+                continue
+
+        filtered.append(match)
+    return filtered
+
+
 def vuln_scan(target=None, output_json=False, quiet=False):
     """Run vulnerability scan on the system or a target."""
     log(f"\n{BOLD}🔍 Running Vulnerability Scan{RESET}", quiet=quiet)
-    
+
     # Ensure grype is installed
     if not check_tool("grype"):
         log("Installing grype...", quiet=quiet)
         run_cmd("curl -sSfL https://raw.githubusercontent.com/anchore/grype/main/install.sh | sudo sh -s -- -b /usr/local/bin")
-    
+
     if not check_tool("grype"):
         log("Failed to install grype", "error")
         return {"error": "grype not available"}
-    
+
     # Determine scan target
     if target:
         scan_target = target
     else:
         scan_target = "dir:/"
-    
-    # Run scan
+
+    # Run scan with Debian-aware flags
     log(f"Scanning: {scan_target}", quiet=quiet)
-    
+
     with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
         json_file = f.name
-    
-    result = run_cmd(f"grype {scan_target} -o json > {json_file} 2>/dev/null")
-    
+
+    # --by-cve: deduplicate (one entry per CVE, not per package)
+    # --only-fixed: only show CVEs with available fixes (actionable)
+    # --distro debian:12: ensure Debian matcher is used
+    result = run_cmd(
+        f"grype {scan_target} -o json --by-cve --only-fixed --distro debian:12 > {json_file} 2>/dev/null"
+    )
+
     # Parse results
     try:
         with open(json_file) as f:
@@ -107,41 +140,48 @@ def vuln_scan(target=None, output_json=False, quiet=False):
     except:
         os.unlink(json_file)
         return {"error": "Failed to parse scan results"}
-    
+
+    # Filter out Debian false positives from CPE matching
+    raw_matches = data.get("matches", [])
+    matches = filter_debian_false_positives(raw_matches)
+    filtered_count = len(raw_matches) - len(matches)
+
     # Count by severity
-    matches = data.get("matches", [])
     counts = {"Critical": 0, "High": 0, "Medium": 0, "Low": 0, "Negligible": 0}
-    
+
     for match in matches:
         severity = match.get("vulnerability", {}).get("severity", "Unknown")
         if severity in counts:
             counts[severity] += 1
-    
+
     results = {
         "timestamp": datetime.now().isoformat(),
         "target": scan_target,
         "total": len(matches),
+        "filtered_false_positives": filtered_count,
         "by_severity": counts,
-        "vulnerabilities": matches[:20] if not output_json else matches  # Limit for display
+        "vulnerabilities": matches[:20] if not output_json else matches
     }
-    
+
     # Save results
     RESULTS_DIR.mkdir(parents=True, exist_ok=True)
     results_file = RESULTS_DIR / "vuln-scan.json"
     with open(results_file, 'w') as f:
         json.dump(results, f, indent=2)
-    
+
     if not quiet:
         log(f"\n{BOLD}Vulnerability Summary:{RESET}")
         log(f"  Critical: {RED}{counts['Critical']}{RESET}")
         log(f"  High:     {YELLOW}{counts['High']}{RESET}")
         log(f"  Medium:   {CYAN}{counts['Medium']}{RESET}")
         log(f"  Low:      {counts['Low']}")
+        if filtered_count > 0:
+            log(f"  Filtered: {filtered_count} Debian false positives removed")
         log(f"\nResults saved to: {results_file}")
-    
+
     if output_json:
         print(json.dumps(results, indent=2))
-    
+
     return results
 
 
