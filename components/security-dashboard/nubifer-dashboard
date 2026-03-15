@@ -943,7 +943,7 @@ class SecurityDashboard(Gtk.Window):
             return ("error", "Not Installed")
 
         try:
-            # Try ufw status (may need sudo)
+            # Try ufw status (works if running as root)
             result = subprocess.run(
                 ["ufw", "status"],
                 capture_output=True,
@@ -955,26 +955,21 @@ class SecurityDashboard(Gtk.Window):
             elif "Status: inactive" in result.stdout:
                 return ("warn", "Inactive")
 
-            # ufw status needs root — fall back to systemctl (no root needed)
-            result = subprocess.run(
-                ["systemctl", "is-active", "ufw"],
-                capture_output=True,
-                text=True,
-                timeout=5
-            )
-            if result.stdout.strip() == "active":
-                return ("ok", "Active")
+            # ufw status needs root — check /etc/ufw/ufw.conf instead
+            # This file stores ENABLED=yes/no and is readable without root
+            try:
+                with open("/etc/ufw/ufw.conf") as f:
+                    for line in f:
+                        if line.strip().startswith("ENABLED="):
+                            val = line.strip().split("=", 1)[1].lower()
+                            if val == "yes":
+                                return ("ok", "Active")
+                            else:
+                                return ("warn", "Inactive")
+            except (FileNotFoundError, PermissionError):
+                pass
 
-            # Service exists but not running
-            result = subprocess.run(
-                ["systemctl", "is-enabled", "ufw"],
-                capture_output=True,
-                text=True,
-                timeout=5
-            )
-            if result.stdout.strip() == "enabled":
-                return ("warn", "Enabled (Not Active)")
-            return ("warn", "Disabled")
+            return ("warn", "Installed (Status Unknown)")
         except:
             return ("warn", "Installed (Status Unknown)")
     

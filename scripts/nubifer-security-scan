@@ -75,28 +75,36 @@ def install_tool(tool, install_cmd, quiet=False):
 def filter_debian_false_positives(matches):
     """Filter out grype false positives caused by CPE matching on Debian.
 
-    Grype's CPE matcher doesn't understand Debian's backported patches,
-    so it flags CVEs that are already fixed in the installed Debian version.
-    We keep only matches from the dpkg matcher (which uses Debian's own
-    security tracker data) and discard pure CPE-based matches for OS packages.
+    Grype's CPE matcher uses NVD data which doesn't understand Debian's
+    backported security patches. This causes thousands of false positives
+    for kernel and library packages that are already patched in Debian.
+
+    We filter using two approaches:
+    1. Check the vulnerability namespace — nvd:cpe means NVD/CPE match
+       (unreliable for Debian), while debian:* means Debian tracker (reliable)
+    2. Check matchDetails matcher — only trust dpkg-matcher/debian-matcher
+
+    We keep a match only if it has at least one Debian-authoritative source.
     """
     filtered = []
     for match in matches:
+        vuln = match.get("vulnerability", {})
         match_details = match.get("matchDetails", [])
-        artifact = match.get("artifact", {})
-        pkg_type = artifact.get("type", "")
 
-        # For dpkg (OS) packages, only trust the dpkg matcher
-        if pkg_type == "deb":
-            has_dpkg_match = any(
-                d.get("matcher", "") in ("dpkg-matcher", "debian-matcher")
-                for d in match_details
-            )
-            # If only CPE/stock matchers flagged this deb package, skip it
-            if not has_dpkg_match:
-                continue
+        # Check if any match detail uses the dpkg/debian matcher
+        has_debian_match = any(
+            d.get("matcher", "") in ("dpkg-matcher", "debian-matcher")
+            for d in match_details
+        )
 
-        filtered.append(match)
+        # Check if vulnerability comes from Debian's own tracker
+        namespace = vuln.get("namespace", "")
+        is_debian_namespace = namespace.startswith("debian:")
+
+        # Keep only if Debian's own data says it's vulnerable
+        if has_debian_match or is_debian_namespace:
+            filtered.append(match)
+
     return filtered
 
 
@@ -119,18 +127,25 @@ def vuln_scan(target=None, output_json=False, quiet=False):
     else:
         scan_target = "dir:/"
 
-    # Run scan with Debian-aware flags
-    log(f"Scanning: {scan_target}", quiet=quiet)
+    # Run scan
+    log(f"Scanning installed packages...", quiet=quiet)
 
     with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
         json_file = f.name
 
-    # --by-cve: deduplicate (one entry per CVE, not per package)
+    # --by-cve: deduplicate (one entry per CVE, not per advisory)
     # --only-fixed: only show CVEs with available fixes (actionable)
     # --distro debian:12: ensure Debian matcher is used
     result = run_cmd(
         f"grype {scan_target} -o json --by-cve --only-fixed --distro debian:12 > {json_file} 2>/dev/null"
     )
+
+    # Cleanup SBOM temp file
+    if 'sbom_file' in locals():
+        try:
+            os.unlink(sbom_file)
+        except OSError:
+            pass
 
     # Parse results
     try:
