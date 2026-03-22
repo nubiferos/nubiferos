@@ -51,6 +51,7 @@ ExecStartPre=/bin/mkdir -p /run/user/${BOOT_USER_UID}
 ExecStartPre=/bin/chown ${BOOT_USER}:${BOOT_USER} /run/user/${BOOT_USER_UID}
 ExecStartPre=/bin/chmod 700 /run/user/${BOOT_USER_UID}
 ExecStartPre=/bin/sleep 5
+ExecStartPre=/usr/bin/sudo /usr/local/bin/calamares-detect-tpm.sh
 ExecStart=/usr/bin/sudo /usr/bin/calamares -d
 Restart=on-failure
 RestartSec=3

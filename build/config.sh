@@ -162,6 +162,11 @@ SECURITY_PACKAGES=(
     "gnupg"
     "python3-keyring"
     "python3-secretstorage"
+    "tpm2-tools"
+    "clevis"
+    "clevis-tpm2"
+    "clevis-luks"
+    "clevis-initramfs"
 )
 
 # Development and build tools

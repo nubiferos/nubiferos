@@ -38,6 +38,10 @@ chroot_exec "DEBIAN_FRONTEND=noninteractive apt-get install -y -t bookworm-backp
 # Note: calamares-settings-debian is not needed for 3.3.x
 log "INFO" "Calamares 3.3.8 installed from backports"
 
+# Install tpm2-tools in live environment for pre-launch TPM detection
+log "INFO" "Installing tpm2-tools in live environment..."
+chroot_exec "DEBIAN_FRONTEND=noninteractive apt-get install -y tpm2-tools"
+
 # Create Calamares configuration directory
 log "INFO" "Creating Calamares configuration..."
 mkdir -p "${CHROOT_DIR}/etc/calamares"

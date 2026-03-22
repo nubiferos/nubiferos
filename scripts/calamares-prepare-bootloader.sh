@@ -8,25 +8,34 @@ echo "=========================================="
 echo "Preparing for bootloader installation"
 echo "=========================================="
 
-# Enable GRUB cryptodisk support for LUKS encrypted disks
-echo "Enabling GRUB cryptodisk support..."
-if [ -f /etc/default/grub ]; then
-    # Check if already set
-    if grep -q "GRUB_ENABLE_CRYPTODISK" /etc/default/grub; then
-        # Update existing setting
-        sed -i 's/^#*GRUB_ENABLE_CRYPTODISK=.*/GRUB_ENABLE_CRYPTODISK=y/' /etc/default/grub
-    else
-        # Add the setting
-        echo "" >> /etc/default/grub
-        echo "# Enable LUKS encrypted disk support" >> /etc/default/grub
-        echo "GRUB_ENABLE_CRYPTODISK=y" >> /etc/default/grub
+# Check if TPM auto-unlock is active (unencrypted /boot, no GRUB cryptodisk needed)
+if [ -f /etc/nubiferos-tpm-active ]; then
+    echo "TPM active — /boot is unencrypted, skipping GRUB_ENABLE_CRYPTODISK"
+    # Remove GRUB_ENABLE_CRYPTODISK if present (not needed with unencrypted /boot)
+    if [ -f /etc/default/grub ]; then
+        sed -i '/GRUB_ENABLE_CRYPTODISK/d' /etc/default/grub
+        echo "✓ Removed GRUB_ENABLE_CRYPTODISK from /etc/default/grub"
     fi
-    echo "✓ GRUB_ENABLE_CRYPTODISK=y set in /etc/default/grub"
-    grep CRYPTODISK /etc/default/grub
 else
-    echo "WARNING: /etc/default/grub not found, creating it..."
-    mkdir -p /etc/default
-    cat > /etc/default/grub << 'EOF'
+    # Enable GRUB cryptodisk support for LUKS encrypted disks
+    echo "Enabling GRUB cryptodisk support..."
+    if [ -f /etc/default/grub ]; then
+        # Check if already set
+        if grep -q "GRUB_ENABLE_CRYPTODISK" /etc/default/grub; then
+            # Update existing setting
+            sed -i 's/^#*GRUB_ENABLE_CRYPTODISK=.*/GRUB_ENABLE_CRYPTODISK=y/' /etc/default/grub
+        else
+            # Add the setting
+            echo "" >> /etc/default/grub
+            echo "# Enable LUKS encrypted disk support" >> /etc/default/grub
+            echo "GRUB_ENABLE_CRYPTODISK=y" >> /etc/default/grub
+        fi
+        echo "✓ GRUB_ENABLE_CRYPTODISK=y set in /etc/default/grub"
+        grep CRYPTODISK /etc/default/grub
+    else
+        echo "WARNING: /etc/default/grub not found, creating it..."
+        mkdir -p /etc/default
+        cat > /etc/default/grub << 'EOF'
 GRUB_DEFAULT=0
 GRUB_TIMEOUT=5
 GRUB_DISTRIBUTOR="NubiferOS"
@@ -34,7 +43,8 @@ GRUB_CMDLINE_LINUX_DEFAULT="plymouth.enable=0"
 GRUB_CMDLINE_LINUX=""
 GRUB_ENABLE_CRYPTODISK=y
 EOF
-    echo "✓ Created /etc/default/grub with cryptodisk support"
+        echo "✓ Created /etc/default/grub with cryptodisk support"
+    fi
 fi
 echo ""
 
