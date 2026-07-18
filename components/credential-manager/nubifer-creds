@@ -314,7 +314,9 @@ def main():
     
     # Add command
     add_parser = subparsers.add_parser("add", help="Add credential")
-    add_parser.add_argument("-t", "--type", required=True, choices=["aws", "azure", "gcp", "api", "db", "ssh"],
+    # db/ssh are planned types with no handlers yet — excluded from choices
+    # so the CLI fails loudly instead of accepting and silently doing nothing
+    add_parser.add_argument("-t", "--type", required=True, choices=["aws", "azure", "gcp", "api"],
                            help="Credential type")
     add_parser.add_argument("-n", "--name", required=True, help="Credential name")
     add_parser.add_argument("-w", "--workspace", help="Target workspace ID (defaults to active workspace)")
@@ -343,7 +345,7 @@ def main():
     
     # List command
     list_parser = subparsers.add_parser("list", help="List credentials")
-    list_parser.add_argument("-t", "--type", choices=["aws", "azure", "gcp", "api", "db", "ssh"], 
+    list_parser.add_argument("-t", "--type", choices=["aws", "azure", "gcp", "api"],
                             help="Filter by type")
     
     # Get command
