@@ -163,19 +163,9 @@ else
     log "WARN" "Boot user home directory not found, skipping desktop autostart creation"
 fi
 
-# Create a GNOME autostart to maximize Calamares window
-log "INFO" "Creating Calamares window maximizer..."
-cat > "${CHROOT_DIR}/home/${BOOT_USER}/.config/autostart/maximize-calamares.desktop" << 'EOF'
-[Desktop Entry]
-Type=Application
-Name=Maximize Calamares
-Exec=sh -c "sleep 3 && wmctrl -r 'Install NubiferOS' -b add,maximized_vert,maximized_horz || true"
-Hidden=false
-NoDisplay=true
-X-GNOME-Autostart-enabled=true
-X-GNOME-Autostart-Phase=Applications
-EOF
-chroot_exec "chown ${BOOT_USER}:${BOOT_USER} /home/${BOOT_USER}/.config/autostart/maximize-calamares.desktop"
+# Window sizing: Calamares runs fullscreen via branding.desc windowSize.
+# (The old wmctrl autostart maximizer was removed — wmctrl is a no-op on
+# the Wayland session, and title-based matching was fragile.)
 
 # Configure Calamares exit behavior
 log "INFO" "Configuring exit behavior..."

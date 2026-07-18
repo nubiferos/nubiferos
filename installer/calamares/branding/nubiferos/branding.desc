@@ -48,9 +48,11 @@ slideshowAPI:           2
 stylesheet:             "stylesheet.qss"
 
 # PHASE 5: Window settings
-windowExpanding:        fullscreen
+# Fullscreen via windowSize — the old wmctrl autostart hack was a no-op on
+# Wayland, and an 800x520 windowSize here kept the installer small
+windowExpanding:        normal
 windowPlacement:        center
-windowSize:             800px,520px
+windowSize:             fullscreen
 
 # PHASE 6: Panel settings
 sidebar:
