@@ -47,10 +47,15 @@ else
     echo "WARNING: /dev/kvm not available, using TCG emulation (timeout ${BOOT_TIMEOUT}s)"
 fi
 
-# Marker support: flag file in the ISO root, readable without mounting
+# Marker support: flag file in the ISO root, readable without mounting.
+# isoinfo (genisoimage) preferred; xorriso fallback for hosts without it.
 MARKER_MODE=0
-if command -v isoinfo > /dev/null && isoinfo -i "$ISO_PATH" -f 2>/dev/null | grep -qi '^/BOOT_TEST\|^/BOOT-TEST'; then
-    MARKER_MODE=1
+if command -v isoinfo > /dev/null; then
+    isoinfo -i "$ISO_PATH" -f 2>/dev/null | grep -qi '^/BOOT_TEST\|^/BOOT-TEST' && MARKER_MODE=1
+elif command -v xorriso > /dev/null; then
+    xorriso -indev "$ISO_PATH" -find / -name 'BOOT*TEST*' 2>/dev/null | grep -qi 'BOOT.TEST' && MARKER_MODE=1
+fi
+if [ "$MARKER_MODE" = 1 ]; then
     echo "ISO advertises boot-test markers: asserting serial markers"
 else
     echo "No BOOT-TEST.txt in ISO (pre-marker build): screenshot-only verification"
