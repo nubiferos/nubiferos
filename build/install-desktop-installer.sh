@@ -320,11 +320,8 @@ if [ -z "$DISPLAY" ] && [ "$(tty)" = "/dev/tty1" ]; then
         echo "ERROR: X session failed to start"
         echo "=========================================="
         echo "Check /tmp/startx.log for details"
-        echo ""
-        echo "System will reboot in 30 seconds..."
-        echo "Press Ctrl+C to cancel (if available)"
-        sleep 30
-        sudo systemctl reboot --force
+        # No auto-reboot here: GDM is the primary session path and this
+        # console fallback must never take the machine down with it
     fi
 fi
 EOF
@@ -352,21 +349,10 @@ EOF
     chroot_exec "chown installer:installer /home/installer/.xinitrc"
     chmod 755 "${CHROOT_DIR}/home/installer/.xinitrc"
 
-    # .bash_logout - fallback reboot if X exits unexpectedly
-    cat > "${CHROOT_DIR}/home/installer/.bash_logout" << 'EOF'
-#!/bin/bash
-# Fallback reboot on logout
-echo "Session ended. Rebooting system..."
-sleep 1
-sudo systemctl reboot --force 2>/dev/null || \
-    sudo reboot -f 2>/dev/null || \
-    echo b > /proc/sysrq-trigger 2>/dev/null || \
-    true
-EOF
-    chroot_exec "chown installer:installer /home/installer/.bash_logout"
-    chmod 755 "${CHROOT_DIR}/home/installer/.bash_logout"
+    # No .bash_logout reboot trap: a forced reboot on any console logout
+    # took down live sessions whenever a stray login shell exited
 
-    log "INFO" "✓ Installer session files created (.bash_profile, .xinitrc, .bash_logout)"
+    log "INFO" "✓ Installer session files created (.bash_profile, .xinitrc)"
 }
 
 # Main execution

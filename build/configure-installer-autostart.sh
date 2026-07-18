@@ -21,15 +21,11 @@ fi
 
 log "INFO" "Configuring auto-login and Calamares auto-launch for user: ${BOOT_USER}..."
 
-# Configure getty for auto-login on tty1 (backup method)
-log "INFO" "Configuring auto-login..."
-mkdir -p "${CHROOT_DIR}/etc/systemd/system/getty@tty1.service.d"
-cat > "${CHROOT_DIR}/etc/systemd/system/getty@tty1.service.d/autologin.conf" << EOF
-[Service]
-ExecStart=
-ExecStart=-/sbin/agetty --autologin ${BOOT_USER} --noclear %I \$TERM
-Type=idle
-EOF
+# NOTE: no getty@tty1 autologin here. GDM autologin (below) is the one
+# session path. A former "backup" console autologin raced GDM for tty1:
+# its .bash_profile ran startx, failed against GDM's display, and force-
+# rebooted the machine ~35s after boot (nondeterministically) — found via
+# boot-test QMP events + serial diagnosis, July 2026.
 
 # Create systemd service to launch Calamares
 log "INFO" "Creating Calamares launcher service..."
