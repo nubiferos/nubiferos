@@ -27,9 +27,12 @@ command -v qemu-system-x86_64 > /dev/null || { echo "ERROR: qemu-system-x86_64 n
 mkdir -p "$ART_DIR"
 SERIAL_LOG="$ART_DIR/serial.log"
 QMP_SOCK="$ART_DIR/qmp.sock"
+EVENTS_SOCK="$ART_DIR/qmp-events.sock"
+EVENTS_LOG="$ART_DIR/events.log"
 TARGET_DISK="$ART_DIR/target.qcow2"
 : > "$SERIAL_LOG"
-rm -f "$QMP_SOCK"
+: > "$EVENTS_LOG"
+rm -f "$QMP_SOCK" "$EVENTS_SOCK"
 
 # KVM if available (CI runners have it), otherwise emulation with a longer timeout
 if [ -w /dev/kvm ]; then
@@ -63,9 +66,40 @@ qemu-system-x86_64 \
     -display none -vga std \
     -serial "file:$SERIAL_LOG" \
     -qmp "unix:$QMP_SOCK,server,nowait" \
+    -qmp "unix:$EVENTS_SOCK,server,nowait" \
     -no-reboot &
 QEMU_PID=$!
-trap 'kill $QEMU_PID 2>/dev/null; wait $QEMU_PID 2>/dev/null' EXIT
+
+# Persistent QMP listener on the second socket records async events
+# (RESET/SHUTDOWN carry a "guest" flag + reason — tells us whether an
+# early QEMU exit was guest-initiated). Best-effort diagnostics.
+python3 - "$EVENTS_SOCK" "$EVENTS_LOG" << 'PYEOF' 2>/dev/null &
+import json, socket, sys, time
+sock_path, out = sys.argv[1], sys.argv[2]
+for _ in range(20):                                # wait for socket to appear
+    try:
+        s = socket.socket(socket.AF_UNIX)
+        s.connect(sock_path)
+        break
+    except OSError:
+        time.sleep(0.5)
+else:
+    sys.exit(0)
+f = s.makefile('rw')
+f.readline()
+f.write(json.dumps({"execute": "qmp_capabilities"}) + "\n"); f.flush()
+with open(out, 'a') as log:
+    for line in f:
+        try:
+            msg = json.loads(line)
+        except ValueError:
+            continue
+        if 'event' in msg:
+            log.write(json.dumps(msg) + "\n")
+            log.flush()
+PYEOF
+EVENTS_PID=$!
+trap 'kill $QEMU_PID $EVENTS_PID 2>/dev/null; wait $QEMU_PID 2>/dev/null' EXIT
 
 # Speak QMP to grab a screendump (PPM). Best-effort — never fails the test.
 screenshot() {
@@ -151,6 +185,11 @@ screenshot "final"
 echo "=== serial log (tail) ==="
 tail -20 "$SERIAL_LOG" 2>/dev/null || true
 echo "========================="
+if [ -s "$EVENTS_LOG" ]; then
+    echo "=== QMP events ==="
+    cat "$EVENTS_LOG"
+    echo "=================="
+fi
 
 if [ "$MARKER_MODE" = 1 ]; then
     for m in service-started graphical-target calamares-running; do

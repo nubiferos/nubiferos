@@ -126,6 +126,7 @@ jobs:
         name: boot-test-artifacts
         path: |
           boot-test-artifacts/serial.log
+          boot-test-artifacts/events.log
           boot-test-artifacts/*.ppm
         retention-days: 30
         if-no-files-found: ignore
