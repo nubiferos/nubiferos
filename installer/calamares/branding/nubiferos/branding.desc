@@ -54,13 +54,11 @@ windowExpanding:        normal
 windowPlacement:        center
 windowSize:             fullscreen
 
-# PHASE 6: Panel settings
-sidebar:
-    side: left
-    widget: true
-navigation:
-    side: bottom
-    widget: true
+# PHASE 6: Panel settings — MUST be "flavor,side" strings, not maps.
+# Calamares 3.3 fatally aborts on a map here ("bad conversion"), which
+# crashed the installer at startup once this file actually shipped.
+sidebar:    widget,left
+navigation: widget,bottom
 
 # PHASE 7: Style colors
 style:
