@@ -743,6 +743,24 @@ def main():
         if args.enable:
             manager.set_read_only(args.workspace_id, True)
         elif args.disable:
+            # Security: same privilege gate as 'rw' — otherwise this legacy
+            # spelling would let a compromised session unlock write mode
+            if os.geteuid() != 0:
+                print("🔐 Write mode requires elevated privileges for security.", file=sys.stderr)
+                print("   This prevents unauthorized writes from compromised sessions.", file=sys.stderr)
+                print("", file=sys.stderr)
+                print("   Run with sudo:", file=sys.stderr)
+                print(f"   sudo nubifer-workspace readonly {args.workspace_id} --disable", file=sys.stderr)
+                sys.exit(1)
+            # sudo changes HOME to /root; operate on the invoking user's config
+            original_user = os.environ.get('SUDO_USER')
+            if original_user:
+                import pwd
+                try:
+                    original_home = pwd.getpwnam(original_user).pw_dir
+                    manager.workspace_dir = Path(original_home) / '.config' / 'nubifer' / 'workspaces'
+                except KeyError:
+                    pass
             manager.set_read_only(args.workspace_id, False)
         else:
             print("✗ Specify --enable or --disable", file=sys.stderr)

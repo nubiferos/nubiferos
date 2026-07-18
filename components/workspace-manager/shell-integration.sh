@@ -152,7 +152,7 @@ nubifer_switch() {
 nubifer_check_readonly() {
     if [ "$NUBIFER_WORKSPACE_READ_ONLY" = "true" ]; then
         echo "✗ Operation blocked: Workspace is in read-only mode 🔒"
-        echo "  Disable with: nubifer-workspace readonly $NUBIFER_WORKSPACE_ID --disable"
+        echo "  Disable with: sudo nubifer-workspace rw $NUBIFER_WORKSPACE_ID"
         return 1
     fi
     return 0

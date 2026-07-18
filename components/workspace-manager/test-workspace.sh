@@ -87,9 +87,9 @@ echo "Test 10: Enabling read-only mode..."
 
 echo ""
 
-# Test 11: Disable read-only mode
+# Test 11: Disable read-only mode (requires root — same gate as 'rw')
 echo "Test 11: Disabling read-only mode..."
-./nubifer-workspace readonly "$WORKSPACE_ID" --disable
+sudo ./nubifer-workspace readonly "$WORKSPACE_ID" --disable
 
 echo ""
 
