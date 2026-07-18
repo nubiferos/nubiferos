@@ -37,8 +37,11 @@ jobs:
     - name: Install test dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y squashfs-tools xorriso genisoimage python3-pip
+        sudo apt-get install -y squashfs-tools xorriso genisoimage python3-pip \
+          qemu-system-x86 qemu-utils
         pip3 install pytest
+        # KVM is available on GitHub-hosted Linux runners
+        sudo chmod 666 /dev/kvm 2>/dev/null || true
 
     - name: Configure AWS credentials
       uses: aws-actions/configure-aws-credentials@v4
@@ -110,6 +113,23 @@ jobs:
                testing/test-iso-pytest.py::TestISOMetadata \
                -v -s --tb=short --junitxml=test-results.xml
 
+    - name: Boot test in QEMU
+      id: boot_test
+      run: |
+        ISO_FILE="${{ steps.find_iso.outputs.iso_file }}"
+        bash testing/test-iso-boot.sh "output/${ISO_FILE}" boot-test-artifacts
+
+    - name: Upload boot test artifacts
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: boot-test-artifacts
+        path: |
+          boot-test-artifacts/serial.log
+          boot-test-artifacts/*.ppm
+        retention-days: 30
+        if-no-files-found: ignore
+
     - name: Update build manifest with test results
       if: always()
       run: |
@@ -158,6 +178,8 @@ jobs:
         - Squashfs content verification (version, components, configs)
         - Volume label & metadata checks
         - Security checks (no leaked credentials)
+        - QEMU boot test — ISO boots to a running Calamares installer
+          (serial markers; screenshots in the boot-test-artifacts artifact)
 
         ## ⏭️ Pipeline
         1. ✅ **Build** — complete

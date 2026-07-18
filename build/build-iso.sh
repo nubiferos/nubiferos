@@ -855,6 +855,30 @@ TIMER_EOF
     log "INFO" "  ✓ Update service installed (checks every 6h)"
     log "INFO" "  ✓ NubiferOS APT repository configured (packages.nubiferos.org)"
 
+    # Boot-test marker service (live installer environment only; used by
+    # testing/test-iso-boot.sh to verify the ISO boots to Calamares in CI)
+    cp "${PROJECT_ROOT}/scripts/nubifer-boot-test.sh" "${CHROOT_DIR}/usr/local/bin/nubifer-boot-test.sh"
+    chmod +x "${CHROOT_DIR}/usr/local/bin/nubifer-boot-test.sh"
+
+    cat > "${CHROOT_DIR}/usr/lib/systemd/system/nubifer-boot-test.service" << 'BOOTTEST_EOF'
+[Unit]
+Description=NubiferOS boot-test markers (live ISO only)
+After=multi-user.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/nubifer-boot-test.sh
+
+[Install]
+WantedBy=multi-user.target
+BOOTTEST_EOF
+
+    mkdir -p "${CHROOT_DIR}/etc/systemd/system/multi-user.target.wants"
+    ln -sf /usr/lib/systemd/system/nubifer-boot-test.service \
+        "${CHROOT_DIR}/etc/systemd/system/multi-user.target.wants/nubifer-boot-test.service"
+
+    log "INFO" "  ✓ Boot-test marker service installed"
+
     # Register nubifer packages with dpkg so APT can track OTA updates
     log "INFO" "Registering NubiferOS packages with dpkg..."
     local DEB_OUTPUT="${PROJECT_ROOT}/output/debs"
@@ -908,6 +932,10 @@ To check version from installed system:
   cat /usr/share/nubifer/VERSION.txt
 EOF
     
+    # Flag file so test harnesses can detect boot-test marker support
+    # without unpacking the squashfs (see testing/test-iso-boot.sh)
+    echo "markers=v1" > "${ISO_DIR}/BOOT-TEST.txt"
+
     log "INFO" "ISO Version: ${VERSION} (${GIT_COMMIT})"
     
     # Create squashfs filesystem

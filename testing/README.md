@@ -2,6 +2,29 @@
 
 Fast local testing of the ISO before AWS deployment.
 
+## Automated Boot Test (CI and local)
+
+`test-iso-boot.sh` boots the ISO headless in QEMU and verifies it reaches a
+running Calamares installer — no display or interaction needed. It runs
+automatically in CI (Test ISO workflow) after every build.
+
+```bash
+./testing/test-iso-boot.sh path/to/nubiferos.iso [artifacts-dir]
+```
+
+How it verifies: ISOs built with the `nubifer-boot-test.service` marker
+(`BOOT-TEST.txt` present in the ISO root) emit progress markers over the
+serial console — `service-started`, `graphical-target`, `calamares-running` —
+which the harness asserts. Older ISOs fall back to a weaker screenshot-only
+check (display alive and non-blank). Artifacts (serial log + periodic PPM
+screenshots) land in the artifacts dir; in CI they're uploaded as the
+`boot-test-artifacts` artifact.
+
+Uses KVM when `/dev/kvm` is available (~2-5 min), TCG emulation otherwise
+(slower; timeout raised automatically). The marker service only runs in the
+live installer environment (`boot=live` guard) — it is inert on installed
+systems and real hardware.
+
 ## Why Test Locally First?
 
 Testing the ISO locally is:
