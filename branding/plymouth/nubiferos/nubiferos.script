@@ -53,6 +53,13 @@ fun progress_callback(duration, progress) {
 
 Plymouth.SetBootProgressFunction(progress_callback);
 
+# Version label, bottom-right (@VERSION@ replaced at build time
+# by build/configure-plymouth.sh)
+version.image = Image.Text("NubiferOS @VERSION@", 0.5, 0.55, 0.6, 1, "Sans 10");
+version.sprite = Sprite(version.image);
+version.sprite.SetPosition(Window.GetWidth() - version.image.GetWidth() - 20,
+                           Window.GetHeight() - version.image.GetHeight() - 15, 10000);
+
 # Message display
 message.sprite = Sprite();
 message.sprite.SetPosition(10, Window.GetHeight() - 30, 10000);

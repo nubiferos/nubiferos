@@ -52,6 +52,11 @@ mkdir -p "${CHROOT_DIR}/etc/calamares/branding/nubiferos"
 log "INFO" "Copying configuration files..."
 cp -r "${PROJECT_ROOT}/installer/calamares/"* "${CHROOT_DIR}/etc/calamares/" || true
 
+# Stamp the real version into the installer branding
+log "INFO" "Setting installer version to ${DISTRO_VERSION}..."
+sed -i "s/@VERSION@/${DISTRO_VERSION}/g" \
+    "${CHROOT_DIR}/etc/calamares/branding/nubiferos/branding.desc"
+
 # Copy custom Calamares Python modules to the correct path
 # On Debian multi-arch, Calamares modules are in /usr/lib/x86_64-linux-gnu/calamares/modules/
 # We detect the actual path by finding where Calamares installed its modules

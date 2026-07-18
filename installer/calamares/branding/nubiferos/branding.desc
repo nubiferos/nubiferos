@@ -5,10 +5,12 @@ componentName:  nubiferos
 strings:
     productName:         "NubiferOS"
     shortProductName:    "NubiferOS"
-    version:             "1.0"
-    shortVersion:        "1.0"
-    versionedName:       "NubiferOS 1.0"
-    shortVersionedName:  "NubiferOS 1.0"
+    # The placeholder below is replaced with the real version (from the
+    # VERSION file) by build/install-calamares.sh at image build time
+    version:             "@VERSION@"
+    shortVersion:        "@VERSION@"
+    versionedName:       "NubiferOS @VERSION@"
+    shortVersionedName:  "NubiferOS @VERSION@"
     bootloaderEntryName: "NubiferOS"
     productUrl:          "https://nubiferos.io"
     supportUrl:          "https://github.com/nubiferos/nubiferos"

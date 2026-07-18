@@ -19,6 +19,10 @@ mkdir -p "$THEME_DIR"
 cp "${PROJECT_ROOT}/branding/plymouth/nubiferos/nubiferos.plymouth" "$THEME_DIR/"
 cp "${PROJECT_ROOT}/branding/plymouth/nubiferos/nubiferos.script" "$THEME_DIR/"
 
+# Stamp the real version into the splash (bottom-right label)
+log "INFO" "Setting splash version to ${DISTRO_VERSION}..."
+sed -i "s/@VERSION@/${DISTRO_VERSION}/g" "$THEME_DIR/nubiferos.script"
+
 # Copy logo from Calamares branding (or use a placeholder)
 if [ -f "${PROJECT_ROOT}/installer/calamares/branding/nubiferos/logo.png" ]; then
     cp "${PROJECT_ROOT}/installer/calamares/branding/nubiferos/logo.png" "$THEME_DIR/"

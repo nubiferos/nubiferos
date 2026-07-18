@@ -84,6 +84,7 @@ cp "$PROJECT_ROOT/configs/browser/firefox-hardening.js" "$PKG/usr/share/nubifer/
 # NubiferOS config
 mkdir -p "$PKG/etc/nubiferos/providers"
 cp "$PROJECT_ROOT/configs/nubiferos/nubiferos.conf" "$PKG/etc/nubiferos/"
+sed -i "s/@VERSION@/${VERSION}/g" "$PKG/etc/nubiferos/nubiferos.conf"
 cp "$PROJECT_ROOT/configs/nubiferos/providers/"*.conf "$PKG/etc/nubiferos/providers/"
 
 # Shell integration

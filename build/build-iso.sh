@@ -557,6 +557,7 @@ DBUS_SVC_EOF
     log "INFO" "Installing NubiferOS configuration files..."
     mkdir -p "${CHROOT_DIR}/etc/nubiferos/providers"
     cp "${PROJECT_ROOT}/configs/nubiferos/nubiferos.conf" "${CHROOT_DIR}/etc/nubiferos/"
+    sed -i "s/@VERSION@/${DISTRO_VERSION}/g" "${CHROOT_DIR}/etc/nubiferos/nubiferos.conf"
     cp "${PROJECT_ROOT}/configs/nubiferos/providers/"*.conf "${CHROOT_DIR}/etc/nubiferos/providers/"
     chmod 644 "${CHROOT_DIR}/etc/nubiferos/"*.conf
     chmod 644 "${CHROOT_DIR}/etc/nubiferos/providers/"*.conf
