@@ -17,6 +17,11 @@
 - [ISO Size Reduction](build/ISO_SIZE_REDUCTION.md)
 
 ## User Guides
+- [User Quickstart](guides/USER_QUICKSTART.md)
+- [Workspace Management](guides/WORKSPACE_MANAGEMENT.md)
+- [Credential Setup](guides/CREDENTIAL_SETUP.md)
+- [Security Best Practices](guides/SECURITY_BEST_PRACTICES.md)
+- [Incident Response](guides/INCIDENT_RESPONSE.md)
 - [Installer Quickstart](guides/INSTALLER_QUICKSTART.md)
 - [Live User Quick Reference](guides/LIVE_USER_QUICK_REF.md)
 - [Browser Configuration](guides/BROWSER_CONFIGURATION.md)

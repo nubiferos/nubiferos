@@ -229,40 +229,42 @@ The installer and workspace/credential system is fully functional:
     - Configure autostart for first login
     - _Requirements: 14.1_
 
-- [ ] 8. Implement basic Resource Viewer application
-  - [ ] 8.1 Set up application framework
+- [x] 8. Implement basic Resource Viewer application
+  - _Note: Implemented as Python GTK3 app (repo convention) instead of Electron/Tauri+FastAPI from the original spec._
+  - [x] 8.1 Set up application framework
     - Create Electron or Tauri application skeleton
     - Set up React or Vue frontend with basic routing
     - Create FastAPI or Gin backend with REST API
     - _Requirements: 7.1_
 
-  - [ ] 8.2 Implement resource indexer
+  - [x] 8.2 Implement resource indexer
     - Create Python module to fetch resources from AWS using boto3
     - Implement resource fetching for EC2, S3, Lambda, RDS, VPC
     - Store resources in SQLite database with schema (id, provider, account, service, type, properties)
     - _Requirements: 6.1, 6.2, 6.5_
 
-  - [ ] 8.3 Create resource browser UI
+  - [x] 8.3 Create resource browser UI
     - Implement tree view of resources grouped by service
     - Add resource detail panel showing properties
     - Implement search and filter functionality
     - _Requirements: 7.2, 7.3, 7.4_
 
-  - [ ] 8.4 Implement sync functionality
+  - [x] 8.4 Implement sync functionality
     - Add manual sync button to refresh resources from cloud
     - Show last sync timestamp
     - Display sync progress indicator
     - _Requirements: 6.1, 6.5_
 
-  - [ ] 8.5 Add offline browsing support
+  - [x] 8.5 Add offline browsing support
     - Ensure UI works with cached data when offline
     - Show indicator when viewing cached data
     - _Requirements: 6.3_
 
-  - [ ] 8.6 Package as desktop application
+  - [x] 8.6 Package as desktop application
     - Create .desktop file for application launcher
     - Add NubiferOS branding and icon
     - _Requirements: 7.1_
+    - _Note: Uses stock themed icon (network-server) per security-dashboard convention; drop an SVG in brand/icons/ later for a dedicated icon._
 
 - [x] 9. Implement installer system
   - [x] 9.1 Configure Calamares installer
@@ -299,7 +301,13 @@ The installer and workspace/credential system is fully functional:
     - _Requirements: 12.6_
     - _Note: Implemented in configure-installer-autostart.sh_
 
-- [ ] 10. Implement AI Assistant Framework
+- [x] 10. Implement AI Assistant Framework — SUPERSEDED by NubiferAI
+  - _Note: This task is implemented in the standalone NubiferAI repo (separate project),
+    not in this codebase. NubiferAI Phases 1-2 cover the provider plugins (Claude, OpenAI,
+    Bedrock, Ollama), security/safety filtering, audit trail, approval workflow, and CLI
+    (`nubiferai front`, `nucleate`, `precipitate`). Remaining sub-items 10.10 (systemd
+    service), D-Bus interface (10.1), and Resource Viewer integration (10.11) are planned
+    in NubiferAI Phase 3. Install on NubiferOS via `sudo apt install nubifer-ai`._
   - [ ] 10.1 Create AI Assistant service architecture
     - Implement Python service with plugin architecture for LLM providers
     - Create D-Bus interface for AI Assistant (IsEnabled, Enable, Disable, Query, GetConfig)
@@ -394,14 +402,14 @@ The installer and workspace/credential system is fully functional:
     - _Requirements: 1.2_
     - _Note: Wallpapers in brand/wallpapers/, installed via install-branding-assets.sh_
 
-  - [ ] 11.4 Create security documentation
+  - [x] 11.4 Create security documentation
     - Write security best practices guide
     - Document encryption and credential protection features
     - Create incident response guide
     - Document security update process
     - _Requirements: 11.8, 12.2_
 
-  - [ ] 11.5 Create user documentation
+  - [x] 11.5 Create user documentation
     - Write user guide for workspace management
     - Document credential setup process
     - Create quick start guide
