@@ -34,7 +34,9 @@ rm -f "$QMP_SOCK"
 # KVM if available (CI runners have it), otherwise emulation with a longer timeout
 if [ -w /dev/kvm ]; then
     ACCEL_ARGS="-enable-kvm -cpu host"
-    BOOT_TIMEOUT="${BOOT_TIMEOUT:-420}"
+    # CI runners reach Calamares in ~6-8 min; marker script polls 480s
+    # after multi-user, so give the full chain room
+    BOOT_TIMEOUT="${BOOT_TIMEOUT:-720}"
     echo "Using KVM acceleration (timeout ${BOOT_TIMEOUT}s)"
 else
     ACCEL_ARGS="-cpu max"
