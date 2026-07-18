@@ -34,6 +34,28 @@ for _ in $(seq 1 240); do
             emit "graphical-target"
         fi
         emit "calamares-running"
+
+        # Watch for the known flake: Calamares sometimes exits shortly
+        # after starting (under QEMU at least). Dump diagnostics to serial
+        # so CI runs capture the exit reason without interactive access.
+        for _ in $(seq 1 60); do
+            if ! pgrep -x calamares > /dev/null 2>&1; then
+                emit "WARN calamares-exited-early"
+                {
+                    echo "--- /tmp/kiosk-session.log ---"
+                    cat /tmp/kiosk-session.log 2>/dev/null
+                    echo "--- startx log (tail) ---"
+                    tail -30 /tmp/startx.log 2>/dev/null
+                    echo "--- calamares session log (tail) ---"
+                    tail -40 /home/installer/.cache/calamares/session.log 2>/dev/null
+                    echo "--- Xorg log errors ---"
+                    grep -i "(EE)\|fatal" /home/installer/.local/share/xorg/Xorg.0.log /var/log/Xorg.0.log 2>/dev/null | tail -15
+                    echo "--- end diagnostics ---"
+                } > "$SERIAL" 2>/dev/null || true
+                exit 0
+            fi
+            sleep 2
+        done
         exit 0
     fi
     sleep 2
