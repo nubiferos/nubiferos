@@ -185,6 +185,27 @@ if [ "$RESULT" = "pass" ] && ! kill -0 "$QEMU_PID" 2>/dev/null; then
     echo "         the guest rebooted or shut down after Calamares started."
 fi
 
+# Linger after a pass so the in-guest flake watch (nubifer-boot-test.sh
+# marker service) can report if Calamares exits early — its diagnostics
+# dump takes up to ~130s to arrive over serial. Still a pass either way;
+# the linger only surfaces diagnostics. Set LINGER=0 to skip.
+LINGER="${LINGER:-150}"
+if [ "$RESULT" = "pass" ] && [ "$LINGER" -gt 0 ] && kill -0 "$QEMU_PID" 2>/dev/null; then
+    echo "Lingering ${LINGER}s to catch early-Calamares-exit diagnostics..."
+    WAITED=0
+    while [ "$WAITED" -lt "$LINGER" ] && kill -0 "$QEMU_PID" 2>/dev/null; do
+        sleep 10
+        WAITED=$((WAITED + 10))
+        if grep -q "WARN calamares-exited-early" "$SERIAL_LOG"; then
+            sleep 5   # let the diagnostics dump finish writing
+            echo "!!! Calamares exited early after boot — in-guest diagnostics:"
+            sed -n '/WARN calamares-exited-early/,$p' "$SERIAL_LOG"
+            screenshot "flake"
+            break
+        fi
+    done
+fi
+
 screenshot "final"
 
 echo "=== serial log (tail) ==="
