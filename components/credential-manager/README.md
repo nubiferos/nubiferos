@@ -1,343 +1,164 @@
 # NubiferOS Credential Manager
 
-Secure credential management for cloud accounts using pass (password-store) with GPG encryption.
+Secure, workspace-scoped credential management for cloud accounts using `pass` (password-store) with GPG encryption. No custom cryptography, no plaintext secrets on disk.
+
+> **User-facing documentation:** [Credential Setup Guide](../../docs/guides/CREDENTIAL_SETUP.md) is the canonical how-to (first-boot wizard, adding credentials, rotation, backup). [Credential Security](../../docs/CREDENTIAL_SECURITY.md) covers the threat model. This README documents the component itself: what ships, how it's laid out, and how it integrates.
+
+## What Actually Ships
+
+The build (`build/build-iso.sh`, `build/build-debs.sh`) installs exactly three pieces:
+
+| Source | Installed to | Purpose |
+|--------|--------------|---------|
+| `nubifer-creds` | `/usr/local/bin/nubifer-creds` | CLI: add/list/get/remove credentials, manage STS tokens |
+| `nubifer-aws-credential-helper` | `/usr/local/bin/nubifer-aws-credential-helper` | `credential_process` helper for the AWS CLI |
+| `src/token_cache.py`, `src/token_generators/*.py` | `/usr/local/lib/nubifer/credential-manager/src/` | STS token caching and generation modules |
+
+`nubifer-creds` is a single self-contained Python script — a thin, auditable wrapper around `pass`. There is no daemon, no D-Bus service, and no metadata database in the shipped design (see [Legacy / unshipped code](#legacy--unshipped-code)).
 
 ## Architecture
 
-- **Storage Backend**: `pass` (password-store) with GPG encryption
-- **Metadata Database**: SQLite for credential metadata (no actual secrets)
-- **D-Bus Interface**: System-wide credential service
-- **CLI Tool**: `nubifer-creds` command-line interface
+- **Storage backend:** `pass` (password-store), GPG-encrypted at rest
+- **Workspace scoping:** every credential lives under the active workspace's prefix; switching workspaces switches which credentials CLIs see
+- **AWS integration:** the `aws` CLI wrapper (from `components/workspace-manager/`) injects credentials via `credential_process` — secrets never sit in environment variables or `~/.aws/credentials`
+- **STS token mode (default for AWS):** the CLI receives short-lived session tokens; long-lived keys are only decrypted to mint a new token
+- **Audit log:** every add/access/remove is appended to `~/.config/nubifer/audit.log` (timestamp, user, workspace, action, path — never secret values)
 
-## Features
+## CLI Interface
 
-- ✅ Secure credential storage using GPG encryption (via pass)
-- ✅ Support for AWS, Azure, and GCP credentials
-- ✅ SQLite metadata database (stores only paths, not secrets)
-- ✅ D-Bus interface for system integration
-- ✅ Command-line interface
-- ✅ Credential validation and testing
-- ✅ No plain-text credentials on disk
-
-## Installation
+Command surface: `add`, `list`, `get`, `remove`, `token`.
 
 ```bash
-cd components/credential-manager
-sudo ./install.sh
+# Add credentials (prompts for secrets with hidden input)
+nubifer-creds add -t aws   -n default        # --access-key-id, --secret-access-key, --no-sts, --sts-duration
+nubifer-creds add -t azure -n dev-sp         # --tenant-id, --client-id, --client-secret
+nubifer-creds add -t gcp   -n staging        # --project-id, --key-file (original file is DELETED after import)
+nubifer-creds add -t api   -n github         # --token, --scopes
+
+# Common add flags: -w <workspace-id> (target a non-active workspace), -y (skip confirmation)
+
+# List / retrieve / remove
+nubifer-creds list                           # all credentials in the active workspace
+nubifer-creds list -t aws                    # filter by cloud provider type
+nubifer-creds get -t aws -n default          # masked display; --json prints full values
+nubifer-creds remove cloud/aws/default       # positional path, not flags
+
+# STS token management (AWS only)
+nubifer-creds token status  -t aws -n default
+nubifer-creds token enable  -t aws -n default --duration 3600   # 900–43200 seconds
+nubifer-creds token disable -t aws -n default
+nubifer-creds token clear   -t aws -n default
+nubifer-creds token refresh -t aws -n default
 ```
 
-This installs:
-- Source files to `/usr/local/lib/nubiferos/credential-manager/`
-- CLI tool: `/usr/local/bin/nubifer-creds`
-- D-Bus service: `/usr/local/bin/nubifer-creds-service`
-- Systemd service files (optional, not enabled by default)
+Honest quirks of the current CLI:
 
-## Prerequisites
+- `get -t api` is accepted by the parser but not implemented — retrieve API tokens with `pass show nubifer/<workspace-id>/api/<service>/token`
+- `list -t <type>` filters under `cloud/<type>`, so it works for `aws`/`azure`/`gcp` but not for `api` tokens (use plain `list` or `pass ls`)
+- `db` and `ssh` are accepted as types by the parser but have no add handlers yet
 
-1. **GPG Key**: Required for pass encryption
-   ```bash
-   gpg --gen-key
-   ```
+## Storage Layout
 
-2. **Pass Store**: Initialize with your GPG key
-   ```bash
-   nubifer-creds init
-   ```
-
-## Usage
-
-### Initialize Pass Store
-
-```bash
-# Check status
-nubifer-creds status
-
-# Initialize (if not already done)
-nubifer-creds init
-```
-
-### Add Credentials
-
-**AWS:**
-```bash
-nubifer-creds add \
-  --provider aws \
-  --account-id 123456789012 \
-  --account-name "Production"
-# Will prompt for: AWS Access Key ID, AWS Secret Access Key
-```
-
-**Azure:**
-```bash
-nubifer-creds add \
-  --provider azure \
-  --account-id my-subscription-id \
-  --account-name "Dev Subscription"
-# Will prompt for: Client ID, Client Secret, Tenant ID
-```
-
-**GCP:**
-```bash
-nubifer-creds add \
-  --provider gcp \
-  --account-id my-project-id \
-  --account-name "Production Project"
-# Will prompt for: Path to service account JSON key file
-```
-
-### List Credentials
-
-```bash
-# List all credentials
-nubifer-creds list
-
-# List by provider
-nubifer-creds list --provider aws
-
-# JSON output
-nubifer-creds list --format json
-```
-
-### Show Credential Details
-
-```bash
-nubifer-creds show --provider aws --account-id 123456789012
-```
-
-### Test Credentials
-
-```bash
-nubifer-creds test --provider aws --account-id 123456789012
-```
-
-### Delete Credentials
-
-```bash
-nubifer-creds delete --provider aws --account-id 123456789012
-```
-
-## Pass Store Structure
-
-Credentials are stored in pass with the following structure:
+Credentials are stored in pass under a **workspace-scoped** prefix. The active workspace comes from `NUBIFER_WORKSPACE_ID` (set by `nubifer-workspace` / shell integration); with no active workspace, the literal workspace `default` is used.
 
 ```
 ~/.password-store/
-└── nubiferos/
-    └── credentials/
-        ├── aws/
-        │   └── 123456789012/
-        │       ├── access_key_id.gpg
-        │       └── secret_access_key.gpg
-        ├── azure/
-        │   └── subscription-id/
-        │       ├── client_id.gpg
-        │       ├── client_secret.gpg
-        │       └── tenant_id.gpg
-        └── gcp/
-            └── project-id/
-                └── service_account_key.gpg
+└── nubifer/
+    └── <workspace-id>/
+        ├── cloud/
+        │   ├── aws/
+        │   │   └── <profile>/
+        │   │       ├── access-key-id.gpg
+        │   │       ├── secret-access-key.gpg
+        │   │       └── session-token.gpg      # optional, manually stored
+        │   ├── azure/
+        │   │   └── <name>/
+        │   │       ├── tenant-id.gpg
+        │   │       ├── client-id.gpg
+        │   │       └── client-secret.gpg
+        │   └── gcp/
+        │       └── <name>/
+        │           ├── project-id.gpg
+        │           └── service-account-key.gpg  # full JSON, multiline
+        └── api/
+            └── <service>/
+                ├── token.gpg
+                └── scopes.gpg
 ```
 
-## Metadata Database
+Region is **not** stored on the credential — it belongs to the workspace.
 
-SQLite database at `~/.config/nubiferos/credentials.db`:
+## AWS CLI Integration (`credential_process`)
 
-```sql
-CREATE TABLE credentials (
-    id INTEGER PRIMARY KEY,
-    provider TEXT NOT NULL,
-    account_id TEXT NOT NULL,
-    account_name TEXT NOT NULL,
-    auth_type TEXT NOT NULL,
-    pass_path_prefix TEXT NOT NULL,
-    created_at TEXT NOT NULL,
-    updated_at TEXT NOT NULL,
-    UNIQUE(provider, account_id)
-);
+You never run `aws configure` on NubiferOS. The `aws` wrapper (workspace-manager component) writes a temporary AWS config pointing at the helper:
+
+```ini
+[default]
+credential_process = /usr/local/bin/nubifer-aws-credential-helper <cred-name>
+region = <workspace region>
 ```
 
-**Important**: The database stores only metadata. Actual credentials are stored encrypted in pass.
+The helper:
 
-## D-Bus Interface
+1. Reads the workspace from `NUBIFER_WORKSPACE` (exported by the wrapper from `NUBIFER_WORKSPACE_ID`) and the credential name from its argument (or `NUBIFER_AWS_CREDENTIAL`)
+2. **Token mode enabled:** returns a cached STS token, minting and caching a fresh one when expired or within 5 minutes of expiry
+3. **Token mode disabled or STS fails:** falls back to static credentials from pass (a warning goes to stderr, your command still runs)
+4. Emits standard `credential_process` JSON (`Version: 1`)
 
-**Service Name**: `org.nubiferos.CredentialManager`  
-**Object Path**: `/org/nubiferos/CredentialManager`  
-**Interface**: `org.nubiferos.CredentialManager`
+The wrapper also pre-warms the GPG agent in your terminal so the helper (which has no TTY) can decrypt without hanging on a pinentry prompt. Calling `/usr/bin/aws` directly bypasses injection entirely — you get "unable to locate credentials," which is the safe failure mode.
 
-### Running the D-Bus Service
+## STS Token Mode
 
-**Option 1: Manual (for testing/development)**
-```bash
-nubifer-creds-service
-```
+Enabled by default when adding AWS credentials (`--no-sts` to opt out). Implementation:
 
-**Option 2: Systemd (for production/auto-start)**
-```bash
-# Enable auto-start on login
-systemctl --user enable nubifer-credential-manager.service
-systemctl --user start nubifer-credential-manager.service
+- `src/token_generators/aws.py` — calls `sts:GetSessionToken` with the base keys from pass; durations clamped to AWS limits (900–43200 seconds, default 3600)
+- `src/token_cache.py` — caches tokens as Fernet-encrypted files in `~/.config/nubiferos/token_cache/` (key derived via PBKDF2 from `/etc/machine-id`); expiration metadata in SQLite at `~/.config/nubiferos/token_cache.db`
 
-# Check status
-systemctl --user status nubifer-credential-manager.service
-```
+The cache encryption is deliberately modest: it protects short-lived tokens from casual file disclosure, not from an attacker running as your user (who could read the machine-id and derive the key). The real protection is that the tokens expire; the long-lived keys stay behind GPG.
 
-**Option 3: D-Bus Activation (automatic)**
-
-The service supports D-Bus activation and will start automatically when accessed via D-Bus.
-
-### Methods
-
-- `AddCredential(provider, account_id, account_name, credentials) -> (success, message)`
-- `GetCredential(provider, account_id) -> credentials_dict`
-- `ListAccounts(provider) -> list_of_accounts`
-- `DeleteCredential(provider, account_id) -> (success, message)`
-- `TestCredential(provider, account_id) -> (success, message)`
-- `CheckPrerequisites() -> (success, issues_list)`
-
-### Example D-Bus Usage
-
-```python
-import dbus
-
-bus = dbus.SessionBus()
-service = bus.get_object(
-    'org.nubiferos.CredentialManager',
-    '/org/nubiferos/CredentialManager'
-)
-
-# Add credential
-credentials = {
-    'access_key_id': 'AKIAIOSFODNN7EXAMPLE',
-    'secret_access_key': 'wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY'
-}
-success, msg = service.AddCredential(
-    'aws', '123456789012', 'Production', credentials,
-    dbus_interface='org.nubiferos.CredentialManager'
-)
-
-# List accounts
-accounts = service.ListAccounts(
-    'aws',
-    dbus_interface='org.nubiferos.CredentialManager'
-)
-```
+Requires `boto3` and `cryptography` (preinstalled on NubiferOS). If missing, `add` still succeeds and falls back to static credentials — the output tells you which mode you got.
 
 ## Security
 
-### What's Encrypted
+**Encrypted:** every credential value, at rest, with your GPG key (via pass).
 
-- ✅ All credential values (via GPG in pass)
-- ✅ Pass store is encrypted at rest
-- ✅ GPG passphrase required to access credentials
+**Not encrypted:** the pass directory structure (workspace IDs, providers, credential names), the audit log, token cache metadata. An attacker with file access learns *which* accounts you have, not the keys to them.
 
-### What's NOT Encrypted
+**Out of scope:** compromise of your running session. Malware running as your user while the GPG agent is unlocked can read credentials the same way the CLI wrappers do. Full-disk encryption plus a locked screen is the boundary — see [Credential Security](../../docs/CREDENTIAL_SECURITY.md).
 
-- ❌ Metadata in SQLite (provider, account_id, account_name, timestamps)
-- ❌ Pass store structure (directory names visible)
+## Installation
 
-### Security Best Practices
+On NubiferOS this component is installed by the image build / `nubifer-creds` deb — there is nothing to install by hand. First-boot setup (GPG key + `pass init`) is handled by `nubifer-setup-wizard`; see the [Credential Setup Guide](../../docs/guides/CREDENTIAL_SETUP.md).
 
-1. **Strong GPG Passphrase**: Use a strong passphrase for your GPG key
-2. **GPG Agent**: Configure gpg-agent for passphrase caching
-3. **Backup GPG Key**: Backup your GPG private key securely
-4. **File Permissions**: Pass automatically sets secure permissions (600)
-5. **No Logging**: Credential values are never logged
+Prerequisites at runtime: `pass`, `gnupg`, an initialized password store. `nubifer-creds` exits with instructions if the store isn't initialized.
 
-## Manual Testing
+> `install.sh` in this directory installs the **legacy** stack below, and would shadow the shipped `nubifer-creds` with the old click-based CLI. Don't use it.
 
-```bash
-# 1. Add AWS credentials
-nubifer-creds add --provider aws --account-id 123456789012 --account-name prod
+## Legacy / Unshipped Code
 
-# 2. Verify in pass
-pass show nubiferos/credentials/aws/123456789012/access_key_id
-pass show nubiferos/credentials/aws/123456789012/secret_access_key
+This directory also contains an earlier daemon-based design that is **not shipped** and does not match the current CLI:
 
-# 3. List credentials
-nubifer-creds list --provider aws
+- `src/cli.py`, `src/credential_service.py`, `src/pass_backend.py` — click-based CLI with `init`/`status`/`show`/`test`/`delete` subcommands, `--provider`/`--account-id` flags, pass paths under `nubiferos/credentials/`, and a SQLite metadata DB
+- `src/dbus_interface.py`, `systemd/` — `org.nubiferos.CredentialManager` D-Bus service and unit files
+- `install.sh`, `test_manual.sh` — install/test scripts for that stack
+- The `dbus-python`, `click`, and `pydantic` entries in `requirements.txt` belong to this stack; `keyring` was for an earlier token-cache backend
 
-# 4. Test retrieval
-nubifer-creds test --provider aws --account-id 123456789012
+Only `src/token_cache.py` and `src/token_generators/` from `src/` are part of the shipped system. The rest is kept for reference until a decision is made on a future D-Bus interface; treat it as historical.
 
-# 5. Show details
-nubifer-creds show --provider aws --account-id 123456789012
-
-# 6. Delete
-nubifer-creds delete --provider aws --account-id 123456789012
-```
-
-## Troubleshooting
-
-### Pass not initialized
-
-```
-Error: Pass store not initialized
-```
-
-**Solution**: Run `nubifer-creds init` to initialize pass with your GPG key.
-
-### No GPG keys found
-
-```
-Error: No GPG keys found
-```
-
-**Solution**: Create a GPG key:
-```bash
-gpg --gen-key
-```
-
-### GPG passphrase prompts
-
-If you're prompted for your GPG passphrase frequently, configure gpg-agent:
+## Tests
 
 ```bash
-# ~/.gnupg/gpg-agent.conf
-default-cache-ttl 3600
-max-cache-ttl 7200
+pytest components/credential-manager/tests/    # token cache + AWS token generator
+python3 -m py_compile nubifer-creds nubifer-aws-credential-helper
 ```
 
-Then restart gpg-agent:
-```bash
-gpgconf --kill gpg-agent
-```
+## Future Enhancements
 
-## Development
-
-### Project Structure
-
-```
-components/credential-manager/
-├── src/
-│   ├── pass_backend.py       # Pass wrapper
-│   ├── credential_service.py # Core service logic
-│   ├── dbus_interface.py     # D-Bus service
-│   └── cli.py                # CLI tool
-├── requirements.txt          # Python dependencies
-├── install.sh                # Installation script
-└── README.md                 # This file
-```
-
-### Running Tests
-
-```bash
-# Syntax check
-python3 -m py_compile src/*.py
-
-# Manual testing
-./src/cli.py status
-./src/cli.py list
-```
-
-## Future Enhancements (Deferred to Beta)
-
-- [x] Systemd service (implemented but not enabled by default)
+- [ ] Automatic credential rotation (manual procedure documented in the setup guide)
+- [ ] Azure/GCP credential injection as integrated as AWS's `credential_process` flow
+- [ ] `get -t api` and `db`/`ssh` credential types
 - [ ] OIDC/SSO authentication
 - [ ] Hardware key support (YubiKey)
-- [ ] Automatic credential rotation
-- [ ] Credential expiration warnings
-- [ ] Audit logging
-- [ ] Multi-user support
 
 ## License
 

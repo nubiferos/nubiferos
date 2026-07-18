@@ -7,16 +7,16 @@ This directory contains the custom components that make up NubiferOS.
 ### Credential Manager
 **Path**: `credential-manager/`
 
-Secure credential storage and management service for cloud provider credentials.
+Workspace-scoped credential storage for cloud provider credentials, built on `pass` (password-store) with GPG encryption.
 
 **Features**:
-- Encrypted credential storage using system keyring
-- Support for multiple authentication methods (access keys, OIDC, IAM roles)
-- D-Bus interface for credential access
-- Automatic credential refresh
-- Memory protection (mlock)
+- GPG-encrypted storage via pass under `nubifer/<workspace-id>/...` — no plaintext secrets on disk
+- AWS, Azure service principal, GCP service account, and API token credential types
+- AWS CLI integration via `credential_process` (`nubifer-aws-credential-helper`) — no `~/.aws/credentials`
+- STS token mode (default for AWS): CLIs get short-lived session tokens, base keys stay encrypted
+- Audit log of every add/access/remove (paths only, never values)
 
-**Technology**: Python with libsecret integration
+**Technology**: Python wrapping `pass`/GnuPG; boto3 for STS. Ships as `nubifer-creds` + `nubifer-aws-credential-helper`. (The D-Bus service and SQLite metadata DB under `src/` are legacy, unshipped — see the component README.)
 
 ### Context Manager
 **Path**: `context-manager/`
@@ -24,13 +24,12 @@ Secure credential storage and management service for cloud provider credentials.
 Workspace isolation and context switching service.
 
 **Features**:
-- Workspace creation and management
-- Virtual desktop integration
+- Workspace state tracking and switching
 - Environment variable injection per workspace
 - Read-only mode enforcement
-- D-Bus interface for workspace operations
+- D-Bus interface (`org.nubiferos.ContextManager`) for workspace operations, auto-started as a systemd user service
 
-**Technology**: Python/Go with D-Bus
+**Technology**: Python with D-Bus (dbus-python). The user-facing CLI is `nubifer-workspace` in `workspace-manager/`; this service backs it and the desktop integration.
 
 ### Resource Viewer
 **Path**: `resource-viewer/`
@@ -81,8 +80,8 @@ See individual component README files for build instructions.
 ## Testing Components
 
 ```bash
-# Test all components
-./test/test-components.sh
+# Repo-wide test suite
+./tests/run-tests.sh
 
 # Test individual component
 pytest components/credential-manager/tests/
@@ -90,7 +89,4 @@ pytest components/credential-manager/tests/
 
 ## Dependencies
 
-Component dependencies are managed separately:
-- Python: `requirements.txt` in component directory
-- Node.js: `package.json` in component directory
-- Go: `go.mod` in component directory
+Components are Python or shell — there is no Node.js or Go tooling in this repo. Python components declare dependencies in a `requirements.txt` in their directory; the GNOME Shell extension (`context-indicator/`) is plain JavaScript with no build step. What actually gets installed is determined by `build/build-iso.sh` and `build/build-debs.sh`, not by the per-component `install.sh` scripts (several of those are stale).

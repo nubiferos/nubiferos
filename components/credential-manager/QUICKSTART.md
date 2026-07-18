@@ -1,226 +1,118 @@
 # Credential Manager Quick Start
 
-## Installation
+`nubifer-creds` ships preinstalled on NubiferOS — nothing to install. This is the five-minute version; the full walkthrough (wizard details, rotation, backup, threat model) is in the [Credential Setup Guide](../../docs/guides/CREDENTIAL_SETUP.md).
+
+## 1. First-Time Setup
+
+Run the setup wizard (or click "Set Up Credential Manager" in the Welcome app):
 
 ```bash
-cd components/credential-manager
-sudo ./install.sh
+nubifer-setup-wizard          # generates GPG key if needed, runs `pass init`
+nubifer-setup-wizard status   # check GPG / pass state
 ```
 
-## First Time Setup
-
-### 1. Create GPG Key (if you don't have one)
+Prefer a passphrase-protected key? Set it up manually instead — see the [GPG Setup Guide](../../docs/guides/GPG_SETUP_GUIDE.md):
 
 ```bash
-gpg --gen-key
+gpg --full-generate-key        # RSA 4096, strong passphrase
+pass init your-email@example.com
 ```
 
-Follow the prompts:
-- Real name: Your Name
-- Email: your@email.com
-- Passphrase: Choose a strong passphrase
+## 2. Pick Your Workspace First
 
-### 2. Initialize Pass Store
+Credentials are stored **per workspace**. Create/switch before adding, or they land in a workspace literally named `default`:
 
 ```bash
-nubifer-creds init
+nubifer-workspace list
+nubifer-workspace switch <workspace-id>
 ```
 
-This will:
-- List your available GPG keys
-- Prompt you to select one
-- Initialize pass with that key
+The `add` command shows which workspace it's targeting before writing — read it. Use `-w <workspace-id>` to target explicitly, `-y` to skip the confirmation.
 
-### 3. Check Status
+## 3. Add Credentials
 
 ```bash
-nubifer-creds status
+# AWS (prompts for Access Key ID + Secret Access Key, hidden input)
+nubifer-creds add -t aws -n default
+
+# Azure service principal (prompts for Tenant ID, Client ID, Client Secret)
+nubifer-creds add -t azure -n dev-sp
+
+# GCP service account (prompts for Project ID + key file path)
+# WARNING: the original JSON key file is deleted after import
+nubifer-creds add -t gcp -n staging
+
+# API token (GitHub etc.)
+nubifer-creds add -t api -n github
 ```
 
-Should show:
-- ✓ All prerequisites met
-- GPG Key ID
-- Database location
-- Number of credentials stored
+AWS naming tip: the `aws` wrapper looks for a credential named after your **workspace name**, then falls back to `default`. Naming it `default` always works.
 
-## Adding Credentials
+Adding AWS credentials enables **STS token mode** by default: the AWS CLI gets short-lived session tokens while your base keys stay encrypted in pass. Opt out with `--no-sts`, tune with `--sts-duration <seconds>`.
 
-### AWS
+## 4. Use Them
 
 ```bash
-nubifer-creds add --provider aws --account-id 123456789012 --account-name "Production"
+aws sts get-caller-identity    # the wrapper injects credentials automatically
 ```
 
-You'll be prompted for:
-- AWS Access Key ID
-- AWS Secret Access Key
+No `aws configure`, no `~/.aws/credentials` — the wrapper uses `credential_process` with `nubifer-aws-credential-helper`. If `aws` says "unable to locate credentials," check you're in the right workspace and the credential name is `default` or matches the workspace name.
 
-### Azure
+## 5. List, Retrieve, Remove
 
 ```bash
-nubifer-creds add --provider azure --account-id my-subscription-id --account-name "Dev"
+nubifer-creds list                           # everything in the active workspace
+nubifer-creds list -t aws                    # filter by provider
+
+nubifer-creds get -t aws -n default          # masked display
+nubifer-creds get -t azure -n dev-sp --json  # full values — treat output as a secret
+
+nubifer-creds remove cloud/aws/default       # path, not flags
 ```
 
-You'll be prompted for:
-- Azure Client ID
-- Azure Client Secret
-- Azure Tenant ID
-
-### GCP
+Or inspect the store directly with pass:
 
 ```bash
-nubifer-creds add --provider gcp --account-id my-project-id --account-name "Staging"
+pass ls nubifer
+pass show nubifer/<workspace-id>/cloud/aws/default/access-key-id
 ```
 
-You'll be prompted for:
-- Path to service account JSON key file
+Every add/access/remove is logged to `~/.config/nubifer/audit.log` (paths and actions only — never secret values).
 
-## Viewing Credentials
-
-### List All
+## 6. Manage STS Tokens (AWS)
 
 ```bash
-nubifer-creds list
+nubifer-creds token status  -t aws -n default          # mode, duration, cached-token expiry
+nubifer-creds token refresh -t aws -n default          # force-mint a new token
+nubifer-creds token clear   -t aws -n default          # drop the cached token
+nubifer-creds token disable -t aws -n default          # revert to static credentials
+nubifer-creds token enable  -t aws -n default --duration 3600   # 900–43200 seconds
 ```
 
-### List by Provider
+## Backup (Do This Now)
+
+Lose your GPG key and every stored credential is permanently unrecoverable:
 
 ```bash
-nubifer-creds list --provider aws
+nubifer-setup-wizard backup    # exports private key to ~/gpg-private-key-backup-YYYYMMDD.asc
 ```
 
-### Show Details
-
-```bash
-nubifer-creds show --provider aws --account-id 123456789012
-```
-
-### View Actual Values (via pass)
-
-```bash
-pass show nubiferos/credentials/aws/123456789012/access_key_id
-pass show nubiferos/credentials/aws/123456789012/secret_access_key
-```
-
-## Testing Credentials
-
-```bash
-nubifer-creds test --provider aws --account-id 123456789012
-```
-
-## Deleting Credentials
-
-```bash
-nubifer-creds delete --provider aws --account-id 123456789012
-```
-
-## Common Tasks
-
-### Export Credentials as JSON
-
-```bash
-nubifer-creds list --format json > credentials.json
-```
-
-### Check if Pass is Working
-
-```bash
-pass ls
-```
-
-Should show:
-```
-Password Store
-└── nubiferos
-    └── credentials
-        ├── aws
-        ├── azure
-        └── gcp
-```
-
-### Backup GPG Key
-
-```bash
-# Export private key (keep this VERY secure!)
-gpg --export-secret-keys --armor your@email.com > gpg-private-key.asc
-
-# Export public key
-gpg --export --armor your@email.com > gpg-public-key.asc
-```
-
-### Restore GPG Key
-
-```bash
-gpg --import gpg-private-key.asc
-gpg --import gpg-public-key.asc
-```
+Move the export to an encrypted USB drive or offline storage — never commit it or sync it to plain cloud storage. Optionally version the (already encrypted) store with `pass git init`. Full backup/restore procedure: [Credential Setup Guide](../../docs/guides/CREDENTIAL_SETUP.md#backup-and-recovery).
 
 ## Troubleshooting
 
-### "Pass store not initialized"
-
-Run: `nubifer-creds init`
-
-### "No GPG keys found"
-
-Create one: `gpg --gen-key`
-
-### GPG Passphrase Prompts Too Frequent
-
-Configure gpg-agent to cache passphrase:
-
-```bash
-# Edit ~/.gnupg/gpg-agent.conf
-echo "default-cache-ttl 3600" >> ~/.gnupg/gpg-agent.conf
-echo "max-cache-ttl 7200" >> ~/.gnupg/gpg-agent.conf
-
-# Restart gpg-agent
-gpgconf --kill gpg-agent
-```
-
-### Can't Find nubifer-creds Command
-
-Check installation:
-```bash
-which nubifer-creds
-# Should show: /usr/local/bin/nubifer-creds
-```
-
-If not found, reinstall:
-```bash
-sudo ./install.sh
-```
+| Symptom | Fix |
+|---------|-----|
+| "pass (password-store) not initialized" | Run `nubifer-setup-wizard`, or `pass init <gpg-key-id>` |
+| Credentials added but `aws` can't find them | Wrong workspace — `nubifer-creds list` shows where you are. Also check the credential name is `default` or matches the workspace name |
+| "STS token mode: not available (missing dependencies)" | `pip install boto3 cryptography` — static credentials keep working meanwhile |
+| Helper hangs (pinentry with no TTY) | Run a wrapped `aws` command from a terminal once, or `export GPG_TTY=$(tty)` |
+| Frequent GPG passphrase prompts | Add `default-cache-ttl 3600` / `max-cache-ttl 7200` to `~/.gnupg/gpg-agent.conf`, then `gpgconf --kill gpg-agent` |
 
 ## Security Tips
 
-1. **Strong GPG Passphrase**: Use a long, unique passphrase
-2. **Backup GPG Key**: Store backup in secure location (encrypted USB, password manager)
-3. **Don't Share GPG Key**: Never share your private key
-4. **Use Different Keys**: Consider separate GPG keys for different purposes
-5. **Regular Backups**: Backup both GPG key and pass store regularly
-
-## Integration with Workspace Manager
-
-Once workspace manager is implemented, credentials will be automatically loaded based on active workspace:
-
-```bash
-# Create workspace with credentials
-nubifer-workspace create \
-  --name "AWS Production" \
-  --provider aws \
-  --account-id 123456789012 \
-  --credential-id <from-nubifer-creds>
-
-# Switch workspace (credentials auto-loaded)
-nubifer-workspace switch <workspace-id>
-
-# AWS CLI now uses credentials from active workspace
-aws s3 ls
-```
-
-## Next Steps
-
-- Add credentials for all your cloud accounts
-- Test credential retrieval
-- Integrate with workspace manager (coming soon)
-- Set up automatic backups of GPG key and pass store
+1. Back up your GPG key **before** you need it
+2. Prefer prompted input over `--access-key-id`-style flags (flags end up in shell history)
+3. Treat `get --json` output as a secret — don't pipe it into files or logs
+4. Shorter STS durations shrink the window a stolen token is useful; 1 hour is a sane default
+5. Rotation isn't automatic yet — rotate manually and revoke the old key server-side ([procedure](../../docs/guides/CREDENTIAL_SETUP.md#rotating-credentials))
