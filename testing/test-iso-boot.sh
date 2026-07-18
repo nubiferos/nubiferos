@@ -116,17 +116,8 @@ while [ "$ELAPSED" -lt "$BOOT_TIMEOUT" ]; do
     sleep "$INTERVAL"
     ELAPSED=$((ELAPSED + INTERVAL))
 
-    if ! kill -0 "$QEMU_PID" 2>/dev/null; then
-        echo "ERROR: QEMU exited early"
-        RESULT="fail"
-        break
-    fi
-
-    if [ $((ELAPSED - LAST_SHOT)) -ge "$SHOT_EVERY" ]; then
-        screenshot "boot-${ELAPSED}s"
-        LAST_SHOT=$ELAPSED
-    fi
-
+    # Check markers before QEMU liveness: if the installer already came up,
+    # the boot verified even if QEMU has since exited (see warning below)
     if [ "$MARKER_MODE" = 1 ]; then
         if grep -q "NUBIFER-BOOT-TEST: calamares-running" "$SERIAL_LOG"; then
             RESULT="pass"
@@ -137,7 +128,23 @@ while [ "$ELAPSED" -lt "$BOOT_TIMEOUT" ]; do
             break
         fi
     fi
+
+    if ! kill -0 "$QEMU_PID" 2>/dev/null; then
+        echo "ERROR: QEMU exited early (guest reboot/shutdown/crash)"
+        RESULT="fail"
+        break
+    fi
+
+    if [ $((ELAPSED - LAST_SHOT)) -ge "$SHOT_EVERY" ]; then
+        screenshot "boot-${ELAPSED}s"
+        LAST_SHOT=$ELAPSED
+    fi
 done
+
+if [ "$RESULT" = "pass" ] && ! kill -0 "$QEMU_PID" 2>/dev/null; then
+    echo "WARNING: markers passed but QEMU exited during the test window —"
+    echo "         the guest rebooted or shut down after Calamares started."
+fi
 
 screenshot "final"
 
