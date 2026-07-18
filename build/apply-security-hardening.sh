@@ -160,6 +160,15 @@ configure_fail2ban() {
     
     # Enable fail2ban
     chroot_exec "systemctl enable fail2ban"
+
+    # Skip fail2ban in the live installer environment — it fails there
+    # (no persistent state/logs) and shows up in boot-test serial logs.
+    # ConditionKernelCommandLine keeps it active on installed systems.
+    mkdir -p "${CHROOT_DIR}/etc/systemd/system/fail2ban.service.d"
+    cat > "${CHROOT_DIR}/etc/systemd/system/fail2ban.service.d/live-skip.conf" << 'EOF'
+[Unit]
+ConditionKernelCommandLine=!boot=live
+EOF
     
     # Create custom jail configuration
     cat > "${CHROOT_DIR}/etc/fail2ban/jail.local" << 'EOF'
