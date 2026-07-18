@@ -1,5 +1,7 @@
 # NubiferOS Quick Start Guide
 
+> **This is the developer/build quick start.** If you have NubiferOS installed and want to set up workspaces and credentials, see the [User Quick Start](guides/USER_QUICKSTART.md).
+
 ## Project Setup
 
 ### 1. Validate Project Structure
