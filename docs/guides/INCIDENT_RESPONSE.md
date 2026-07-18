@@ -77,13 +77,16 @@ Once the old credential is dead:
 
 ```bash
 # Remove the compromised entry from the vault
-nubifer-creds delete --provider aws --account-id 123456789012
+nubifer-creds remove cloud/aws/production
 
 # Create a new key at the provider, then store it
-nubifer-creds add --provider aws --account-id 123456789012 --account-name "Production"
+nubifer-creds add -t aws -n production
+
+# Clear any cached session tokens minted from the old key
+nubifer-creds token clear -t aws -n production
 
 # Verify the new credential works
-nubifer-creds test --provider aws --account-id 123456789012
+aws sts get-caller-identity
 ```
 
 Repeat `nubifer-creds list` and audit **every** stored credential — if the

@@ -72,19 +72,22 @@ everything.
   [Credential Security](../CREDENTIAL_SECURITY.md) for per-provider guidance.
 - **Store any static keys in the vault:**
   ```bash
-  nubifer-creds add --provider aws --account-id 123456789012 --account-name "Production"
+  nubifer-creds add -t aws -n production
   ```
 - **Audit what you have** periodically:
   ```bash
   nubifer-creds list
-  nubifer-creds test --provider aws --account-id 123456789012
+  aws sts get-caller-identity   # confirms the active workspace's credentials work
   ```
-  Delete credentials for accounts you no longer use.
+  Remove credentials for accounts you no longer use
+  (`nubifer-creds remove cloud/aws/<name>`).
 - **Rotate static keys on a schedule** (90 days is a common baseline):
   1. Create a new key at the cloud provider.
-  2. Update the vault (`nubifer-creds delete` then `nubifer-creds add`).
-  3. Verify with `nubifer-creds test`.
-  4. Deactivate, then delete, the old key at the provider.
+  2. Update the vault: `nubifer-creds remove cloud/aws/<name>`, then
+     `nubifer-creds add -t aws -n <name>` with the new key.
+  3. Clear any cached session tokens: `nubifer-creds token clear -t aws -n <name>`.
+  4. Verify with `aws sts get-caller-identity`.
+  5. Deactivate, then delete, the old key at the provider.
 - **Verify migration cleanup.** If you imported credentials from existing
   CLI configs, confirm the plaintext originals are gone.
 
