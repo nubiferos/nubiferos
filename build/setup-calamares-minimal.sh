@@ -1,6 +1,13 @@
 #!/bin/bash
 # Quick setup script to create minimal Calamares configuration
 # This gets the installer working quickly for testing
+#
+# WARNING: DEV SCAFFOLDING ONLY — DO NOT RUN IN CI OR BEFORE A REAL BUILD.
+# This OVERWRITES the curated configs in installer/calamares/ (branding.desc,
+# welcome/partition/users/packages/bootloader/finished/displaymanager confs)
+# with stale minimal versions. Running it in CI shipped ISOs with the wrong
+# version, weakened users.conf, and no TPM auto-unlock packages until it was
+# removed from build-iso.yml (July 2026).
 
 set -e
 

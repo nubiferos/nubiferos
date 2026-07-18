@@ -70,11 +70,12 @@ jobs:
         echo "iso_name=$ISO_NAME" >> $GITHUB_OUTPUT
         echo "commit_sha=$COMMIT_SHA" >> $GITHUB_OUTPUT
 
-    - name: Generate Calamares configuration
-      run: |
-        cd build
-        chmod +x setup-calamares-minimal.sh install-calamares.sh configure-installer-autostart.sh
-        ./setup-calamares-minimal.sh
+    # NOTE: setup-calamares-minimal.sh must NOT run here — it overwrites the
+    # curated installer/calamares/ configs in the checkout with stale minimal
+    # versions (dropped TPM packages, weakened users.conf, hardcoded 1.0
+    # branding). The repo configs are the source of truth.
+    - name: Make build scripts executable
+      run: chmod +x build/*.sh
 
     - name: Configure AWS credentials
       uses: aws-actions/configure-aws-credentials@v4
