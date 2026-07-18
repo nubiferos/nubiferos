@@ -223,22 +223,11 @@ EOF
 # Post-install cleanup reverses them for the installed system.
 # ==========================================
 
-# Configure getty auto-login on tty1 (no GDM on live ISO)
-configure_getty_autologin() {
-    log "INFO" "=========================================="
-    log "INFO" "Configuring Getty Auto-Login"
-    log "INFO" "=========================================="
-
-    mkdir -p "${CHROOT_DIR}/etc/systemd/system/getty@tty1.service.d"
-    cat > "${CHROOT_DIR}/etc/systemd/system/getty@tty1.service.d/autologin.conf" << 'EOF'
-[Service]
-ExecStart=
-ExecStart=-/sbin/agetty --autologin installer --noclear %I $TERM
-Type=idle
-EOF
-
-    log "INFO" "✓ Getty auto-login configured for tty1"
-}
+# NOTE: getty@tty1 autologin REMOVED (July 2026). It was part of the old
+# bare-X kiosk design, but the shipped ISO boots GDM (re-enabled by
+# configure-installer-autostart.sh, which runs later). The leftover console
+# autologin raced GDM for tty1 and its session scripts force-rebooted the
+# machine ~35s after boot. GDM autologin is the single session path.
 
 # Disable GDM and set multi-user target (bare X, no desktop on live ISO)
 configure_systemd_target() {
@@ -341,10 +330,9 @@ xsetroot -solid "#2e3440"
 echo "$(date): Starting Calamares installer" >> /tmp/kiosk-session.log
 sudo calamares -d
 echo "$(date): Calamares exited with code $?" >> /tmp/kiosk-session.log
-
-echo "Installation complete or cancelled. Rebooting..."
-sleep 2
-sudo systemctl reboot --force
+# No blind reboot on exit: this xinitrc is a manual fallback (GDM is the
+# session path) and a second calamares instance exits immediately — a
+# reboot here would take down the working GDM session
 EOF
     chroot_exec "chown installer:installer /home/installer/.xinitrc"
     chmod 755 "${CHROOT_DIR}/home/installer/.xinitrc"
@@ -372,7 +360,6 @@ main() {
     cleanup_locales
 
     # Lock down for installer-only ISO
-    configure_getty_autologin
     configure_systemd_target
     mask_getty_services
     configure_xorg_lockdown
