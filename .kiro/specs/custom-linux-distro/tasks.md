@@ -14,9 +14,12 @@ The installer and workspace/credential system is fully functional:
 - First-boot setup wizard guides GPG/pass initialization
 
 **Phase 2 (Future):**
-- Resource Viewer application
+- Resource Viewer application (✅ done July 2026)
 - Security Dashboard enhancements
 - Additional cloud provider support
+- Modern cloud auth: SSO/role-based, workspace-scoped sessions —
+  see `.kiro/specs/modern-cloud-auth/` (spec drafted July 2026; static
+  keys stay as fallback, no new static-key features in the interim)
 
 **Phase 3 (Future):**
 - AI Assistant Framework (NubiferAI integration)
