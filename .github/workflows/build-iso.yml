@@ -278,13 +278,25 @@ jobs:
 
     - name: Cleanup old builds
       run: |
-        aws s3 ls s3://${{ env.ISO_BUCKET }}/staging/builds/ > /tmp/all_builds.txt || true
-        BUILD_DIRS=$(cat /tmp/all_builds.txt | awk '{print $2}' | sed 's/\///' | tail -n +4)
-        for BUILD in $BUILD_DIRS; do
-          echo "Removing old build: $BUILD"
-          aws s3 rm s3://${{ env.ISO_BUCKET }}/staging/builds/$BUILD/ --recursive
+        # Keep the builds listed in the manifest (newest-first, capped at 3).
+        # NOTE: `aws s3 ls` returns prefixes alphabetically, NOT by date —
+        # the old `tail -n +4` approach deleted the newest builds.
+        if [ ! -f /tmp/builds_updated.json ]; then
+          aws s3 cp s3://${{ env.ISO_BUCKET }}/staging/builds.json /tmp/builds_updated.json
+        fi
+        KEEP=$(jq -r '.builds[].commit' /tmp/builds_updated.json)
+        echo "Keeping builds: $KEEP"
+
+        aws s3 ls s3://${{ env.ISO_BUCKET }}/staging/builds/ | awk '{print $2}' | sed 's#/##' | while read -r BUILD; do
+          [ -n "$BUILD" ] || continue
+          if echo "$KEEP" | grep -qx "$BUILD"; then
+            echo "Keeping: $BUILD"
+          else
+            echo "Removing old build: $BUILD"
+            aws s3 rm s3://${{ env.ISO_BUCKET }}/staging/builds/$BUILD/ --recursive
+          fi
         done
-        echo "✓ Cleaned up old builds (kept last 3)"
+        echo "✓ Cleaned up old builds (kept manifest builds)"
 
     - name: Generate staging presigned URL
       id: staging_url
