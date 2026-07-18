@@ -1,0 +1,10 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Resource Viewer
+Comment=Browse and search your NubiferOS cloud resource inventory
+Exec=/usr/local/bin/nubifer-resources
+Icon=network-server
+Terminal=false
+Categories=System;Monitor;
+Keywords=cloud;aws;resources;inventory;nubifer;

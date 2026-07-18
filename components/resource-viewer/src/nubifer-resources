@@ -1,0 +1,685 @@
+#!/usr/bin/env python3
+"""
+NubiferOS Resource Viewer - GTK3 browser
+
+Browses the local cloud resource inventory (see db.py) and triggers syncs
+via the AWS indexer (see indexer.py). The UI always renders from the local
+SQLite database, so it works fully offline - a sync only refreshes the
+cache.
+
+Design notes:
+- The tree groups resources provider > service > resource. Search filters
+  the tree live on name, native ID, and type.
+- Sync runs the indexer in a daemon thread; all UI updates are marshalled
+  back to the GTK main loop with GLib.idle_add.
+- A failed sync (no network, no credentials, missing IAM permissions)
+  never clears the view: cached data stays visible and a dismissible
+  warning bar explains what happened. This is deliberate - stale-but-
+  labelled data beats an empty screen in an outage.
+"""
+
+import json
+import os
+import sys
+import threading
+from datetime import datetime, timezone
+
+import gi
+gi.require_version('Gtk', '3.0')
+from gi.repository import Gtk, GLib, Gdk, Pango
+
+# db.py and indexer.py are installed alongside this script
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+from db import ResourceDB          # noqa: E402
+from indexer import ResourceIndexer  # noqa: E402
+
+# TreeStore columns
+COL_NAME = 0      # display name (resource name, or group label)
+COL_TYPE = 1      # resource type (empty for group rows)
+COL_ID = 2        # database primary key (empty for group rows)
+COL_HAYSTACK = 3  # lowercase "name id type" used for live search
+
+PROVIDER_LABELS = {"aws": "AWS"}
+SERVICE_LABELS = {
+    "ec2": "EC2",
+    "s3": "S3",
+    "lambda": "Lambda",
+    "rds": "RDS",
+    "vpc": "VPC",
+}
+
+# Fetch effectively everything; the DB API defaults to 500 rows
+LIST_LIMIT = 100000
+
+
+class ResourceViewer(Gtk.Window):
+    """Main window: resource tree + detail pane + sync controls."""
+
+    def __init__(self):
+        super().__init__(title="NubiferOS Resource Viewer")
+        self.set_default_size(1050, 700)
+
+        self.db = ResourceDB()
+        self._syncing = False
+        self._search_term = ""
+
+        self._apply_css()
+
+        main_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+        self.add(main_box)
+
+        main_box.pack_start(self._create_header(), False, False, 0)
+        main_box.pack_start(self._create_cached_banner(), False, False, 0)
+        main_box.pack_start(self._create_warning_bar(), False, False, 0)
+
+        # Stack: empty state (no inventory yet) vs. the browser panes
+        self._stack = Gtk.Stack()
+        self._stack.add_named(self._create_empty_state(), "empty")
+        self._stack.add_named(self._create_browser(), "browser")
+        main_box.pack_start(self._stack, True, True, 0)
+
+        self._reload()
+        self.show_all()
+
+    # ==================== Styling ====================
+
+    def _apply_css(self):
+        css = b"""
+        window {
+            background-color: #1a1a2e;
+        }
+        .header-bar {
+            background: linear-gradient(to right, #16213e, #1a1a2e);
+            padding: 8px 16px;
+        }
+        .header-title {
+            color: #00d4ff;
+            font-size: 16px;
+            font-weight: bold;
+        }
+        .sync-button {
+            background-color: #1e3a5f;
+            color: #00d4ff;
+            border: 1px solid #00d4ff;
+            border-radius: 6px;
+            padding: 4px 12px;
+            font-size: 12px;
+        }
+        .sync-button:hover {
+            background-color: #2a4a6f;
+        }
+        .sync-button:disabled {
+            opacity: 0.5;
+        }
+        .last-sync-label {
+            color: #888;
+            font-size: 11px;
+        }
+        .cached-banner {
+            background-color: #16213e;
+            padding: 4px 16px;
+        }
+        .cached-banner-label {
+            color: #888;
+            font-size: 11px;
+        }
+        .warning-banner {
+            background-color: rgba(255, 170, 0, 0.15);
+            border-bottom: 1px solid #ffaa00;
+            padding: 6px 16px;
+        }
+        .warning-banner-label {
+            color: #ffaa00;
+            font-size: 12px;
+        }
+        .dismiss-button {
+            background: transparent;
+            color: #ffaa00;
+            border: none;
+            padding: 0 6px;
+            font-size: 12px;
+        }
+        .resource-tree {
+            background-color: #252540;
+            color: #ccc;
+            font-size: 12px;
+        }
+        .resource-tree:selected {
+            background-color: #1e3a5f;
+            color: #00d4ff;
+        }
+        .detail-pane {
+            background-color: #1a1a2e;
+        }
+        .detail-title {
+            color: #00d4ff;
+            font-size: 16px;
+            font-weight: bold;
+        }
+        .detail-subtitle {
+            color: #888;
+            font-size: 11px;
+        }
+        .prop-key {
+            color: #00d4ff;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        .prop-value {
+            color: #ccc;
+            font-family: monospace;
+            font-size: 11px;
+        }
+        .placeholder-label {
+            color: #666;
+            font-style: italic;
+        }
+        .empty-title {
+            color: #00d4ff;
+            font-size: 18px;
+            font-weight: bold;
+        }
+        .empty-text {
+            color: #888;
+            font-size: 12px;
+        }
+        """
+        provider = Gtk.CssProvider()
+        provider.load_from_data(css)
+        Gtk.StyleContext.add_provider_for_screen(
+            Gdk.Screen.get_default(),
+            provider,
+            Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
+        )
+
+    # ==================== Header ====================
+
+    def _create_header(self):
+        header = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
+        header.get_style_context().add_class("header-bar")
+
+        title = Gtk.Label(label="☁ NubiferOS Resource Viewer")
+        title.get_style_context().add_class("header-title")
+        header.pack_start(title, False, False, 0)
+
+        # Live search over name / ID / type
+        self._search_entry = Gtk.SearchEntry()
+        self._search_entry.set_placeholder_text("Search name, ID, or type...")
+        self._search_entry.set_width_chars(30)
+        self._search_entry.connect("search-changed", self._on_search_changed)
+        header.pack_start(self._search_entry, True, True, 12)
+
+        # Sync button
+        self._sync_button = Gtk.Button(label="⟳ Sync")
+        self._sync_button.get_style_context().add_class("sync-button")
+        self._sync_button.set_tooltip_text(
+            "Refresh the inventory from AWS using the active workspace "
+            "credentials (read-only API calls)"
+        )
+        self._sync_button.connect("clicked", self._on_sync_clicked)
+        header.pack_end(self._sync_button, False, False, 0)
+
+        # Progress indicator (hidden while idle)
+        self._progress = Gtk.ProgressBar()
+        self._progress.set_show_text(True)
+        self._progress.set_valign(Gtk.Align.CENTER)
+        self._progress.set_no_show_all(True)
+        header.pack_end(self._progress, False, False, 0)
+
+        # Last sync timestamp
+        self._last_sync_label = Gtk.Label(label="Never synced")
+        self._last_sync_label.get_style_context().add_class("last-sync-label")
+        header.pack_end(self._last_sync_label, False, False, 0)
+
+        return header
+
+    # ==================== Banners ====================
+
+    def _create_cached_banner(self):
+        """Persistent 'Cached data' banner: the view is a local snapshot."""
+        self._cached_banner = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
+        self._cached_banner.get_style_context().add_class("cached-banner")
+
+        self._cached_label = Gtk.Label(label="")
+        self._cached_label.get_style_context().add_class("cached-banner-label")
+        self._cached_label.set_halign(Gtk.Align.START)
+        self._cached_banner.pack_start(self._cached_label, False, False, 0)
+
+        self._cached_banner.set_no_show_all(True)
+        return self._cached_banner
+
+    def _create_warning_bar(self):
+        """Non-blocking warning shown when a sync fails or partly fails."""
+        self._warning_bar = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL,
+                                    spacing=8)
+        self._warning_bar.get_style_context().add_class("warning-banner")
+
+        self._warning_label = Gtk.Label(label="")
+        self._warning_label.get_style_context().add_class(
+            "warning-banner-label")
+        self._warning_label.set_halign(Gtk.Align.START)
+        self._warning_label.set_line_wrap(True)
+        self._warning_label.set_xalign(0.0)
+        self._warning_bar.pack_start(self._warning_label, True, True, 0)
+
+        dismiss = Gtk.Button(label="✕")
+        dismiss.get_style_context().add_class("dismiss-button")
+        dismiss.set_relief(Gtk.ReliefStyle.NONE)
+        dismiss.set_can_focus(False)
+        dismiss.set_tooltip_text("Dismiss")
+        dismiss.connect("clicked", lambda _b: self._warning_bar.hide())
+        self._warning_bar.pack_end(dismiss, False, False, 0)
+
+        self._warning_bar.set_no_show_all(True)
+        return self._warning_bar
+
+    def _show_warning(self, message):
+        self._warning_label.set_text(message)
+        self._warning_bar.set_no_show_all(False)
+        self._warning_bar.show_all()
+        self._warning_bar.set_no_show_all(True)
+
+    def _show_cached_banner(self, message):
+        self._cached_label.set_text(message)
+        self._cached_banner.set_no_show_all(False)
+        self._cached_banner.show_all()
+        self._cached_banner.set_no_show_all(True)
+
+    # ==================== Empty state ====================
+
+    def _create_empty_state(self):
+        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
+        box.set_valign(Gtk.Align.CENTER)
+        box.set_halign(Gtk.Align.CENTER)
+
+        title = Gtk.Label(label="No resources indexed yet")
+        title.get_style_context().add_class("empty-title")
+        box.pack_start(title, False, False, 0)
+
+        text = Gtk.Label(
+            label="Activate a workspace (nubifer-workspace switch <name>)\n"
+                  "so credentials are available, then run your first sync.\n"
+                  "Only resource metadata is fetched - never secrets."
+        )
+        text.get_style_context().add_class("empty-text")
+        text.set_justify(Gtk.Justification.CENTER)
+        box.pack_start(text, False, False, 0)
+
+        sync_btn = Gtk.Button(label="⟳ Sync Now")
+        sync_btn.get_style_context().add_class("sync-button")
+        sync_btn.set_halign(Gtk.Align.CENTER)
+        sync_btn.connect("clicked", self._on_sync_clicked)
+        box.pack_start(sync_btn, False, False, 0)
+
+        return box
+
+    # ==================== Browser panes ====================
+
+    def _create_browser(self):
+        paned = Gtk.Paned(orientation=Gtk.Orientation.HORIZONTAL)
+        paned.set_position(420)
+
+        # Left: resource tree (provider > service > resource)
+        self._store = Gtk.TreeStore(str, str, str, str)
+        self._filter = self._store.filter_new()
+        self._filter.set_visible_func(self._filter_func)
+
+        self._tree = Gtk.TreeView(model=self._filter)
+        self._tree.get_style_context().add_class("resource-tree")
+        self._tree.set_headers_visible(True)
+        self._tree.set_enable_search(False)  # we have our own search entry
+
+        name_renderer = Gtk.CellRendererText()
+        name_renderer.set_property("ellipsize", Pango.EllipsizeMode.END)
+        name_col = Gtk.TreeViewColumn("Resource", name_renderer,
+                                      text=COL_NAME)
+        name_col.set_expand(True)
+        self._tree.append_column(name_col)
+
+        type_renderer = Gtk.CellRendererText()
+        type_col = Gtk.TreeViewColumn("Type", type_renderer, text=COL_TYPE)
+        self._tree.append_column(type_col)
+
+        selection = self._tree.get_selection()
+        selection.set_mode(Gtk.SelectionMode.SINGLE)
+        selection.connect("changed", self._on_selection_changed)
+
+        tree_scroll = Gtk.ScrolledWindow()
+        tree_scroll.set_policy(Gtk.PolicyType.AUTOMATIC,
+                               Gtk.PolicyType.AUTOMATIC)
+        tree_scroll.add(self._tree)
+        paned.pack1(tree_scroll, True, False)
+
+        # Right: detail pane
+        detail_scroll = Gtk.ScrolledWindow()
+        detail_scroll.set_policy(Gtk.PolicyType.AUTOMATIC,
+                                 Gtk.PolicyType.AUTOMATIC)
+        detail_scroll.get_style_context().add_class("detail-pane")
+
+        self._detail_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL,
+                                   spacing=6)
+        self._detail_box.set_margin_start(16)
+        self._detail_box.set_margin_end(16)
+        self._detail_box.set_margin_top(12)
+        self._detail_box.set_margin_bottom(12)
+        detail_scroll.add(self._detail_box)
+        paned.pack2(detail_scroll, True, False)
+
+        self._show_detail_placeholder()
+        return paned
+
+    # ==================== Tree population ====================
+
+    def _reload(self):
+        """Rebuild the tree and status labels from the local database."""
+        resources = self.db.list_resources(limit=LIST_LIMIT)
+
+        # Group provider > service > [resources]
+        grouped = {}
+        for res in resources:
+            provider = res.get("provider") or "unknown"
+            service = res.get("service") or "unknown"
+            grouped.setdefault(provider, {}).setdefault(service, []).append(res)
+
+        self._store.clear()
+        for provider in sorted(grouped):
+            total = sum(len(v) for v in grouped[provider].values())
+            provider_label = PROVIDER_LABELS.get(provider, provider)
+            piter = self._store.append(
+                None, [f"{provider_label} ({total})", "", "", ""])
+            for service in sorted(grouped[provider]):
+                rows = grouped[provider][service]
+                service_label = SERVICE_LABELS.get(service, service)
+                siter = self._store.append(
+                    piter, [f"{service_label} ({len(rows)})", "", "", ""])
+                for res in sorted(rows, key=lambda r: (r.get("name") or "",
+                                                       r["id"])):
+                    name = res.get("name") or res["id"]
+                    rtype = res.get("type") or ""
+                    haystack = " ".join([
+                        name, res["id"], rtype,
+                        res.get("region") or "",
+                    ]).lower()
+                    self._store.append(siter, [name, rtype, res["id"],
+                                               haystack])
+
+        self._update_sync_status()
+        self._stack.set_visible_child_name(
+            "browser" if resources else "empty")
+        self._expand_default()
+
+    def _expand_default(self):
+        """Expand provider rows (one level); expand all while searching."""
+        if self._search_term:
+            self._tree.expand_all()
+            return
+        model = self._tree.get_model()
+        treeiter = model.get_iter_first()
+        while treeiter is not None:
+            self._tree.expand_row(model.get_path(treeiter), False)
+            treeiter = model.iter_next(treeiter)
+
+    def _update_sync_status(self):
+        """Refresh last-sync label, cached banner, and startup warnings."""
+        status = self.db.get_sync_status()
+        times = [row["synced_at"] for row in status.values()
+                 if row.get("synced_at")]
+        if times:
+            when = self._format_time(max(times))
+            self._last_sync_label.set_text(f"Last sync: {when}")
+            self._show_cached_banner(
+                f"Cached data — last synced {when}. Resources created or "
+                f"deleted since then are not reflected."
+            )
+        else:
+            self._last_sync_label.set_text("Never synced")
+            self._cached_banner.hide()
+
+        # Surface services whose last recorded sync failed entirely
+        failed = sorted(s for s, row in status.items()
+                        if row.get("status") == "error")
+        if failed and not self._syncing:
+            self._show_warning(
+                "Last sync failed for: " + ", ".join(failed) +
+                ". Showing previously cached data for those services."
+            )
+
+    # ==================== Search ====================
+
+    def _on_search_changed(self, entry):
+        self._search_term = entry.get_text().strip().lower()
+        self._filter.refilter()
+        self._expand_default()
+
+    def _filter_func(self, model, treeiter, _data):
+        if not self._search_term:
+            return True
+        # Resource rows match on name/id/type; group rows are visible if
+        # any descendant matches.
+        if model.get_value(treeiter, COL_ID):
+            return self._search_term in model.get_value(treeiter,
+                                                        COL_HAYSTACK)
+        child = model.iter_children(treeiter)
+        while child is not None:
+            if self._filter_func(model, child, _data):
+                return True
+            child = model.iter_next(child)
+        return False
+
+    # ==================== Detail pane ====================
+
+    def _clear_detail(self):
+        for child in self._detail_box.get_children():
+            child.destroy()
+
+    def _show_detail_placeholder(self,
+                                 text="Select a resource to view its "
+                                      "details."):
+        self._clear_detail()
+        label = Gtk.Label(label=text)
+        label.get_style_context().add_class("placeholder-label")
+        label.set_halign(Gtk.Align.START)
+        self._detail_box.pack_start(label, False, False, 0)
+        self._detail_box.show_all()
+
+    def _on_selection_changed(self, selection):
+        model, treeiter = selection.get_selected()
+        if treeiter is None:
+            self._show_detail_placeholder()
+            return
+        resource_id = model.get_value(treeiter, COL_ID)
+        if not resource_id:
+            self._show_detail_placeholder()
+            return
+        resource = self.db.get_resource(resource_id)
+        if resource is None:
+            self._show_detail_placeholder("Resource no longer in the "
+                                          "local database. Run a sync.")
+            return
+        self._render_detail(resource)
+
+    def _render_detail(self, resource):
+        self._clear_detail()
+
+        title = Gtk.Label(label=resource.get("name") or resource["id"])
+        title.get_style_context().add_class("detail-title")
+        title.set_halign(Gtk.Align.START)
+        title.set_line_wrap(True)
+        title.set_xalign(0.0)
+        title.set_selectable(True)
+        self._detail_box.pack_start(title, False, False, 0)
+
+        subtitle = Gtk.Label(
+            label=f"{resource.get('service', '')} / "
+                  f"{resource.get('type', '')}"
+        )
+        subtitle.get_style_context().add_class("detail-subtitle")
+        subtitle.set_halign(Gtk.Align.START)
+        self._detail_box.pack_start(subtitle, False, False, 0)
+
+        # Identity / scope metadata
+        meta = [
+            ("Provider", resource.get("provider", "")),
+            ("Account", resource.get("account") or "(unknown)"),
+            ("Region", resource.get("region") or "(global)"),
+            ("Resource ID", resource["id"]),
+            ("Last synced", self._format_time(resource.get("synced_at"))),
+        ]
+        for key, value in meta:
+            self._detail_box.pack_start(
+                self._make_prop_row(key, str(value)), False, False, 0)
+
+        self._detail_box.pack_start(
+            Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL),
+            False, False, 6)
+
+        props_title = Gtk.Label(label="Properties")
+        props_title.get_style_context().add_class("detail-title")
+        props_title.set_halign(Gtk.Align.START)
+        self._detail_box.pack_start(props_title, False, False, 0)
+
+        properties = resource.get("properties") or {}
+        if not properties:
+            empty = Gtk.Label(label="No properties recorded.")
+            empty.get_style_context().add_class("placeholder-label")
+            empty.set_halign(Gtk.Align.START)
+            self._detail_box.pack_start(empty, False, False, 0)
+        else:
+            for key in sorted(properties):
+                row = self._make_prop_row(key,
+                                          self._format_value(properties[key]))
+                self._detail_box.pack_start(row, False, False, 0)
+
+        self._detail_box.show_all()
+
+    def _make_prop_row(self, key, value_text):
+        row = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
+
+        key_label = Gtk.Label(label=key)
+        key_label.get_style_context().add_class("prop-key")
+        key_label.set_halign(Gtk.Align.START)
+        row.pack_start(key_label, False, False, 0)
+
+        value_label = Gtk.Label(label=value_text)
+        value_label.get_style_context().add_class("prop-value")
+        value_label.set_halign(Gtk.Align.START)
+        value_label.set_line_wrap(True)
+        value_label.set_line_wrap_mode(Pango.WrapMode.WORD_CHAR)
+        value_label.set_xalign(0.0)
+        value_label.set_selectable(True)
+        row.pack_start(value_label, False, False, 0)
+
+        return row
+
+    @staticmethod
+    def _format_value(value):
+        """Pretty-print one property value from the JSON blob."""
+        if isinstance(value, (dict, list)):
+            return json.dumps(value, indent=2, default=str, sort_keys=True)
+        if value is None:
+            return "null"
+        if isinstance(value, bool):
+            return "true" if value else "false"
+        return str(value)
+
+    # ==================== Sync ====================
+
+    def _on_sync_clicked(self, _button):
+        if self._syncing:
+            return
+        self._syncing = True
+        self._sync_button.set_sensitive(False)
+        self._warning_bar.hide()
+        self._progress.set_fraction(0.0)
+        self._progress.set_text("Starting sync...")
+        self._progress.show()
+
+        thread = threading.Thread(target=self._sync_thread, daemon=True)
+        thread.start()
+
+    def _sync_thread(self):
+        """Background sync. Never touches the UI directly."""
+        def progress(message, fraction):
+            GLib.idle_add(self._on_sync_progress, message, fraction)
+
+        try:
+            indexer = ResourceIndexer(db=self.db)
+            summary = indexer.sync(progress_callback=progress)
+            GLib.idle_add(self._on_sync_done, summary, None)
+        except Exception as exc:  # IndexerError, credential/network issues
+            GLib.idle_add(self._on_sync_done, None, str(exc))
+
+    def _on_sync_progress(self, message, fraction):
+        self._progress.set_fraction(max(0.0, min(1.0, fraction)))
+        self._progress.set_text(message)
+        return False
+
+    def _on_sync_done(self, summary, error):
+        self._syncing = False
+        self._sync_button.set_sensitive(True)
+        self._progress.hide()
+
+        # Reload first: even a failed sync must keep showing cached data
+        self._reload()
+
+        if error is not None:
+            self._show_warning(
+                f"Sync failed: {error} — showing cached data. Check your "
+                f"network connection and active workspace credentials."
+            )
+            return False
+
+        failed = sorted(s for s, r in summary["services"].items()
+                        if r["status"] == "error")
+        partial = sorted(s for s, r in summary["services"].items()
+                         if r["status"] == "partial")
+        if failed or partial:
+            parts = []
+            if failed:
+                parts.append("failed: " + ", ".join(failed))
+            if partial:
+                parts.append("partial: " + ", ".join(partial))
+            self._show_warning(
+                "Sync completed with errors (" + "; ".join(parts) + "). "
+                "Cached data was kept for anything that could not be "
+                "refreshed. Missing IAM permissions are the usual cause."
+            )
+        return False
+
+    # ==================== Helpers ====================
+
+    @staticmethod
+    def _format_time(iso_timestamp):
+        """Human-friendly relative time for an ISO-8601 UTC timestamp."""
+        if not iso_timestamp:
+            return "unknown"
+        try:
+            then = datetime.fromisoformat(iso_timestamp)
+        except (ValueError, TypeError):
+            return str(iso_timestamp)
+        if then.tzinfo is None:
+            then = then.replace(tzinfo=timezone.utc)
+        delta = datetime.now(timezone.utc) - then
+        seconds = int(delta.total_seconds())
+        if seconds < 0:
+            seconds = 0
+        if seconds < 60:
+            return "just now"
+        if seconds < 3600:
+            minutes = seconds // 60
+            return f"{minutes} min ago"
+        if seconds < 86400:
+            hours = seconds // 3600
+            return f"{hours} hour{'s' if hours != 1 else ''} ago"
+        return then.astimezone().strftime("%Y-%m-%d %H:%M")
+
+
+def main():
+    app = ResourceViewer()
+    app.connect("destroy", Gtk.main_quit)
+    Gtk.main()
+
+
+if __name__ == "__main__":
+    main()

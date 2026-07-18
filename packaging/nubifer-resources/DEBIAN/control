@@ -1,0 +1,14 @@
+Package: nubifer-resources
+Version: __VERSION__
+Section: admin
+Priority: optional
+Architecture: all
+Depends: bash, python3, python3-gi, gir1.2-gtk-3.0, python3-boto3
+Recommends: nubifer-creds, nubifer-workspace
+Maintainer: NubiferOS Project <info@nubiferos.org>
+Homepage: https://nubiferos.org
+Description: NubiferOS cloud resource viewer
+ Read-only cached inventory of AWS resources (EC2, S3, Lambda, RDS,
+ VPC) with search and offline browsing. Syncs via the default AWS
+ credential chain (credential_process compatible); stores resource
+ metadata only, never credentials or secrets.

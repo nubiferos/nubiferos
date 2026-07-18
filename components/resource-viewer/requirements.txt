@@ -1,0 +1,12 @@
+# NubiferOS Resource Viewer Dependencies
+
+# AWS SDK (uses the default credential chain only - credentials are
+# injected by the NubiferOS credential manager via credential_process)
+boto3>=1.35.0
+
+# GUI
+# PyGObject (GTK3) comes from the system package python3-gi - do NOT
+# pip-install it. install.sh pulls in python3-gi and gir1.2-gtk-3.0.
+
+# Database
+# (sqlite3 is built into Python)

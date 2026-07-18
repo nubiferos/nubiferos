@@ -640,6 +640,32 @@ EOF
     # Autostart dashboard on first login after setup wizard completes
     cp "${PROJECT_ROOT}/components/security-dashboard/nubifer-dashboard-autostart.desktop" "${CHROOT_DIR}/etc/xdg/autostart/"
     log "INFO" "  ✓ Security Dashboard installed"
+
+    # Install NubiferOS Resource Viewer
+    log "INFO" "Installing NubiferOS Resource Viewer..."
+    mkdir -p "${CHROOT_DIR}/usr/local/lib/nubiferos/resource-viewer"
+    cp "${PROJECT_ROOT}/components/resource-viewer/src/db.py" "${CHROOT_DIR}/usr/local/lib/nubiferos/resource-viewer/"
+    cp "${PROJECT_ROOT}/components/resource-viewer/src/indexer.py" "${CHROOT_DIR}/usr/local/lib/nubiferos/resource-viewer/"
+    cp "${PROJECT_ROOT}/components/resource-viewer/src/nubifer-resources" "${CHROOT_DIR}/usr/local/lib/nubiferos/resource-viewer/"
+    chmod 755 "${CHROOT_DIR}/usr/local/lib/nubiferos/resource-viewer/nubifer-resources"
+    # CLI sync wrapper
+    cat > "${CHROOT_DIR}/usr/local/bin/nubifer-resource-sync" << 'EOF'
+#!/bin/bash
+INSTALL_DIR="/usr/local/lib/nubiferos/resource-viewer"
+export PYTHONPATH="$INSTALL_DIR:$PYTHONPATH"
+exec python3 "$INSTALL_DIR/indexer.py" "$@"
+EOF
+    chmod 755 "${CHROOT_DIR}/usr/local/bin/nubifer-resource-sync"
+    # GUI launcher wrapper
+    cat > "${CHROOT_DIR}/usr/local/bin/nubifer-resources" << 'EOF'
+#!/bin/bash
+INSTALL_DIR="/usr/local/lib/nubiferos/resource-viewer"
+export PYTHONPATH="$INSTALL_DIR:$PYTHONPATH"
+exec python3 "$INSTALL_DIR/nubifer-resources" "$@"
+EOF
+    chmod 755 "${CHROOT_DIR}/usr/local/bin/nubifer-resources"
+    cp "${PROJECT_ROOT}/components/resource-viewer/nubifer-resources.desktop" "${CHROOT_DIR}/usr/share/applications/"
+    log "INFO" "  ✓ Resource Viewer installed"
     
     # Install tool installer scripts
     mkdir -p "${CHROOT_DIR}/usr/share/nubiferos/installers"
@@ -770,8 +796,8 @@ if [ "$UPGRADABLE" -gt 0 ]; then
 
     DEBIAN_FRONTEND=noninteractive apt-get install -y --only-upgrade \
         nubifer-core nubifer-creds nubifer-workspace nubifer-dashboard \
-        nubifer-tools nubifer-welcome nubifer-updater nubifer-security \
-        nubifer-branding nubifer-ai 2>/dev/null || true
+        nubifer-resources nubifer-tools nubifer-welcome nubifer-updater \
+        nubifer-security nubifer-branding nubifer-ai 2>/dev/null || true
 
     log "NubiferOS packages updated successfully"
 
@@ -841,7 +867,7 @@ TIMER_EOF
         chroot_exec "apt-get -f install -y 2>/dev/null || true"
         rm -rf "${CHROOT_DIR}/tmp/nubifer-debs"
         # Mark as manually installed so apt autoremove won't remove them
-        chroot_exec "apt-mark manual nubifer-core nubifer-creds nubifer-workspace nubifer-dashboard nubifer-tools nubifer-welcome nubifer-updater nubifer-security nubifer-branding nubifer-ai 2>/dev/null || true"
+        chroot_exec "apt-mark manual nubifer-core nubifer-creds nubifer-workspace nubifer-dashboard nubifer-resources nubifer-tools nubifer-welcome nubifer-updater nubifer-security nubifer-branding nubifer-ai 2>/dev/null || true"
         log "INFO" "  ✓ NubiferOS packages registered with dpkg"
     else
         log "WARNING" "No .deb packages found - run build-debs.sh first for OTA update support"

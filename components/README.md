@@ -35,17 +35,17 @@ Workspace isolation and context switching service.
 ### Resource Viewer
 **Path**: `resource-viewer/`
 
-GUI application for browsing and visualizing cloud resources locally.
+GTK3 desktop application for browsing a locally cached inventory of your cloud resources.
 
 **Features**:
-- Local resource indexing from cloud providers
-- Offline browsing capability
-- Multi-cloud support (AWS, Azure, GCP)
-- Resource relationship visualization
-- Organization-wide dashboard
-- Cost analysis
+- AWS resource indexing via boto3 (EC2, S3, Lambda, RDS, VPC) into a local SQLite database (`~/.local/share/nubifer/resources.db`, 0600)
+- Offline browsing of cached inventory with "last synced" indicator; failed/partial syncs keep cached data visible
+- Tree view grouped by provider > service > resource with live search (name, ID, type, region) and a detail pane showing all resource properties
+- Manual sync with progress bar; per-service and per-region error isolation
+- Uses the default boto3 credential chain (works with the credential manager's `credential_process` integration)
+- Ships as GUI (`nubifer-resources`) plus CLI indexer (`nubifer-resource-sync`)
 
-**Technology**: Electron/Tauri with React/Vue frontend, Python/Go backend
+**Technology**: Python with GTK3 (PyGObject), boto3, SQLite. Currently AWS-only; Azure/GCP indexing, relationship visualization, and cost analysis are not yet implemented.
 
 ### Context Indicator
 **Path**: `context-indicator/`

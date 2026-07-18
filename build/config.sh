@@ -79,9 +79,6 @@ CONTEXT_MANAGER_DBUS="${COMPONENTS_DIR}/context-manager/dbus"
 CONTEXT_MANAGER_SYSTEMD="${COMPONENTS_DIR}/context-manager/systemd"
 
 RESOURCE_VIEWER_SRC="${COMPONENTS_DIR}/resource-viewer/src"
-RESOURCE_VIEWER_BACKEND="${COMPONENTS_DIR}/resource-viewer/backend"
-RESOURCE_VIEWER_INDEXER="${COMPONENTS_DIR}/resource-viewer/indexer"
-RESOURCE_VIEWER_DATABASE="${COMPONENTS_DIR}/resource-viewer/database"
 
 CONTEXT_INDICATOR_GNOME="${COMPONENTS_DIR}/context-indicator/gnome-extension"
 CONTEXT_INDICATOR_KDE="${COMPONENTS_DIR}/context-indicator/kde-plasmoid"

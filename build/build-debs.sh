@@ -254,6 +254,42 @@ cp "$PROJECT_ROOT/components/security-dashboard/nubifer-dashboard-autostart.desk
 build_package "nubifer-dashboard"
 
 # ============================================
+# 4b. nubifer-resources
+# ============================================
+PKG="${PROJECT_ROOT}/packaging/nubifer-resources"
+
+# Python modules (db + indexer + GTK app)
+mkdir -p "$PKG/usr/local/lib/nubiferos/resource-viewer"
+cp "$PROJECT_ROOT/components/resource-viewer/src/db.py" "$PKG/usr/local/lib/nubiferos/resource-viewer/"
+cp "$PROJECT_ROOT/components/resource-viewer/src/indexer.py" "$PKG/usr/local/lib/nubiferos/resource-viewer/"
+cp "$PROJECT_ROOT/components/resource-viewer/src/nubifer-resources" "$PKG/usr/local/lib/nubiferos/resource-viewer/"
+chmod +x "$PKG/usr/local/lib/nubiferos/resource-viewer/nubifer-resources"
+
+# CLI sync wrapper
+mkdir -p "$PKG/usr/local/bin"
+cat > "$PKG/usr/local/bin/nubifer-resource-sync" << 'EOF'
+#!/bin/bash
+INSTALL_DIR="/usr/local/lib/nubiferos/resource-viewer"
+export PYTHONPATH="$INSTALL_DIR:$PYTHONPATH"
+exec python3 "$INSTALL_DIR/indexer.py" "$@"
+EOF
+chmod +x "$PKG/usr/local/bin/nubifer-resource-sync"
+
+# GUI launcher wrapper
+cat > "$PKG/usr/local/bin/nubifer-resources" << 'EOF'
+#!/bin/bash
+INSTALL_DIR="/usr/local/lib/nubiferos/resource-viewer"
+export PYTHONPATH="$INSTALL_DIR:$PYTHONPATH"
+exec python3 "$INSTALL_DIR/nubifer-resources" "$@"
+EOF
+chmod +x "$PKG/usr/local/bin/nubifer-resources"
+
+mkdir -p "$PKG/usr/share/applications"
+cp "$PROJECT_ROOT/components/resource-viewer/nubifer-resources.desktop" "$PKG/usr/share/applications/"
+
+build_package "nubifer-resources"
+
+# ============================================
 # 5. nubifer-tools
 # ============================================
 PKG="${PROJECT_ROOT}/packaging/nubifer-tools"
@@ -353,8 +389,8 @@ if [ "$UPGRADABLE" -gt 0 ]; then
 
     DEBIAN_FRONTEND=noninteractive apt-get install -y --only-upgrade \
         nubifer-core nubifer-creds nubifer-workspace nubifer-dashboard \
-        nubifer-tools nubifer-welcome nubifer-updater nubifer-security \
-        nubifer-branding nubifer-ai 2>/dev/null || true
+        nubifer-resources nubifer-tools nubifer-welcome nubifer-updater \
+        nubifer-security nubifer-branding nubifer-ai 2>/dev/null || true
 
     log "NubiferOS packages updated successfully"
 
