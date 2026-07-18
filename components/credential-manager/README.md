@@ -53,7 +53,6 @@ nubifer-creds token refresh -t aws -n default
 
 Honest quirks of the current CLI:
 
-- `get -t api` is accepted by the parser but not implemented — retrieve API tokens with `pass show nubifer/<workspace-id>/api/<service>/token`
 - `list -t <type>` filters under `cloud/<type>`, so it works for `aws`/`azure`/`gcp` but not for `api` tokens (use plain `list` or `pass ls`)
 - `db` and `ssh` are accepted as types by the parser but have no add handlers yet
 
@@ -156,7 +155,7 @@ python3 -m py_compile nubifer-creds nubifer-aws-credential-helper
 
 - [ ] Automatic credential rotation (manual procedure documented in the setup guide)
 - [ ] Azure/GCP credential injection as integrated as AWS's `credential_process` flow
-- [ ] `get -t api` and `db`/`ssh` credential types
+- [ ] `db`/`ssh` credential types (parser accepts them, no handlers yet)
 - [ ] OIDC/SSO authentication
 - [ ] Hardware key support (YubiKey)
 

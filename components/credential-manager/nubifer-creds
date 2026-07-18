@@ -267,6 +267,17 @@ class CredentialManager:
         os.remove(key_file)
         print(f"  Original key file securely deleted")
     
+    def get_api_token(self, service: str) -> Optional[Dict]:
+        """Get API token"""
+        token = self.backend.get_credential(f"api/{service}/token")
+        if token:
+            result = {"token": token}
+            scopes = self.backend.get_credential(f"api/{service}/scopes")
+            if scopes:
+                result["scopes"] = scopes
+            return result
+        return None
+
     def add_api_token(self, service: str, token: str, scopes: str = ""):
         """Add API token"""
         self.backend.add_credential(f"api/{service}/token", token)
@@ -493,7 +504,20 @@ def main():
             else:
                 print(f"✗ Credentials not found: {args.name}", file=sys.stderr)
                 sys.exit(1)
-    
+        elif args.type == "api":
+            creds = manager.get_api_token(args.name)
+            if creds:
+                if args.json:
+                    print(json.dumps(creds, indent=2))
+                else:
+                    print(f"API Token: {args.name}")
+                    print(f"  Token: {creds['token'][:4]}...{creds['token'][-4:]}")
+                    if creds.get('scopes'):
+                        print(f"  Scopes: {creds['scopes']}")
+            else:
+                print(f"✗ Token not found: {args.name}", file=sys.stderr)
+                sys.exit(1)
+
     elif args.command == "remove":
         manager.remove_credential(args.path)
 
