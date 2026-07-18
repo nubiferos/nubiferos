@@ -223,11 +223,26 @@ EOF
 # Post-install cleanup reverses them for the installed system.
 # ==========================================
 
-# NOTE: getty@tty1 autologin REMOVED (July 2026). It was part of the old
-# bare-X kiosk design, but the shipped ISO boots GDM (re-enabled by
-# configure-installer-autostart.sh, which runs later). The leftover console
-# autologin raced GDM for tty1 and its session scripts force-rebooted the
-# machine ~35s after boot. GDM autologin is the single session path.
+# Configure getty auto-login on tty1 — this IS the session ignition:
+# gdm3 is disabled (configure_systemd_target) and the default target is
+# multi-user, so boot flow is getty autologin -> .bash_profile startx ->
+# .xinitrc -> calamares. Removing this (July 2026) broke boot entirely.
+# The GDM configs written by configure-installer-autostart.sh are dead.
+configure_getty_autologin() {
+    log "INFO" "=========================================="
+    log "INFO" "Configuring Getty Auto-Login"
+    log "INFO" "=========================================="
+
+    mkdir -p "${CHROOT_DIR}/etc/systemd/system/getty@tty1.service.d"
+    cat > "${CHROOT_DIR}/etc/systemd/system/getty@tty1.service.d/autologin.conf" << 'EOF'
+[Service]
+ExecStart=
+ExecStart=-/sbin/agetty --autologin installer --noclear %I $TERM
+Type=idle
+EOF
+
+    log "INFO" "✓ Getty auto-login configured for tty1"
+}
 
 # Disable GDM and set multi-user target (bare X, no desktop on live ISO)
 configure_systemd_target() {
@@ -360,6 +375,7 @@ main() {
     cleanup_locales
 
     # Lock down for installer-only ISO
+    configure_getty_autologin
     configure_systemd_target
     mask_getty_services
     configure_xorg_lockdown
