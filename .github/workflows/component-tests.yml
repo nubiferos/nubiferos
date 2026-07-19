@@ -1,0 +1,61 @@
+name: Component Tests
+
+on:
+  push:
+    branches: [trunk]
+  pull_request:
+    branches: [trunk]
+
+permissions:
+  contents: read
+
+jobs:
+  component-tests:
+    name: Python components & shell syntax
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"   # matches Debian bookworm target
+
+      - name: Byte-compile all Python components
+        run: |
+          # Compile every tracked .py plus extensionless Python executables
+          FAIL=0
+          while IFS= read -r f; do
+            python3 -m py_compile "$f" || { echo "COMPILE FAIL: $f"; FAIL=1; }
+          done < <(git ls-files 'components/**/*.py' 'scripts/*.py')
+          for exe in components/credential-manager/nubifer-creds \
+                     components/credential-manager/nubifer-aws-credential-helper \
+                     components/workspace-manager/nubifer-workspace \
+                     components/security-dashboard/nubifer-dashboard \
+                     components/resource-viewer/src/nubifer-resources; do
+            [ -f "$exe" ] && { python3 -m py_compile "$exe" || { echo "COMPILE FAIL: $exe"; FAIL=1; }; }
+          done
+          exit $FAIL
+
+      - name: Resource Viewer unit tests
+        run: |
+          cd components/resource-viewer
+          python3 -m unittest discover -s tests -v
+
+      - name: Shell syntax check (build + scripts + component installers)
+        run: |
+          FAIL=0
+          while IFS= read -r f; do
+            bash -n "$f" || { echo "SYNTAX FAIL: $f"; FAIL=1; }
+          done < <(git ls-files 'build/*.sh' 'scripts/*.sh' 'components/**/*.sh' 'testing/*.sh')
+          exit $FAIL
+
+      - name: Validate desktop entries
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq desktop-file-utils
+          FAIL=0
+          while IFS= read -r f; do
+            desktop-file-validate "$f" || { echo "INVALID: $f"; FAIL=1; }
+          done < <(git ls-files 'components/**/*.desktop')
+          exit $FAIL
