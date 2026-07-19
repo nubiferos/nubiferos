@@ -1,0 +1,10 @@
+#!/bin/sh
+# Show the security dashboard once, on the first login after setup
+# completes. Lives here (not inline in the .desktop Exec) because the
+# desktop-entry spec forbids unquoted ' and ~ in Exec lines.
+
+if [ -f "$HOME/.config/nubiferos/setup-complete" ] && \
+   [ ! -f "$HOME/.config/nubiferos/dashboard-shown" ]; then
+    /usr/local/bin/nubifer-dashboard
+    touch "$HOME/.config/nubiferos/dashboard-shown"
+fi

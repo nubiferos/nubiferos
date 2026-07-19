@@ -251,6 +251,8 @@ cp "$PROJECT_ROOT/components/security-dashboard/nubifer-dashboard.desktop" "$PKG
 
 mkdir -p "$PKG/etc/xdg/autostart"
 cp "$PROJECT_ROOT/components/security-dashboard/nubifer-dashboard-autostart.desktop" "$PKG/etc/xdg/autostart/"
+cp "$PROJECT_ROOT/components/security-dashboard/nubifer-dashboard-autostart" "$PKG/usr/local/bin/"
+chmod 755 "$PKG/usr/local/bin/nubifer-dashboard-autostart"
 
 build_package "nubifer-dashboard"
 

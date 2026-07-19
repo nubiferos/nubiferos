@@ -2,7 +2,7 @@
 Type=Application
 Name=NubiferOS Security Dashboard
 Comment=Show security status on first login after setup
-Exec=sh -c 'if [ -f ~/.config/nubiferos/setup-complete ] && [ ! -f ~/.config/nubiferos/dashboard-shown ]; then /usr/local/bin/nubifer-dashboard; touch ~/.config/nubiferos/dashboard-shown; fi'
+Exec=/usr/local/bin/nubifer-dashboard-autostart
 Icon=security-high
 Terminal=false
 Categories=System;Security;

@@ -113,6 +113,12 @@ rm -f /etc/systemd/system/calamares-autostart.service 2>/dev/null || true
 rm -f /usr/local/bin/calamares-exit-handler 2>/dev/null || true
 rm -f /usr/local/bin/install-nubiferos 2>/dev/null || true
 
+# Remove boot-test marker service (live-ISO CI instrumentation; inert on
+# installed systems via its boot=live guard, but no reason to ship it)
+rm -f /etc/systemd/system/multi-user.target.wants/nubifer-boot-test.service 2>/dev/null || true
+rm -f /usr/lib/systemd/system/nubifer-boot-test.service 2>/dev/null || true
+rm -f /usr/local/bin/nubifer-boot-test.sh 2>/dev/null || true
+
 # Remove live-boot specific files (not needed on installed system)
 rm -f /etc/live/boot.conf 2>/dev/null || true
 rm -rf /etc/live 2>/dev/null || true

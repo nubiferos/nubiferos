@@ -5,6 +5,6 @@ Exec=/usr/local/bin/nubifer-tools
 Icon=applications-utilities
 Terminal=false
 Type=Application
-Categories=NubiferOS;Development;System;
+Categories=Development;
 Keywords=cloud;tools;aws;azure;gcp;kubernetes;terraform;
 StartupNotify=true
