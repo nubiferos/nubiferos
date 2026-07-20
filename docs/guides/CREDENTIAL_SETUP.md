@@ -1,14 +1,93 @@
 # Credential Setup Guide
 
-How to set up credential management on NubiferOS: the first-boot wizard, GPG key and `pass` initialization, adding AWS/Azure/GCP credentials with `nubifer-creds`, how the AWS CLI picks credentials up via `credential_process`, and how to rotate and back up.
+How to authenticate cloud accounts on NubiferOS: guided SSO login with `nubifer-creds login` (the default path), the first-boot wizard, GPG key and `pass` initialization, adding static AWS/Azure/GCP credentials as the fallback, how the AWS CLI picks credentials up via `credential_process`, and how to rotate and back up.
 
-> **Companion guide:** [Workspace Management](WORKSPACE_MANAGEMENT.md). Credentials are stored **per workspace** — create or switch to the right workspace before adding them.
+> **Companion guide:** [Workspace Management](WORKSPACE_MANAGEMENT.md). Both SSO sessions and static credentials are scoped **per workspace** — create or switch to the right workspace before logging in or adding keys.
 
 ## Architecture in One Paragraph
 
-`nubifer-creds` is a thin, auditable wrapper around `pass` (password-store). Secrets are encrypted at rest with your **GPG key** — battle-tested tooling, no custom cryptography. Credentials are namespaced by workspace (`nubifer/<workspace-id>/cloud/<provider>/<name>/...`), so switching workspaces switches which credentials your CLIs see. For AWS, static keys are protected further by **STS token mode** (on by default): the CLI receives short-lived session tokens while your long-lived keys stay encrypted in `pass`. See [Credential Security](../CREDENTIAL_SECURITY.md) for the threat model.
+The default authentication path is **provider-native SSO**: `nubifer-creds login` drives `aws sso login` / `az login --use-device-code` / `gcloud auth login`, and NubiferOS scopes each provider's config and token cache to the active workspace so sessions never leak across accounts. Cloud providers are actively deprecating long-lived keys — prefer SSO wherever your accounts support it. For accounts that don't, `nubifer-creds` remains a thin, auditable wrapper around `pass` (password-store): static secrets are encrypted at rest with your **GPG key**, namespaced by workspace (`nubifer/<workspace-id>/cloud/<provider>/<name>/...`), and for AWS protected further by **STS token mode** (on by default) so the CLI only ever sees short-lived session tokens. SSO tokens are **never** stored in the pass vault — the provider CLIs own them, in workspace-scoped caches. See [Credential Security](../CREDENTIAL_SECURITY.md) for the threat model.
 
-## First-Boot Setup
+## Signing In with SSO (the Default)
+
+If your accounts support it — AWS IAM Identity Center, Azure Entra ID, GCP user auth — use SSO. No long-lived secret ever lands on the machine, MFA is enforced by the provider, and sessions expire on their own. The provider CLIs own their tokens; NubiferOS adds what they don't have: **per-workspace session isolation** (see [Workspace Management](WORKSPACE_MANAGEMENT.md#3-workspace-scoped-provider-sessions-session-broker)) and one command surface.
+
+The `login`, `logout`, and `status` commands never touch the pass vault — they work even before GPG/pass is initialized. Only **non-secret** SSO configuration (start URL, region, account, role, tenant, project) is stored, in the workspace config file. Tokens live only in the provider CLI's workspace-scoped cache.
+
+### One-time SSO setup per workspace
+
+Store the non-secret SSO configuration once; logins after that are non-interactive apart from the provider's browser/device-code step.
+
+```bash
+# AWS (IAM Identity Center)
+nubifer-creds login setup -t aws \
+  --sso-start-url https://my-org.awsapps.com/start \
+  --sso-region us-east-1 \
+  --sso-account-id 123456789012 \
+  --sso-role-name PowerUserAccess
+
+# Azure (optional — bindings applied at login)
+nubifer-creds login setup -t azure \
+  --tenant contoso.onmicrosoft.com \
+  --subscription 11111111-2222-3333-4444-555555555555
+
+# GCP (optional)
+nubifer-creds login setup -t gcp --project my-staging-project
+```
+
+All `login` subcommands accept `-w <workspace-id>` to target a non-active workspace. Setup writes to the workspace config (`~/.config/nubifer/workspaces/<id>.json`) and regenerates the workspace's scoped provider config files; it is logged to the audit trail as `SSO_SETUP`.
+
+### Logging in
+
+```bash
+nubifer-creds login -t aws     # runs: aws sso login --sso-session nubifer
+nubifer-creds login -t azure   # runs: az login --use-device-code (plus --tenant if bound)
+nubifer-creds login -t gcp     # runs: gcloud auth login
+```
+
+Each login runs inside the workspace scope, so the resulting session belongs to this workspace only. After the provider flow succeeds, NubiferOS:
+
+- applies stored bindings (Azure: `az account set --subscription`; GCP: project and `auth/impersonate_service_account` on the workspace-scoped gcloud config)
+- records **non-secret** session metadata (identity, expiry) in the workspace config for `status` — never token material
+- appends a `LOGIN` entry to `~/.config/nubifer/audit.log` (`LOGIN_FAILED` on failure)
+
+AWS requires `login setup` first (the command tells you exactly what to run if it's missing). Azure and GCP log in without prior setup.
+
+### Role assumption and impersonation (least privilege)
+
+Bind a workspace to a role rather than a raw identity:
+
+```bash
+# AWS: all default-profile calls go through this role
+nubifer-creds login setup -t aws --role-arn arn:aws:iam::123456789012:role/Deploy
+
+# GCP: mint short-lived tokens as a service account
+nubifer-creds login setup -t gcp --impersonate-service-account deployer@my-project.iam.gserviceaccount.com
+```
+
+The AWS role's source is the SSO session when one is configured, otherwise the static `credential_process` profile. Read-only mode enforcement in the CLI wrappers applies to SSO and role sessions the same as to static credentials.
+
+### Checking and ending sessions
+
+```bash
+nubifer-creds status           # per-provider table: mode, identity, expiry
+nubifer-creds status --json    # machine-readable
+
+nubifer-creds logout -t aws    # one provider
+nubifer-creds logout           # all recorded sessions in the workspace
+```
+
+`status` shows one row per provider: mode `sso` / `static` / `none` (with `(static fallback)` when both exist), the identity, and expiry — `Nh NNm left`, `provider-managed` for az/gcloud (they refresh their own tokens), or `EXPIRED` with a re-login hint. An expired session is logged once to the audit trail as `SESSION_EXPIRED`; `logout` runs the provider's logout/revoke inside the workspace scope, clears the session metadata, and logs `LOGOUT`.
+
+### How SSO and static keys interact
+
+Resolution order: **SSO session > static vault credentials**. In the workspace's generated AWS config, `[default]` resolves via the SSO session (through the bound role, if any); the static `credential_process` path stays available as the `nubifer-static` profile — select it explicitly with `AWS_PROFILE=nubifer-static`.
+
+Honest caveat: the NubiferOS `aws` wrapper currently still writes its own temporary static-key config whenever static credentials exist in the vault for the workspace — so with **both** configured, the wrapped `aws` command uses the static path while SDKs, Terraform, and anything else reading the workspace-scoped `AWS_CONFIG_FILE` use the SSO session. In an SSO-only workspace (no static keys stored) the wrapper passes through and the SSO session applies everywhere. Wrapper-level SSO awareness (including expired-session hints) is planned.
+
+## First-Boot Setup (needed for static credentials)
+
+The GPG/pass vault below is only required for the **static-key fallback** — SSO login works without it.
 
 ### The graphical path
 
@@ -49,9 +128,11 @@ nubifer-creds add -t aws -n prod -w <workspace-id>   # explicit workspace
 nubifer-creds add -t aws -n prod -y                  # skip confirmation
 ```
 
-## Adding Credentials
+## Adding Static Credentials (the Fallback)
 
-Command surface (from `nubifer-creds --help`): `add`, `list`, `get`, `remove`, `token`.
+Static keys are for accounts **without** SSO: legacy AWS accounts, Azure service principals for automation, GCP service account keys you cannot avoid. If SSO is available, use [`nubifer-creds login`](#signing-in-with-sso-the-default) instead — and don't add a static key alongside it unless you need one.
+
+Command surface (from `nubifer-creds --help`): `add`, `list`, `get`, `remove`, `token` (static/vault), plus `login`, `logout`, `status` (SSO sessions).
 
 ### AWS
 
@@ -202,7 +283,11 @@ Recovery on a fresh machine: import the GPG key (`gpg --import backup.asc`), clo
 
 ## Troubleshooting
 
-**"pass (password-store) not initialized"** — run `nubifer-setup-wizard`, or manually `pass init <gpg-key-id>` (create a key first with `gpg --full-generate-key` if needed).
+**"No AWS SSO configuration stored for this workspace"** — `nubifer-creds login -t aws` needs the one-time `nubifer-creds login setup -t aws --sso-start-url ... --sso-region ...` first (the error message prints the exact command).
+
+**Session expired mid-work** — `nubifer-creds status` shows which provider expired; re-run `nubifer-creds login -t <provider>`. Expiry is per workspace — other workspaces' sessions are unaffected.
+
+**"pass (password-store) not initialized"** — only matters for static credentials (`add`/`get`/`token`); SSO `login`/`logout`/`status` work without it. Run `nubifer-setup-wizard`, or manually `pass init <gpg-key-id>` (create a key first with `gpg --full-generate-key` if needed).
 
 **Credentials added but `aws` can't find them** — check the workspace: `nubifer-creds list` shows which workspace you're looking at. Credentials added with no active workspace went to `default`, not your current workspace. Also confirm the credential name is `default` or matches the workspace name.
 

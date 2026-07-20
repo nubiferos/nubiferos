@@ -66,16 +66,27 @@ everything.
 
 ### Do
 
-- **Prefer short-lived credentials over static keys.** Use AWS SSO / IAM
-  Identity Center, Azure device-code login with MFA, and GCP user auth where
-  possible. Static access keys should be the exception, not the rule. See
+- **Use SSO, not static keys — it's the default path.** Log workspaces in with
+  the guided flow:
+  ```bash
+  nubifer-creds login setup -t aws --sso-start-url ... --sso-region ...  # once
+  nubifer-creds login -t aws        # or: -t azure / -t gcp
+  ```
+  This drives AWS IAM Identity Center, Azure device-code login with MFA, and
+  GCP user auth inside the workspace scope — no long-lived secret ever lands
+  on the machine, and sessions expire on their own. Static access keys are the
+  fallback for accounts without SSO, not the norm. See
   [Credential Security](../CREDENTIAL_SECURITY.md) for per-provider guidance.
+- **Bind workspaces to roles, not raw identities** (least privilege):
+  `nubifer-creds login setup -t aws --role-arn ...` or
+  `-t gcp --impersonate-service-account ...`.
 - **Store any static keys in the vault:**
   ```bash
   nubifer-creds add -t aws -n production
   ```
 - **Audit what you have** periodically:
   ```bash
+  nubifer-creds status          # live sessions: mode, identity, expiry
   nubifer-creds list
   aws sts get-caller-identity   # confirms the active workspace's credentials work
   ```
@@ -207,6 +218,7 @@ of these, you need controls beyond the operating system.
 |-------|-----------|
 | Apply security updates | Weekly, or when notified |
 | Rotate static cloud keys | Every 90 days |
+| Check session state (`nubifer-creds status`), log out of idle workspaces | Weekly |
 | Audit stored credentials (`nubifer-creds list`) | Monthly |
 | Verify recovery key copies still exist and work | Quarterly |
 | Run `nubifer-security-scan --all` | Monthly |

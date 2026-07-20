@@ -184,15 +184,36 @@ When a workspace is active, three mechanisms combine:
 | Azure | `AZURE_LOCATION`, `AZURE_SUBSCRIPTION_ID` |
 | GCP | `GOOGLE_CLOUD_PROJECT`, `GOOGLE_CLOUD_REGION` |
 | Oracle | `OCI_REGION`, `OCI_TENANCY` |
-| All | `NUBIFER_WORKSPACE_ID`, `NUBIFER_WORKSPACE_NAME`, `NUBIFER_WORKSPACE_PROVIDER`, `NUBIFER_WORKSPACE_ACCOUNT`, `NUBIFER_WORKSPACE_ACCOUNT_ID`, `NUBIFER_WORKSPACE_READ_ONLY` |
+| All | `NUBIFER_WORKSPACE_ID`, `NUBIFER_WORKSPACE_NAME`, `NUBIFER_WORKSPACE_PROVIDER`, `NUBIFER_WORKSPACE_ACCOUNT`, `NUBIFER_WORKSPACE_ACCOUNT_ID`, `NUBIFER_WORKSPACE_READ_ONLY`, `NUBIFER_WORKSPACE` |
+| All (Session Broker) | `AWS_CONFIG_FILE`, `AWS_SHARED_CREDENTIALS_FILE`, `CLOUDSDK_CONFIG`, `AZURE_CONFIG_DIR` |
 
-Note: secrets are **never** placed in environment variables — only context (region, account ID).
+Note: secrets are **never** placed in environment variables — only context (region, account ID) and *paths* to workspace-scoped provider directories.
 
 ### 2. Workspace-scoped credentials
 
 Credentials in `pass` are stored under `nubifer/<workspace-id>/...`, so switching workspaces switches which credentials the CLI wrappers can even see. The AWS wrapper builds a temporary AWS config file pointing `credential_process` at `nubifer-aws-credential-helper`, which decrypts credentials for the active workspace only. Details in [Credential Setup](CREDENTIAL_SETUP.md).
 
-### 3. CLI wrappers and sandboxing
+### 3. Workspace-scoped provider sessions (Session Broker)
+
+Provider CLIs cache login sessions — AWS SSO tokens, `az` token caches, `gcloud` accounts and application-default credentials. By default those caches are global (`~/.aws`, `~/.azure`, `~/.config/gcloud`), so logging into one account would leak into every other context. NubiferOS relocates them per workspace by exporting four variables whenever a workspace is active:
+
+| Variable | Points to |
+|----------|-----------|
+| `AWS_CONFIG_FILE` | `~/.config/nubifer/workspaces/<id>/providers/aws/config` |
+| `AWS_SHARED_CREDENTIALS_FILE` | `~/.config/nubifer/workspaces/<id>/providers/aws/credentials` |
+| `CLOUDSDK_CONFIG` | `~/.config/nubifer/workspaces/<id>/providers/gcloud` |
+| `AZURE_CONFIG_DIR` | `~/.config/nubifer/workspaces/<id>/providers/azure` |
+
+What this buys you:
+
+- **Sessions cannot leak across workspaces.** `nubifer-creds login` in the prod workspace produces a session that the dev workspace cannot see — the caches are physically separate directory trees (`0700`, files `0600`).
+- **Switching workspaces switches identities.** The same shell-integration hook that updates your prompt re-exports these variables at the next prompt; `eval $(nubifer-workspace env <id>)` and `nw-activate` set them explicitly.
+- **No user configuration required.** The directories are created on workspace creation, and pre-existing workspaces get them lazily on first activation. The generated AWS config preserves the `credential_process` wiring, so static-key users are unaffected.
+- **Your own settings are respected.** Deactivating only unsets these variables if they still point under `~/.config/nubifer/workspaces/` — a custom `AWS_CONFIG_FILE` you set yourself is never clobbered.
+
+The scoped `aws/credentials` file stays an empty placeholder — static secrets live only in the pass vault, and SSO tokens live only in the provider CLI's scoped cache (e.g. `providers/aws/sso/cache/`). Guided login (`nubifer-creds login`) executes the provider CLIs inside this scope; see [Credential Setup](CREDENTIAL_SETUP.md#signing-in-with-sso-the-default).
+
+### 4. CLI wrappers and sandboxing
 
 Wrapped cloud CLIs enforce read-only mode, inject credentials via `credential_process` (no plaintext files, no env vars), log to the audit trail, and run under Firejail when it is installed.
 
@@ -270,7 +291,9 @@ nubifer-workspace switch <other-id>
 nubifer-workspace delete <id>
 ```
 
-Deleting a workspace removes its config file. It does **not** delete credentials stored under `nubifer/<workspace-id>/` in `pass` — remove those separately with `nubifer-creds remove` if the account is being retired.
+Deleting a workspace removes its config file **and** its scoped provider directory tree (`~/.config/nubifer/workspaces/<id>/`) — every file in it, including cached SSO/session tokens, is zero-overwritten (best-effort shred) before the tree is removed, so a deleted workspace leaves no live sessions behind.
+
+It does **not** delete credentials stored under `nubifer/<workspace-id>/` in `pass` — remove those separately with `nubifer-creds remove` if the account is being retired. If you want provider-side certainty, `nubifer-creds logout` before deleting also revokes the sessions with the providers.
 
 ## Audit Log
 
@@ -289,6 +312,13 @@ Review it periodically for anything you don't recognize. Note that it is an appe
 ```
 ~/.config/nubifer/
 ├── workspaces/<id>.json     # Workspace configs (0600)
+├── workspaces/<id>/         # Workspace data dir (0700)
+│   └── providers/           # Session Broker: scoped provider configs/caches
+│       ├── aws/config       # Generated AWS config (0600, credential_process / SSO)
+│       ├── aws/credentials  # Empty placeholder — secrets never land here
+│       ├── aws/sso/cache/   # AWS SSO token cache (this workspace only)
+│       ├── gcloud/          # CLOUDSDK_CONFIG root
+│       └── azure/           # AZURE_CONFIG_DIR root
 ├── current-workspace        # Active workspace ID
 └── workspace-audit.log      # Audit log (0600)
 

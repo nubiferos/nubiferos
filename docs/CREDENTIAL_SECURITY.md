@@ -4,17 +4,21 @@
 
 NubiferOS provides a comprehensive, secure credential management system for cloud accounts, API keys, database credentials, and other secrets. The system integrates with the cloud CLIs and development tools while maintaining security best practices.
 
-The command-line entry point is `nubifer-creds`, a thin, auditable wrapper around `pass` (password-store). Its full command surface is: `add`, `list`, `get`, `remove`, and `token` — see the [Credential Setup Guide](guides/CREDENTIAL_SETUP.md) for a hands-on walkthrough.
+The command-line entry point is `nubifer-creds`. Its full command surface is: `login`, `logout`, `status` (guided SSO sessions — the default path) plus `add`, `list`, `get`, `remove`, and `token` (the static-key fallback, a thin auditable wrapper around `pass`/password-store) — see the [Credential Setup Guide](guides/CREDENTIAL_SETUP.md) for a hands-on walkthrough.
+
+**Default recommendation: SSO.** `nubifer-creds login` drives the provider-native flows (`aws sso login`, `az login --use-device-code`, `gcloud auth login`) inside the active workspace's scope, so no long-lived secret ever lands on the machine and sessions cannot leak across workspaces. Static keys are the fallback for accounts without SSO. SSO tokens are never stored in the pass vault; only non-secret SSO configuration lives in the workspace config.
 
 ## Security Architecture
 
 ### Multi-Layer Security
 
-1. **GPG Encryption** - Every secret encrypted at rest with your GPG key (battle-tested, audited tooling — no custom cryptography)
-2. **pass (password-store)** - Standard, widely-audited storage backend
-3. **LUKS Encryption** - Full disk encryption
-4. **Workspace Isolation** - Credentials isolated per workspace
-5. **Temporary Credentials** - STS token mode for AWS (enabled by default)
+1. **SSO-First Authentication** - `nubifer-creds login`: short-lived provider sessions instead of long-lived keys wherever accounts support it
+2. **Workspace-Scoped Sessions** - Provider config and token caches (`AWS_CONFIG_FILE`, `CLOUDSDK_CONFIG`, `AZURE_CONFIG_DIR`, ...) relocated per workspace; token caches shredded on workspace delete
+3. **GPG Encryption** - Every static secret encrypted at rest with your GPG key (battle-tested, audited tooling — no custom cryptography)
+4. **pass (password-store)** - Standard, widely-audited storage backend
+5. **LUKS Encryption** - Full disk encryption
+6. **Workspace Isolation** - Credentials isolated per workspace
+7. **Temporary Credentials** - STS token mode for AWS static keys (enabled by default)
 
 ### Credential Storage Hierarchy
 
@@ -44,11 +48,30 @@ Anything else (database passwords, SSH passphrases, certificates) can be stored 
 
 ### 1. AWS Credentials
 
-#### Recommended Approach: Short-Lived Credentials
+#### Recommended Approach: AWS SSO (IAM Identity Center)
 
-AWS SSO (IAM Identity Center) is the gold standard for interactive access — no long-lived credentials, centralized access management, MFA enforced, automatic credential rotation. `nubifer-creds` does not yet integrate SSO; on NubiferOS the shipped mechanism for short-lived credentials is **STS token mode**, which is enabled automatically when you add access keys (see below).
+AWS SSO is the gold standard for interactive access — no long-lived credentials, centralized access management, MFA enforced, automatic credential rotation. It is integrated as the default flow:
 
-#### Alternative: IAM Access Keys (Secured)
+```bash
+# One-time, non-secret configuration (stored in the workspace config)
+nubifer-creds login setup -t aws \
+  --sso-start-url https://my-org.awsapps.com/start \
+  --sso-region us-east-1 \
+  --sso-account-id 123456789012 \
+  --sso-role-name PowerUserAccess
+
+# Log the workspace in (runs `aws sso login --sso-session nubifer` in scope)
+nubifer-creds login -t aws
+
+# Optional least-privilege binding: route all calls through a role
+nubifer-creds login setup -t aws --role-arn arn:aws:iam::123456789012:role/Deploy
+```
+
+Tokens are cached by the AWS CLI in the workspace-scoped SSO cache — never in the pass vault. When both an SSO session and static keys exist, the documented resolution order is **SSO > static** (the static path remains as the `nubifer-static` profile); note the `aws` wrapper itself still prefers the static `credential_process` path while static keys are stored — see the [Credential Setup Guide](guides/CREDENTIAL_SETUP.md#how-sso-and-static-keys-interact).
+
+#### Fallback: IAM Access Keys (Secured)
+
+For accounts without Identity Center. Static keys are hardened by **STS token mode**, enabled automatically when you add access keys (see below).
 ```bash
 # Add AWS access keys (encrypted in the pass store)
 nubifer-creds add -t aws -n production \
@@ -114,13 +137,16 @@ All token subcommands accept `-w <workspace-id>` to target a non-active workspac
 
 ### 2. Azure Credentials
 
-#### Recommended Approach: Azure CLI with Device Code Flow
+#### Recommended Approach: Device Code Flow (Entra ID)
 ```bash
-# Login with device code (MFA supported) — handled by az itself,
-# nothing is stored in nubifer-creds
-az login --use-device-code
+# Optionally bind tenant/subscription first (non-secret, applied at login)
+nubifer-creds login setup -t azure --tenant <tenant> --subscription <sub-id>
 
-# Or use a service principal (for automation) — stored encrypted:
+# Login with device code (MFA supported) inside the workspace scope —
+# runs `az login --use-device-code`; az owns its (workspace-scoped) token cache
+nubifer-creds login -t azure
+
+# Fallback: a service principal (for automation) — stored encrypted:
 nubifer-creds add -t azure -n automation \
   --tenant-id <tenant-id> \
   --client-id <client-id> \
@@ -133,12 +159,20 @@ On Azure VMs, prefer managed identity — the VM authenticates as itself, so the
 
 ### 3. GCP Credentials
 
-#### Recommended Approach: Application Default Credentials (ADC)
+#### Recommended Approach: User Auth with Impersonation
 ```bash
-# Login with user account — handled by gcloud itself
+# Optionally bind project / service-account impersonation (non-secret)
+nubifer-creds login setup -t gcp --project my-project \
+  --impersonate-service-account deployer@my-project.iam.gserviceaccount.com
+
+# Login with user account inside the workspace scope —
+# runs `gcloud auth login`, then applies the bindings to the scoped config
+nubifer-creds login -t gcp
+
+# ADC for SDKs, if needed — also lands in the workspace-scoped CLOUDSDK_CONFIG
 gcloud auth application-default login
 
-# Or use a service account key (encrypted):
+# Fallback: a service account key (encrypted):
 nubifer-creds add -t gcp -n my-project \
   --project-id my-project \
   --key-file service-account.json
@@ -375,7 +409,7 @@ grep 'cloud/aws/production' ~/.config/nubifer/audit.log
 tail -f ~/.config/nubifer/audit.log
 ```
 
-Each entry records timestamp, user, workspace, action, and path — never the secret values.
+Each entry records timestamp, user, workspace, action, and path — never the secret values. SSO session events follow the same discipline: `SSO_SETUP`, `LOGIN`, `LOGIN_FAILED`, `LOGOUT`, and `SESSION_EXPIRED` (logged once per expiry) appear in the same log with `session/<provider>` in the path slot.
 
 #### Temporary Credentials
 ```bash
@@ -437,16 +471,18 @@ Workspaces do **not** inherit or share credentials — this is a deliberate desi
 
 ### 1. Use Short-Lived Credentials
 
-✅ **Recommended**:
+✅ **Recommended** (all via `nubifer-creds login -t {aws|azure|gcp}`):
 - AWS SSO with temporary credentials
 - Azure device code flow
-- GCP user authentication
-- STS token mode (the NubiferOS default for stored AWS keys)
+- GCP user authentication (with service-account impersonation for least privilege)
+- STS token mode (the NubiferOS default for stored AWS keys, when you must store keys)
 
 ❌ **Avoid**:
 - Long-lived IAM access keys
 - Service principal secrets without rotation
 - Permanent service account keys
+
+Check what's live at any time with `nubifer-creds status` (per-provider mode, identity, expiry) and end sessions with `nubifer-creds logout`.
 
 ### 2. Enable MFA
 
@@ -664,4 +700,4 @@ Prefer letting the wrappers do the work (the AWS CLI/SDK picks up credentials vi
 ---
 
 **NubiferOS Version**: 1.0 (Nimbus)  
-**Last Updated**: 2026-07-18
+**Last Updated**: 2026-07-20
