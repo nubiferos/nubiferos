@@ -2,35 +2,56 @@
 
 > Operational knowledge for AI assistants. See `.kiro/specs/` for requirements/design docs.
 
-## Project State (Jan 2026)
+## Project State (July 2026)
 
-**Current Focus:** Testing and stabilizing the installer. All core components implemented.
+**Released:** v0.1.6 (2026-07-20, build 68638d8) — first public alpha. Tag,
+ISO, and contents agree (use the `current` release_type; see Release below).
+Current dev cycle: 0.1.7.
 
-**What Works:**
-- ISO builds (~25 min via GitHub Actions)
-- ISO boots directly to installer (no live CD)
-- Calamares launches and shows installation wizard
-- LUKS1 encryption with GRUB support (single password)
-- Installation completes successfully
-- Plymouth boot splash with NubiferOS branding
-- Recovery key generation and display during installation
-- Encryption warning dialog during installation
-- Post-install cleanup (removes installer user)
-- First-boot setup wizard (`nubifer-setup-wizard`) - GPG/pass initialization
-- Credential manager (`nubifer-creds`) - pass-based, GPG encrypted
-- Workspace manager (`nubifer-workspace`) - multi-cloud workspace isolation
-- Firejail integration for CLI sandboxing
-- Shell integration for workspace context
+**Current Focus:** Phase 2 — modern cloud auth (SSO/role-based, workspace-
+scoped sessions). Spec: `.kiro/specs/modern-cloud-auth/`.
 
-**What's In Progress:**
-- Alpha testing of full installation flow
-- First-boot wizard GTK4 UI (`nubifer-welcome`)
+**What Works (all verified by CI + manual install test):**
+- ISO builds (~21 min via GitHub Actions), automated QEMU boot test proves
+  every build reaches a running Calamares (serial markers + screenshots)
+- LUKS1 encryption with GRUB support, recovery key, encryption warning
+- Full install flow incl. post-install cleanup and first-boot wizard
+- Resource Viewer (`nubifer-resources`) — GTK3, boto3→SQLite AWS indexer
+- Credential manager (`nubifer-creds`) — pass/GPG, credential_process, STS
+- Workspace manager (`nubifer-workspace`) — read-only mode requires root to
+  disable (both `rw` and `readonly --disable` paths)
+- Plymouth splash + correct version stamped everywhere from VERSION file
 
-**What's Removed (Security):**
-- Live CD mode removed - ISO is installer-only to prevent encryption bypass
+**Live ISO session architecture (learned the hard way — July 2026):**
+The live installer is a BARE-X KIOSK: getty@tty1 autologin → .bash_profile
+startx → .xinitrc → calamares. gdm3 is DISABLED in the live session (the GDM
+autologin config in configure-installer-autostart.sh is dead there; GDM is
+re-enabled post-install). Do NOT remove the getty autologin — it is the boot
+path. All reboot-on-exit bombs in the session files were removed.
+
+**Do NOT re-add:**
+- `build/setup-calamares-minimal.sh` to CI — it overwrites the curated
+  installer/calamares/ configs (shipped broken ISOs for months)
+- Live CD mode — installer-only ISO prevents encryption bypass
 
 **Future Consideration:**
-- LUKS1 /boot + LUKS2 root hybrid (better GPU resistance, but 2 passwords) - deferred to alpha testing
+- LUKS1 /boot + LUKS2 root hybrid (better GPU resistance, but 2 passwords)
+
+## Release Procedure
+
+1. Ensure the staging build at the current VERSION passed Test ISO (boot test)
+   and a manual VM install test.
+2. `gh workflow run "Release to Production" -f release_type=current` —
+   `current` ships the tested staging build as-is. Only use patch/minor/major
+   if VERSION was already bumped AND rebuilt AND retested.
+3. Approve the `production` environment gate (run shows "waiting"):
+   `gh api repos/nubiferos/nubiferos/actions/runs/<id>/pending_deployments`
+   then POST approval. (An unapproved gate hung the March release for 720h.)
+4. If the 1.1GB ISO asset upload fails (GitHub 5xx), recover with
+   `gh release upload v<X> <iso>` — asset name comes from the local filename.
+5. The release dispatches a website rebuild; if it failed before that step,
+   `gh workflow run hugo.yml -R nubiferos/website`.
+6. Open the next cycle: bump VERSION + brand.conf BRAND_VERSION, commit.
 
 ## Critical Bug Fixes Applied
 
