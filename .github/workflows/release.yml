@@ -8,6 +8,7 @@ on:
         required: true
         type: choice
         options:
+          - current # release the tested staging build at the CURRENT version (no bump)
           - patch   # 0.1.0 -> 0.1.1
           - minor   # 0.1.x -> 0.2.0
           - major   # 0.x.x -> 1.0.0 (stable release!)
@@ -63,11 +64,16 @@ jobs:
         MINOR=${MINOR:-0}
         PATCH=${PATCH:-0}
 
-        # Bump based on release_type input
+        # Bump based on release_type input. 'current' releases the tested
+        # staging build as-is: bump-then-release can never promote what was
+        # actually tested, because staging is versioned with the pre-bump
+        # VERSION (historically produced tag/ISO mismatches like v0.1.2
+        # shipping a 0.1.4-named ISO).
         case "${{ inputs.release_type }}" in
           major) MAJOR=$((MAJOR + 1)); MINOR=0; PATCH=0 ;;
           minor) MINOR=$((MINOR + 1)); PATCH=0 ;;
           patch) PATCH=$((PATCH + 1)) ;;
+          current) ;;
         esac
 
         VERSION="${MAJOR}.${MINOR}.${PATCH}"
