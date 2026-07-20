@@ -27,16 +27,12 @@ class TestTokenCache(unittest.TestCase):
         self.temp_dir = tempfile.mkdtemp()
         self.db_path = Path(self.temp_dir) / "test_token_cache.db"
 
-        # Mock keyring as unavailable for predictable file-based testing
-        self.keyring_patcher = patch('token_cache.TokenCache._check_keyring', return_value=False)
-        self.keyring_patcher.start()
-
+        # TokenCache is file-based only (keyring support removed in 3e937cc);
+        # no keyring mocking needed.
         self.cache = TokenCache(db_path=self.db_path)
 
     def tearDown(self):
         """Clean up test fixtures"""
-        self.keyring_patcher.stop()
-
         # Clean up temp files
         import shutil
         shutil.rmtree(self.temp_dir, ignore_errors=True)

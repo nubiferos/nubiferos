@@ -89,6 +89,24 @@ nubifer-creds token disable -t aws -n default          # revert to static creden
 nubifer-creds token enable  -t aws -n default --duration 3600   # 900–43200 seconds
 ```
 
+## 7. Prefer SSO? (Recommended Where Available)
+
+Static keys work, but if your org uses AWS IAM Identity Center, Entra ID, or Google sign-in, use SSO instead — short-lived tokens, scoped to the workspace, nothing long-lived to rotate:
+
+```bash
+# One-time NON-SECRET setup (stored in the workspace config, never in pass)
+nubifer-creds login setup -t aws --sso-start-url https://my-org.awsapps.com/start \
+    --sso-region us-east-1 --sso-account-id 123456789012 --sso-role-name DevAccess
+
+nubifer-creds login -t aws     # runs `aws sso login` inside the workspace scope
+nubifer-creds status           # per-provider: mode (sso/static/none), identity, expiry
+nubifer-creds logout           # revoke sessions + clear session metadata
+```
+
+Azure and GCP work the same way: `login setup -t azure --tenant <id> --subscription <id>` then `login -t azure` (device code); `login setup -t gcp --project <id> --impersonate-service-account <sa>` then `login -t gcp`. Optional least-privilege binding for AWS: `login setup -t aws --role-arn arn:aws:iam::...:role/Deployer`.
+
+When both SSO and static keys exist, **SSO wins** — static credentials stay reachable as the `nubifer-static` AWS profile. Logins and expiry are recorded in the audit log (never token material).
+
 ## Backup (Do This Now)
 
 Lose your GPG key and every stored credential is permanently unrecoverable:

@@ -13,7 +13,7 @@ import getpass
 import subprocess
 from pathlib import Path
 from typing import Dict, List, Optional
-from datetime import datetime
+from datetime import datetime, timezone
 
 # Add src directory to path for imports
 # Check installed location first, then development location
@@ -308,6 +308,607 @@ class CredentialManager:
         print(f"✓ Credential removed: {path}")
 
 
+# ---------------------------------------------------------------------------
+# Modern cloud auth: guided SSO login + session visibility
+# (modern-cloud-auth Requirements 2, 3, 4.1, 5.1)
+#
+# Provider CLIs (aws sso login / az login / gcloud auth login) own their
+# token lifecycles. NubiferOS only scopes their config/cache dirs to the
+# active workspace (Session Broker, workspace-manager) and orchestrates the
+# login. SSO *configuration* (non-secret) lives in the workspace config;
+# SSO tokens are NEVER stored in the pass vault.
+# ---------------------------------------------------------------------------
+
+SESSION_PROVIDERS = ("aws", "azure", "gcp")
+
+# Must match AWS_SSO_SESSION_NAME in the workspace manager (Session Broker)
+AWS_SSO_SESSION_NAME = "nubifer"
+
+_workspace_manager_module = None
+_workspace_manager_load_attempted = False
+
+
+def _load_workspace_manager():
+    """Load the workspace-manager module (Session Broker API).
+
+    Tries the development checkout first (sibling component), then the
+    installed location. Returns None if unavailable - callers degrade
+    gracefully (scoped paths are constructed from the known layout).
+    """
+    global _workspace_manager_module, _workspace_manager_load_attempted
+    if _workspace_manager_load_attempted:
+        return _workspace_manager_module
+    _workspace_manager_load_attempted = True
+
+    import importlib.util
+    from importlib.machinery import SourceFileLoader
+
+    candidates = [
+        os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                     '..', 'workspace-manager', 'nubifer-workspace'),
+        '/usr/local/bin/nubifer-workspace',
+    ]
+    for candidate in candidates:
+        candidate = os.path.abspath(candidate)
+        if not os.path.isfile(candidate):
+            continue
+        try:
+            loader = SourceFileLoader('nubifer_workspace', candidate)
+            spec = importlib.util.spec_from_loader('nubifer_workspace', loader)
+            module = importlib.util.module_from_spec(spec)
+            loader.exec_module(module)
+            _workspace_manager_module = module
+            break
+        except Exception:
+            continue
+    return _workspace_manager_module
+
+
+def _parse_session_timestamp(value: Optional[str]) -> Optional[datetime]:
+    """Parse a provider expiry timestamp (ISO 8601, 'Z'/'UTC' suffixes)"""
+    if not value:
+        return None
+    ts = value.strip()
+    if ts.endswith('Z'):
+        ts = ts[:-1] + '+00:00'
+    elif ts.endswith('UTC'):
+        ts = ts[:-3] + '+00:00'
+    try:
+        parsed = datetime.fromisoformat(ts)
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    return parsed
+
+
+def _humanize_remaining(seconds: float) -> str:
+    """'2h 05m' style remaining-time display"""
+    seconds = int(seconds)
+    hours, rem = divmod(seconds, 3600)
+    minutes = rem // 60
+    if hours > 0:
+        return f"{hours}h {minutes:02d}m"
+    return f"{minutes}m"
+
+
+class SessionManager:
+    """Guided SSO login and session visibility for the active workspace.
+
+    Does not require the pass vault: SSO tokens are cached by the provider
+    CLIs inside the workspace-scoped dirs (Session Broker). Only non-secret
+    session metadata (provider, identity, expiry) is recorded in the
+    workspace config for the context indicator and `status`.
+    """
+
+    def __init__(self, workspace_id: str = None):
+        self.config_dir = Path.home() / '.config' / 'nubifer'
+        self.workspace_dir = self.config_dir / 'workspaces'
+        self.audit_log = self.config_dir / 'audit.log'
+        Path(self.config_dir).mkdir(parents=True, exist_ok=True, mode=0o700)
+
+        self.workspace_id = workspace_id or self._active_workspace_id()
+        if not self.workspace_id:
+            print("✗ No active workspace", file=sys.stderr)
+            print("  Switch first: nubifer-workspace switch <workspace-id>",
+                  file=sys.stderr)
+            print("  Or target one explicitly with -w <workspace-id>",
+                  file=sys.stderr)
+            sys.exit(1)
+
+        if not self._workspace_file().exists():
+            print(f"✗ Workspace not found: {self.workspace_id}", file=sys.stderr)
+            sys.exit(1)
+
+    # -- workspace config plumbing ---------------------------------------
+
+    def _active_workspace_id(self) -> Optional[str]:
+        workspace_id = os.getenv("NUBIFER_WORKSPACE_ID")
+        if workspace_id:
+            return workspace_id
+        current_file = self.config_dir / 'current-workspace'
+        if current_file.exists():
+            try:
+                return current_file.read_text().strip() or None
+            except OSError:
+                return None
+        return None
+
+    def _workspace_file(self) -> Path:
+        return self.workspace_dir / f"{self.workspace_id}.json"
+
+    def _load_workspace(self) -> Dict:
+        with open(self._workspace_file(), 'r') as f:
+            return json.load(f)
+
+    def _save_workspace(self, workspace: Dict):
+        workspace_file = self._workspace_file()
+        with open(workspace_file, 'w') as f:
+            json.dump(workspace, f, indent=2)
+        workspace_file.chmod(0o600)
+
+    def _audit(self, action: str, provider: str, details: str = ""):
+        """Audit entry - same format/discipline as PassBackend (no secrets)"""
+        timestamp = datetime.now().isoformat()
+        user = os.getenv("USER", "unknown")
+        log_entry = (f"{timestamp} | {user} | {self.workspace_id} | {action}"
+                     f" | session/{provider} | {details}\n")
+        with open(self.audit_log, 'a') as f:
+            f.write(log_entry)
+
+    # -- Session Broker integration --------------------------------------
+
+    def _providers_dir(self) -> Path:
+        return self.workspace_dir / self.workspace_id / 'providers'
+
+    def _scoped_env(self) -> Dict[str, str]:
+        """Environment with provider config/cache scoped to the workspace"""
+        env = dict(os.environ)
+        wm = _load_workspace_manager()
+        if wm is not None:
+            env.update(wm.WorkspaceManager().provider_env(self.workspace_id))
+        else:
+            providers = self._providers_dir()
+            env.update({
+                'AWS_CONFIG_FILE': str(providers / 'aws' / 'config'),
+                'AWS_SHARED_CREDENTIALS_FILE': str(providers / 'aws' / 'credentials'),
+                'CLOUDSDK_CONFIG': str(providers / 'gcloud'),
+                'AZURE_CONFIG_DIR': str(providers / 'azure'),
+            })
+        env['NUBIFER_WORKSPACE'] = self.workspace_id
+        env['NUBIFER_WORKSPACE_ID'] = self.workspace_id
+        return env
+
+    def _refresh_provider_configs(self, workspace: Dict):
+        """Ask the Session Broker to (re)provision generated configs"""
+        wm = _load_workspace_manager()
+        if wm is None:
+            print("⚠️  workspace manager not found - scoped provider configs "
+                  "not refreshed", file=sys.stderr)
+            return
+        try:
+            wm.WorkspaceManager().refresh_provider_configs(
+                self.workspace_id, workspace)
+        except Exception as e:
+            print(f"⚠️  Could not refresh scoped provider configs: {e}",
+                  file=sys.stderr)
+
+    # -- SSO configuration storage (Req 2.2, 2.5, 3.1-3.3) ---------------
+
+    def setup(self, provider: str, options: Dict[str, Optional[str]]):
+        """Store non-secret SSO configuration / role bindings.
+
+        Values land in the workspace config file - NEVER in the pass vault.
+        """
+        workspace = self._load_workspace()
+        stored = []
+
+        if provider == 'aws':
+            sso = workspace.setdefault('sso', {}).setdefault('aws', {})
+            for key in ('sso_start_url', 'sso_region',
+                        'sso_account_id', 'sso_role_name'):
+                if options.get(key):
+                    sso[key] = options[key]
+                    stored.append(key)
+            if options.get('role_arn'):
+                workspace['aws_role_arn'] = options['role_arn']
+                stored.append('aws_role_arn')
+        elif provider == 'azure':
+            if options.get('tenant'):
+                workspace['azure_tenant'] = options['tenant']
+                stored.append('azure_tenant')
+            if options.get('subscription'):
+                workspace['azure_subscription'] = options['subscription']
+                stored.append('azure_subscription')
+        elif provider == 'gcp':
+            if options.get('project'):
+                workspace.setdefault('sso', {}).setdefault('gcp', {})['project'] = \
+                    options['project']
+                stored.append('project')
+            if options.get('impersonate_service_account'):
+                workspace['gcp_impersonate_service_account'] = \
+                    options['impersonate_service_account']
+                stored.append('gcp_impersonate_service_account')
+
+        if not stored:
+            print(f"✗ Nothing to store for provider '{provider}'", file=sys.stderr)
+            hints = {
+                'aws': "--sso-start-url, --sso-region, --sso-account-id, "
+                       "--sso-role-name, --role-arn",
+                'azure': "--tenant, --subscription",
+                'gcp': "--project, --impersonate-service-account",
+            }
+            print(f"  Options for {provider}: {hints[provider]}", file=sys.stderr)
+            sys.exit(1)
+
+        self._save_workspace(workspace)
+        self._refresh_provider_configs(workspace)
+        self._audit("SSO_SETUP", provider, f"keys={','.join(stored)}")
+
+        print(f"✓ SSO configuration stored: {provider}")
+        print(f"  Workspace: {workspace.get('name', '?')} ({self.workspace_id})")
+        print(f"  Updated: {', '.join(stored)}")
+        print(f"  Config is non-secret and lives in the workspace config;")
+        print(f"  tokens stay in the provider CLI's workspace-scoped cache.")
+        print(f"  Log in with: nubifer-creds login -t {provider}")
+
+    # -- guided login (Req 2.1-2.3) --------------------------------------
+
+    def login(self, provider: str) -> bool:
+        workspace = self._load_workspace()
+        env = self._scoped_env()
+        self._refresh_provider_configs(workspace)
+
+        if provider == 'aws':
+            ok, identity, expires_at = self._login_aws(workspace, env)
+        elif provider == 'azure':
+            ok, identity, expires_at = self._login_azure(workspace, env)
+        elif provider == 'gcp':
+            ok, identity, expires_at = self._login_gcp(workspace, env)
+        else:
+            print(f"✗ Unsupported provider: {provider}", file=sys.stderr)
+            return False
+
+        if not ok:
+            self._audit("LOGIN_FAILED", provider)
+            print(f"✗ Login failed: {provider}", file=sys.stderr)
+            return False
+
+        self._record_session(provider, identity, expires_at)
+        self._audit("LOGIN", provider,
+                    f"identity={identity or 'unknown'}, "
+                    f"expires={expires_at or 'unknown'}")
+
+        print(f"✓ Logged in: {provider}")
+        print(f"  Workspace: {workspace.get('name', '?')} ({self.workspace_id})")
+        if identity:
+            print(f"  Identity: {identity}")
+        if expires_at:
+            print(f"  Session expires: {expires_at}")
+        print(f"  Session state: nubifer-creds status")
+        return True
+
+    def _login_aws(self, workspace, env):
+        sso = (workspace.get('sso') or {}).get('aws') or {}
+        if not sso.get('sso_start_url'):
+            print("✗ No AWS SSO configuration stored for this workspace",
+                  file=sys.stderr)
+            print("  Store it once (non-secret, non-interactive logins after):",
+                  file=sys.stderr)
+            print("    nubifer-creds login setup -t aws \\", file=sys.stderr)
+            print("      --sso-start-url https://my-org.awsapps.com/start \\",
+                  file=sys.stderr)
+            print("      --sso-region us-east-1 "
+                  "--sso-account-id 123456789012 --sso-role-name MyRole",
+                  file=sys.stderr)
+            return False, None, None
+
+        result = subprocess.run(
+            ["aws", "sso", "login", "--sso-session", AWS_SSO_SESSION_NAME],
+            env=env)
+        if result.returncode != 0:
+            return False, None, None
+
+        identity = self._aws_identity(env)
+        expires_at = self._aws_sso_expiry()
+        return True, identity, expires_at
+
+    def _login_azure(self, workspace, env):
+        cmd = ["az", "login", "--use-device-code"]
+        if workspace.get('azure_tenant'):
+            cmd += ["--tenant", workspace['azure_tenant']]
+        result = subprocess.run(cmd, env=env)
+        if result.returncode != 0:
+            return False, None, None
+
+        # Subscription binding applied at login (Req 3.3)
+        if workspace.get('azure_subscription'):
+            subprocess.run(
+                ["az", "account", "set",
+                 "--subscription", workspace['azure_subscription']],
+                env=env)
+
+        identity = None
+        try:
+            result = subprocess.run(
+                ["az", "account", "show", "--output", "json"],
+                env=env, capture_output=True, text=True, timeout=30)
+            if result.returncode == 0:
+                identity = (json.loads(result.stdout)
+                            .get('user', {}).get('name'))
+        except Exception:
+            pass  # Identity display degrades gracefully
+        return True, identity, None  # az refreshes tokens itself; no cheap expiry
+
+    def _login_gcp(self, workspace, env):
+        result = subprocess.run(["gcloud", "auth", "login"], env=env)
+        if result.returncode != 0:
+            return False, None, None
+
+        # Impersonation / project bindings (Req 3.2) - applied to the
+        # workspace-scoped gcloud config (CLOUDSDK_CONFIG)
+        if workspace.get('gcp_impersonate_service_account'):
+            subprocess.run(
+                ["gcloud", "config", "set", "auth/impersonate_service_account",
+                 workspace['gcp_impersonate_service_account']],
+                env=env)
+        project = ((workspace.get('sso') or {}).get('gcp') or {}).get('project')
+        if not project and workspace.get('provider') == 'gcp':
+            project = workspace.get('account_id')
+        if project:
+            subprocess.run(["gcloud", "config", "set", "project", project],
+                           env=env)
+
+        identity = None
+        try:
+            result = subprocess.run(
+                ["gcloud", "config", "get-value", "account"],
+                env=env, capture_output=True, text=True, timeout=30)
+            if result.returncode == 0:
+                value = result.stdout.strip()
+                if value and value != '(unset)':
+                    identity = value
+        except Exception:
+            pass
+        return True, identity, None  # gcloud refresh tokens have no fixed expiry
+
+    def _aws_identity(self, env) -> Optional[str]:
+        try:
+            result = subprocess.run(
+                ["aws", "sts", "get-caller-identity", "--output", "json"],
+                env=env, capture_output=True, text=True, timeout=30)
+            if result.returncode == 0:
+                return json.loads(result.stdout).get('Arn')
+        except Exception:
+            pass
+        return None
+
+    def _aws_sso_expiry(self) -> Optional[str]:
+        """Latest expiresAt from the workspace-scoped AWS SSO token cache"""
+        cache_dir = self._providers_dir() / 'aws' / 'sso' / 'cache'
+        latest_str, latest = None, None
+        if not cache_dir.is_dir():
+            return None
+        for cache_file in cache_dir.glob('*.json'):
+            try:
+                with open(cache_file, 'r') as f:
+                    expires_at = json.load(f).get('expiresAt')
+            except (OSError, ValueError):
+                continue
+            parsed = _parse_session_timestamp(expires_at)
+            if parsed and (latest is None or parsed > latest):
+                latest, latest_str = parsed, expires_at
+        return latest_str
+
+    def _record_session(self, provider: str, identity: Optional[str],
+                        expires_at: Optional[str]):
+        """Non-secret session metadata for status / context indicator"""
+        workspace = self._load_workspace()
+        sessions = workspace.setdefault('sessions', {})
+        sessions[provider] = {
+            'mode': 'sso',
+            'identity': identity,
+            'expires_at': expires_at,
+            'logged_in_at': datetime.now(timezone.utc).isoformat(),
+        }
+        self._save_workspace(workspace)
+
+    # -- logout (Req 5.3) ------------------------------------------------
+
+    def logout(self, provider: str = None) -> bool:
+        workspace = self._load_workspace()
+        sessions = workspace.get('sessions') or {}
+        providers = [provider] if provider else [
+            p for p in SESSION_PROVIDERS if p in sessions]
+        if not providers:
+            print("No recorded provider sessions to log out")
+            return True
+
+        env = self._scoped_env()
+        logout_cmds = {
+            'aws': ["aws", "sso", "logout"],
+            'azure': ["az", "logout"],
+            'gcp': ["gcloud", "auth", "revoke", "--all"],
+        }
+        for p in providers:
+            try:
+                subprocess.run(logout_cmds[p], env=env,
+                               capture_output=True, timeout=60)
+            except Exception:
+                pass  # Session metadata is cleared regardless
+            if p in sessions:
+                sessions.pop(p, None)
+            self._audit("LOGOUT", p)
+            print(f"✓ Logged out: {p}")
+
+        workspace['sessions'] = sessions
+        self._save_workspace(workspace)
+        return True
+
+    # -- status (Req 5.1, 4.1) -------------------------------------------
+
+    def _static_profiles(self, provider: str) -> List[str]:
+        """Static credentials in the pass vault for this workspace/provider.
+
+        File-existence check only (like the aws wrapper) - never triggers
+        GPG decryption or pinentry.
+        """
+        pass_dir = Path(os.environ.get(
+            'PASSWORD_STORE_DIR', str(Path.home() / '.password-store')))
+        provider_dir = pass_dir / 'nubifer' / self.workspace_id / 'cloud' / provider
+        if not provider_dir.is_dir():
+            return []
+        return sorted(p.name for p in provider_dir.iterdir() if p.is_dir())
+
+    def _sso_configured(self, workspace: Dict, provider: str) -> bool:
+        sso = workspace.get('sso') or {}
+        if provider == 'aws':
+            return bool(sso.get('aws'))
+        if provider == 'azure':
+            return bool(sso.get('azure') or workspace.get('azure_tenant')
+                        or workspace.get('azure_subscription'))
+        if provider == 'gcp':
+            return bool(sso.get('gcp')
+                        or workspace.get('gcp_impersonate_service_account'))
+        return False
+
+    def _provider_status(self, workspace: Dict, provider: str) -> Dict:
+        """Auth mode (sso/static/none), identity and expiry for one provider.
+
+        Resolution order (Req 4.2): an SSO session/configuration takes
+        precedence over static vault credentials; static shows as fallback.
+        """
+        session = (workspace.get('sessions') or {}).get(provider) or {}
+        static_profiles = self._static_profiles(provider)
+        info = {
+            'mode': 'none',
+            'identity': None,
+            'expires_at': None,
+            'state': None,
+            'static_fallback': False,
+        }
+
+        if session:
+            info['mode'] = session.get('mode', 'sso')
+            info['identity'] = session.get('identity')
+            info['expires_at'] = session.get('expires_at')
+            info['static_fallback'] = bool(static_profiles)
+            expires = _parse_session_timestamp(info['expires_at'])
+            if expires is None:
+                info['state'] = 'active'
+            elif expires <= datetime.now(timezone.utc):
+                info['state'] = 'expired'
+                if not session.get('expiry_logged'):
+                    session['expiry_logged'] = True
+                    self._audit("SESSION_EXPIRED", provider,
+                                f"expired={info['expires_at']}")
+                    self._expiry_flag_changed = True
+            else:
+                info['state'] = 'active'
+                remaining = (expires - datetime.now(timezone.utc)).total_seconds()
+                info['remaining'] = _humanize_remaining(remaining)
+        elif self._sso_configured(workspace, provider):
+            info['mode'] = 'sso'
+            info['state'] = 'not logged in'
+            info['static_fallback'] = bool(static_profiles)
+        elif static_profiles:
+            info['mode'] = 'static'
+            info['identity'] = ', '.join(static_profiles)
+
+        return info
+
+    def status(self, json_output: bool = False):
+        workspace = self._load_workspace()
+        self._expiry_flag_changed = False
+
+        rows = {}
+        for provider in SESSION_PROVIDERS:
+            rows[provider] = self._provider_status(workspace, provider)
+
+        # Persist one-shot expiry flags so SESSION_EXPIRED is logged once
+        if self._expiry_flag_changed:
+            self._save_workspace(workspace)
+
+        if json_output:
+            print(json.dumps({
+                'workspace_id': self.workspace_id,
+                'workspace_name': workspace.get('name'),
+                'providers': rows,
+            }, indent=2))
+            return
+
+        print(f"\nSession status - workspace "
+              f"'{workspace.get('name', '?')}' ({self.workspace_id})")
+        print("-" * 78)
+        print(f"{'PROVIDER':<9} {'MODE':<23} {'IDENTITY':<30} EXPIRES")
+        expired = []
+        for provider in SESSION_PROVIDERS:
+            info = rows[provider]
+            mode = info['mode']
+            if mode == 'sso' and info['static_fallback']:
+                mode += " (static fallback)"
+            identity = info['identity'] or '-'
+            if info['state'] == 'expired':
+                expires = f"{info['expires_at']} (EXPIRED)"
+                expired.append(provider)
+            elif info['state'] == 'not logged in':
+                expires = "not logged in"
+            elif info.get('remaining'):
+                expires = f"{info['expires_at']} ({info['remaining']} left)"
+            elif info['state'] == 'active' and not info['expires_at']:
+                expires = "provider-managed"
+            else:
+                expires = "-"
+            print(f"{provider:<9} {mode:<23} {identity:<30} {expires}")
+
+        for provider in expired:
+            print(f"\n⚠️  {provider} session expired - re-login with: "
+                  f"nubifer-creds login -t {provider}")
+        print("\nResolution order: SSO session > static vault credentials "
+              "(credential_process fallback)")
+
+
+def handle_login_command(args):
+    """Handle 'login' and 'login setup'"""
+    session_manager = SessionManager(
+        workspace_id=getattr(args, 'workspace', None))
+
+    if getattr(args, 'login_command', None) == 'setup':
+        session_manager.setup(args.type, {
+            'sso_start_url': getattr(args, 'sso_start_url', None),
+            'sso_region': getattr(args, 'sso_region', None),
+            'sso_account_id': getattr(args, 'sso_account_id', None),
+            'sso_role_name': getattr(args, 'sso_role_name', None),
+            'role_arn': getattr(args, 'role_arn', None),
+            'tenant': getattr(args, 'tenant', None),
+            'subscription': getattr(args, 'subscription', None),
+            'project': getattr(args, 'project', None),
+            'impersonate_service_account':
+                getattr(args, 'impersonate_service_account', None),
+        })
+        return
+
+    if not getattr(args, 'type', None):
+        print("✗ Provider required: nubifer-creds login -t {aws|azure|gcp}",
+              file=sys.stderr)
+        sys.exit(1)
+    if not session_manager.login(args.type):
+        sys.exit(1)
+
+
+def handle_logout_command(args):
+    session_manager = SessionManager(
+        workspace_id=getattr(args, 'workspace', None))
+    if not session_manager.logout(getattr(args, 'type', None)):
+        sys.exit(1)
+
+
+def handle_status_command(args):
+    session_manager = SessionManager(
+        workspace_id=getattr(args, 'workspace', None))
+    session_manager.status(json_output=getattr(args, 'json', False))
+
+
 def main():
     parser = argparse.ArgumentParser(description="NubiferOS Credential Manager")
     subparsers = parser.add_subparsers(dest="command", help="Commands")
@@ -401,12 +1002,74 @@ def main():
     token_refresh.add_argument("-n", "--name", required=True, help="Credential name/profile")
     token_refresh.add_argument("-w", "--workspace", help="Workspace ID (defaults to active)")
 
+    # Login command (guided SSO login inside the workspace scope)
+    login_parser = subparsers.add_parser(
+        "login", help="Log in to a cloud provider for the active workspace (SSO)")
+    login_parser.add_argument("-t", "--type", choices=["aws", "azure", "gcp"],
+                              help="Provider to log in to (required)")
+    login_parser.add_argument("-w", "--workspace",
+                              help="Workspace ID (defaults to active)")
+    login_subparsers = login_parser.add_subparsers(dest="login_command")
+
+    # login setup - store non-secret SSO configuration / role bindings
+    login_setup = login_subparsers.add_parser(
+        "setup", help="Store non-secret SSO configuration and role bindings")
+    login_setup.add_argument("-t", "--type", required=True,
+                             choices=["aws", "azure", "gcp"],
+                             help="Provider to configure")
+    login_setup.add_argument("-w", "--workspace",
+                             help="Workspace ID (defaults to active)")
+    # AWS IAM Identity Center
+    login_setup.add_argument("--sso-start-url", help="AWS SSO start URL")
+    login_setup.add_argument("--sso-region", help="AWS SSO region")
+    login_setup.add_argument("--sso-account-id", help="AWS account ID for SSO")
+    login_setup.add_argument("--sso-role-name", help="AWS permission set / role name")
+    login_setup.add_argument("--role-arn",
+                             help="AWS IAM role ARN to assume (role binding)")
+    # Azure Entra ID
+    login_setup.add_argument("--tenant", help="Azure tenant (applied at az login)")
+    login_setup.add_argument("--subscription",
+                             help="Azure subscription (az account set after login)")
+    # GCP
+    login_setup.add_argument("--project", help="GCP project for the workspace")
+    login_setup.add_argument("--impersonate-service-account",
+                             help="GCP service account to impersonate")
+
+    # Logout command
+    logout_parser = subparsers.add_parser(
+        "logout", help="Log out provider sessions for the active workspace")
+    logout_parser.add_argument("-t", "--type", choices=["aws", "azure", "gcp"],
+                               help="Provider (default: all recorded sessions)")
+    logout_parser.add_argument("-w", "--workspace",
+                               help="Workspace ID (defaults to active)")
+
+    # Status command (per-provider session table)
+    status_parser = subparsers.add_parser(
+        "status", help="Per-provider session status: mode, identity, expiry")
+    status_parser.add_argument("-w", "--workspace",
+                               help="Workspace ID (defaults to active)")
+    status_parser.add_argument("--json", action="store_true",
+                               help="Output as JSON")
+
     args = parser.parse_args()
     
     if not args.command:
         parser.print_help()
         return
-    
+
+    # Session commands (SSO) never touch the pass vault - dispatch before
+    # constructing CredentialManager so they work without an initialized
+    # password store. Static-key commands below are unchanged.
+    if args.command == "login":
+        handle_login_command(args)
+        return
+    if args.command == "logout":
+        handle_logout_command(args)
+        return
+    if args.command == "status":
+        handle_status_command(args)
+        return
+
     manager = CredentialManager()
     
     if args.command == "add":
