@@ -419,14 +419,16 @@ The installer and workspace/credential system is fully functional:
     - _Requirements: 12.2_
 
 - [ ]* 12. Testing and validation
-  - [ ]* 12.1 Test build system
+  - [x]* 12.1 Test build system
     - Verify ISO builds successfully in clean environment
     - Verify GPG signature on downloaded Debian ISO
     - Verify all cloud tools are installed and functional
     - Verify all security hardening is applied
     - _Requirements: 12.5_
+    - _Note: Continuously verified by CI — every build runs static ISO
+      tests, Component Tests, and a QEMU boot test (July 2026)_
 
-  - [ ]* 12.2 Test installation
+  - [x]* 12.2 Test installation
     - Install NubiferOS in VirtualBox VM with LUKS encryption
     - Verify encryption passphrase is required at boot
     - Verify all services start correctly
