@@ -1,7 +1,19 @@
 name: Build NubiferOS ISO
 
+# ISO build policy (July 2026): pushes NEVER trigger ISO builds — they only
+# run the fast workflows (Security Scan, Component Tests, packages). ISOs
+# come from (a) manual dispatch when you want one, or (b) the nightly cron,
+# which the guard job skips unless commits landed in the last 25 hours.
 on:
   workflow_dispatch:
+  schedule:
+    - cron: '0 6 * * *'   # nightly 06:00 UTC
+
+# Never two ISO builds at once: an in-progress build is never cancelled,
+# and pile-ups collapse to a single queued run
+concurrency:
+  group: build-iso
+  cancel-in-progress: false
 
 permissions:
   id-token: write
@@ -12,7 +24,31 @@ env:
   AWS_REGION: us-east-1
 
 jobs:
+  guard:
+    runs-on: ubuntu-latest
+    outputs:
+      should_build: ${{ steps.check.outputs.should_build }}
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v5
+
+    - name: Decide whether to build
+      id: check
+      run: |
+        if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+          echo "should_build=true" >> $GITHUB_OUTPUT
+          echo "Manual dispatch — building."
+        elif [ -n "$(git log -1 --since='25 hours ago' --oneline)" ]; then
+          echo "should_build=true" >> $GITHUB_OUTPUT
+          echo "Commits landed in the last 25h — building nightly ISO."
+        else
+          echo "should_build=false" >> $GITHUB_OUTPUT
+          echo "No new commits since the last nightly window — skipping."
+        fi
+
   build-iso:
+    needs: guard
+    if: needs.guard.outputs.should_build == 'true'
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.version.outputs.version }}

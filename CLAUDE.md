@@ -37,6 +37,18 @@ path. All reboot-on-exit bombs in the session files were removed.
 **Future Consideration:**
 - LUKS1 /boot + LUKS2 root hybrid (better GPU resistance, but 2 passwords)
 
+## ISO Build Policy (July 2026)
+
+Pushes NEVER trigger ISO builds — only the fast workflows (Security Scan,
+Component Tests, packages; ~1 min). ISOs come from:
+1. Manual dispatch (`gh workflow run "Build NubiferOS ISO"`) when needed
+2. Nightly cron 06:00 UTC — guard job skips unless commits landed in 25h
+
+A `build-iso` concurrency group means two builds can never run at once.
+(History: pushes used to trigger builds, causing 2-3 simultaneous ISO
+builds per commit burst — the origin of the old never-push-without-asking
+rule, now obsolete.)
+
 ## Release Procedure
 
 1. Ensure the staging build at the current VERSION passed Test ISO (boot test)
