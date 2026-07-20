@@ -38,10 +38,43 @@ jobs:
           done
           exit $FAIL
 
-      - name: Resource Viewer unit tests
+      - name: Component unit tests (stdlib unittest)
         run: |
-          cd components/resource-viewer
-          python3 -m unittest discover -s tests -v
+          # Discover and run every stdlib unittest suite under components/*/tests.
+          # All suites are offline and dependency-free (stdlib only, no pip installs).
+          # Skipped: components whose tests need third-party frameworks.
+          #   - nubifer-cli: pytest/typer/hypothesis suite, not stdlib-runnable
+          SKIP="components/nubifer-cli"
+          FAIL=0
+          RAN=0
+          for tests_dir in components/*/tests; do
+            [ -d "$tests_dir" ] || continue
+            comp="${tests_dir%/tests}"
+            skipped=0
+            for s in $SKIP; do
+              [ "$comp" = "$s" ] && skipped=1
+            done
+            if [ "$skipped" = "1" ]; then
+              echo "SKIP: $comp (non-stdlib test dependencies)"
+              continue
+            fi
+            echo "::group::$comp unit tests"
+            if (cd "$comp" && python3 -m unittest discover -s tests -v); then
+              RESULT="PASS"
+            else
+              RESULT="FAIL"
+              FAIL=1
+            fi
+            echo "::endgroup::"
+            echo "$RESULT: $comp"
+            RAN=$((RAN + 1))
+          done
+          # Guard against silently running nothing (e.g. glob/layout change)
+          if [ "$RAN" -eq 0 ]; then
+            echo "ERROR: no component test suites were discovered"
+            exit 1
+          fi
+          exit $FAIL
 
       - name: Shell syntax check (build + scripts + component installers)
         run: |
