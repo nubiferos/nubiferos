@@ -57,6 +57,40 @@ _nubifer_check_workspace_change() {
     fi
 }
 
+# Session Broker: point provider CLIs at the workspace-scoped config/cache
+# dirs (created by 'nubifer-workspace env' / create). Scopes AWS, gcloud and
+# az sessions per workspace so identities never leak across accounts.
+_nubifer_export_provider_scope() {
+    local workspace_id="$1"
+    local providers_dir="$HOME/.config/nubifer/workspaces/${workspace_id}/providers"
+
+    if [ -d "$providers_dir" ]; then
+        export AWS_CONFIG_FILE="${providers_dir}/aws/config"
+        export AWS_SHARED_CREDENTIALS_FILE="${providers_dir}/aws/credentials"
+        export CLOUDSDK_CONFIG="${providers_dir}/gcloud"
+        export AZURE_CONFIG_DIR="${providers_dir}/azure"
+    fi
+}
+
+# Clear workspace-scoped provider vars, but only if we set them (never
+# clobber a user's own AWS_CONFIG_FILE etc.)
+_nubifer_clear_provider_scope() {
+    local nubifer_ws_prefix="$HOME/.config/nubifer/workspaces/"
+
+    case "$AWS_CONFIG_FILE" in
+        "${nubifer_ws_prefix}"*) unset AWS_CONFIG_FILE ;;
+    esac
+    case "$AWS_SHARED_CREDENTIALS_FILE" in
+        "${nubifer_ws_prefix}"*) unset AWS_SHARED_CREDENTIALS_FILE ;;
+    esac
+    case "$CLOUDSDK_CONFIG" in
+        "${nubifer_ws_prefix}"*) unset CLOUDSDK_CONFIG ;;
+    esac
+    case "$AZURE_CONFIG_DIR" in
+        "${nubifer_ws_prefix}"*) unset AZURE_CONFIG_DIR ;;
+    esac
+}
+
 # Function to update prompt with workspace context
 nubifer_update_prompt() {
     # Check if workspace is active
@@ -91,14 +125,18 @@ with open('$workspace_file') as f:
                 export NUBIFER_WORKSPACE_ACTIVE="true"
                 export NUBIFER_WORKSPACE_READ_ONLY="$ro_flag"
 
+                # Scope provider CLIs (aws/gcloud/az) to this workspace
+                _nubifer_export_provider_scope "$workspace_id"
+
                 return
             fi
         fi
     fi
-    
+
     # No active workspace - use default prompt
     PS1="\u@\h:\w\$ "
     export NUBIFER_WORKSPACE_ACTIVE="false"
+    _nubifer_clear_provider_scope
 }
 
 # Function to activate workspace in current shell
