@@ -20,7 +20,7 @@ fi
 # Check read-only mode
 if [ "$NUBIFER_WORKSPACE_READ_ONLY" = "true" ]; then
     # Write verbs that modify resources
-    write_verbs="create|delete|update|terminate|start|stop|reset|change|move|attach|detach|launch|reboot|action|remove|add|enable|disable|import|export|invoke|cancel|restore|resize|migrate"
+    write_verbs="create|delete|update|terminate|start|stop|reset|change|move|attach|detach|launch|reboot|action|remove|add|enable|disable|import|export|invoke|cancel|restore|resize|migrate|put|copy|upload|sync|rename|reencrypt"
 
     # oci commands use: oci <service> <resource> <verb>
     # Check if any argument is a write verb (word boundary match)

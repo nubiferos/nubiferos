@@ -51,7 +51,13 @@ if [ "$NUBIFER_WORKSPACE_READ_ONLY" = "true" ]; then
                 if [ "$PAST_SUBCMD" = true ]; then
                     case "$arg" in
                         -*) continue ;;  # skip flags
-                        *) HAS_PLAN_FILE=true; break ;;
+                        *)
+                            # Only count a real saved plan file — a bare word
+                            # here may be a flag value (e.g. -var foo=bar)
+                            if [ -f "$arg" ]; then
+                                HAS_PLAN_FILE=true
+                            fi
+                            break ;;
                     esac
                 fi
                 if [ "$arg" = "apply" ]; then
@@ -74,6 +80,39 @@ if [ "$NUBIFER_WORKSPACE_READ_ONLY" = "true" ]; then
                 _nubifer_audit_log terraform blocked "$@" 2>/dev/null
                 exit 1
             fi
+            ;;
+        state)
+            # state list/show/pull are safe reads; block state mutations
+            STATE_SUBCMD=""
+            PAST_STATE=false
+            for arg in "$@"; do
+                if [ "$PAST_STATE" = true ]; then
+                    case "$arg" in
+                        -*) continue ;;  # skip flags
+                        *) STATE_SUBCMD="$arg"; break ;;
+                    esac
+                fi
+                if [ "$arg" = "state" ]; then
+                    PAST_STATE=true
+                fi
+            done
+
+            case "$STATE_SUBCMD" in
+                rm|mv|push|replace-provider)
+                    echo "" >&2
+                    echo -e "\033[48;5;22;97m 🔒 WRITE BLOCKED \033[0m Workspace is in read-only mode" >&2
+                    echo "" >&2
+                    echo "  Command: terraform $*" >&2
+                    echo "" >&2
+                    echo "  terraform state $STATE_SUBCMD modifies state and is blocked in read-only mode." >&2
+                    echo "" >&2
+                    echo "  To enable writes (requires sudo):" >&2
+                    echo "    sudo nubifer-workspace rw $NUBIFER_WORKSPACE_ID" >&2
+                    echo "" >&2
+                    _nubifer_audit_log terraform blocked "$@" 2>/dev/null
+                    exit 1
+                    ;;
+            esac
             ;;
         destroy|import|taint|untaint)
             echo "" >&2
