@@ -112,7 +112,7 @@ No unattended Calamares config. No post-install test script. Manual QEMU testing
 
 ---
 
-### 8. Security Dashboard MVP (GTK4)
+### 8. Security Dashboard MVP (GTK3)
 
 | | |
 |---|---|
@@ -149,7 +149,7 @@ No implementation. Currently uses separate commands: `nubifer-workspace`, `nubif
 |---|---|
 | **Priority** | MEDIUM |
 | **Source** | `.kiro/specs/custom-linux-distro/requirements.md` Req 6/7/10 |
-| **Status** | **Planned** |
+| **Status** | **Done** (July 2026 — `nubifer-resources`, AWS; Azure/GCP tracked in issue #26) |
 
 Phase 2 feature. No implementation.
 
@@ -175,9 +175,13 @@ Design docs exist with threat model. No implementation. `DASHBOARD_DESIGN.md` de
 |---|---|
 | **Priority** | MEDIUM |
 | **Source** | `docs/LUKS_TPM_CLOUD_STRATEGY.md` |
-| **Status** | **Planned (v2.0)** |
+| **Status** | **Done early** (July 2026 — shipped ahead of the v2.0 Cumulus plan) |
 
-Strategy doc exists covering AWS NitroTPM, Azure vTPM, GCP Shielded VM, and hardware TPM. Consistently documented as "FUTURE IMPLEMENTATION" in both internal docs and website (v2.0 Cumulus).
+Shipped via runtime detection in one ISO: TPM 2.0 present → LUKS2+Argon2id root
+with unencrypted /boot and clevis PCR-7 auto-unlock; no TPM → LUKS1 unchanged.
+Covers hardware TPM and vTPMs exposing /dev/tpmrm0 (cloud variants — NitroTPM,
+Azure Trusted Launch, GCP Shielded VM — become reachable once cloud image
+builds exist, issue #18). End-to-end swtpm/hardware validation pending (#17).
 
 ---
 
