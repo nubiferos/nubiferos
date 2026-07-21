@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="cloudGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1e3a8a"/>
+      <stop offset="50%" stop-color="#3b82f6"/>
+      <stop offset="100%" stop-color="#60a5fa"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background circle (matches brand/logo.svg treatment) -->
+  <circle cx="256" cy="256" r="240" fill="url(#cloudGradient)" opacity="0.1"/>
+
+  <!-- Cloud shape (scaled from brand/logo.svg cloud) -->
+  <path d="M 140 336 Q 110 306 110 261 Q 110 216 140 186 Q 170 156 215 156 Q 230 126 260 126 Q 290 126 305 156 Q 350 156 380 186 Q 410 216 410 261 Q 410 306 380 336 Z"
+        fill="url(#cloudGradient)"
+        stroke="#1e3a8a"
+        stroke-width="6"/>
+
+  <!-- Resource inventory list inside the cloud -->
+  <!-- Row 1 -->
+  <rect x="170" y="200" width="20" height="20" rx="5" fill="#ffffff" opacity="0.95"/>
+  <rect x="206" y="204" width="138" height="12" rx="6" fill="#ffffff" opacity="0.95"/>
+  <!-- Row 2 -->
+  <rect x="170" y="244" width="20" height="20" rx="5" fill="#ffffff" opacity="0.95"/>
+  <rect x="206" y="248" width="110" height="12" rx="6" fill="#ffffff" opacity="0.95"/>
+  <!-- Row 3 -->
+  <rect x="170" y="288" width="20" height="20" rx="5" fill="#ffffff" opacity="0.95"/>
+  <rect x="206" y="292" width="126" height="12" rx="6" fill="#ffffff" opacity="0.95"/>
+
+  <!-- Magnifier hinting search/browse -->
+  <circle cx="356" cy="342" r="42" fill="none" stroke="#1e3a8a" stroke-width="16"/>
+  <circle cx="356" cy="342" r="42" fill="#ffffff" opacity="0.15"/>
+  <line x1="386" y1="372" x2="424" y2="410" stroke="#1e3a8a" stroke-width="20" stroke-linecap="round"/>
+</svg>
