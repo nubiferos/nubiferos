@@ -47,6 +47,33 @@ log "INFO" "Installing TPM tooling in live environment..."
 chroot_exec "DEBIAN_FRONTEND=noninteractive apt-get install -y \
     tpm2-tools clevis clevis-luks clevis-tpm2 xxd"
 
+# TPM detection must run in the REAL boot path. The Calamares launcher
+# service (whose ExecStartPre invoked calamares-detect-tpm.sh) is dead
+# config — the live session actually starts via getty autologin →
+# .bash_profile startx → .xinitrc — so detection runs as a root oneshot
+# ordered before the console autologin. Live-only (boot=live condition);
+# a failure here never blocks boot (ordering, not requirement).
+mkdir -p "${CHROOT_DIR}/usr/lib/systemd/system"
+cat > "${CHROOT_DIR}/usr/lib/systemd/system/nubifer-tpm-detect.service" << 'TPMDETECT_EOF'
+[Unit]
+Description=NubiferOS TPM 2.0 detection (live installer only)
+ConditionKernelCommandLine=boot=live
+After=systemd-udevd.service
+Before=getty@tty1.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/calamares-detect-tpm.sh
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
+TPMDETECT_EOF
+mkdir -p "${CHROOT_DIR}/etc/systemd/system/multi-user.target.wants"
+ln -sf /usr/lib/systemd/system/nubifer-tpm-detect.service \
+    "${CHROOT_DIR}/etc/systemd/system/multi-user.target.wants/nubifer-tpm-detect.service"
+log "INFO" "  ✓ TPM detection service wired into live boot path"
+
 # Create Calamares configuration directory
 log "INFO" "Creating Calamares configuration..."
 mkdir -p "${CHROOT_DIR}/etc/calamares"

@@ -119,6 +119,11 @@ rm -f /etc/systemd/system/multi-user.target.wants/nubifer-boot-test.service 2>/d
 rm -f /usr/lib/systemd/system/nubifer-boot-test.service 2>/dev/null || true
 rm -f /usr/local/bin/nubifer-boot-test.sh 2>/dev/null || true
 
+# Remove live-only TPM detection service (inert post-install via its
+# boot=live condition, but no reason to ship it)
+rm -f /etc/systemd/system/multi-user.target.wants/nubifer-tpm-detect.service 2>/dev/null || true
+rm -f /usr/lib/systemd/system/nubifer-tpm-detect.service 2>/dev/null || true
+
 # Remove live-boot specific files (not needed on installed system)
 rm -f /etc/live/boot.conf 2>/dev/null || true
 rm -rf /etc/live 2>/dev/null || true
