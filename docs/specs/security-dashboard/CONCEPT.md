@@ -156,7 +156,8 @@
 ## Technology Stack
 
 ### Frontend
-- **GTK 4** - GNOME's native UI toolkit
+- **GTK 3** - GNOME's native UI toolkit (implementation uses
+  `gi.require_version('Gtk', '3.0')`; a GTK 4 port is possible future work)
 - **Python 3** - Main application language
 - **PyGObject** - Python bindings for GTK
 
