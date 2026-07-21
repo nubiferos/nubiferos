@@ -21,6 +21,15 @@ emit() {
 
 emit "service-started"
 
+# TPM diagnostic: report whether pre-launch detection flipped to LUKS2.
+# (Informational — only meaningful when the test VM provides a TPM, e.g.
+# QEMU + swtpm; absent on plain QEMU and that is expected.)
+if [ -f /tmp/nubiferos-tpm-detected ]; then
+    emit "tpm-detected (LUKS2 + auto-unlock path active)"
+elif [ -c /dev/tpmrm0 ]; then
+    emit "WARN tpm-present-but-not-detected"
+fi
+
 graphical_emitted=""
 # Poll up to 480s (240 x 2s) for the installer
 for _ in $(seq 1 240); do

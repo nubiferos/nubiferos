@@ -38,9 +38,14 @@ chroot_exec "DEBIAN_FRONTEND=noninteractive apt-get install -y -t bookworm-backp
 # Note: calamares-settings-debian is not needed for 3.3.x
 log "INFO" "Calamares 3.3.8 installed from backports"
 
-# Install tpm2-tools in live environment for pre-launch TPM detection
-log "INFO" "Installing tpm2-tools in live environment..."
-chroot_exec "DEBIAN_FRONTEND=noninteractive apt-get install -y tpm2-tools"
+# Install TPM tooling in the LIVE environment: tpm2-tools for pre-launch
+# detection, and the clevis stack + xxd for calamares-bind-tpm.sh, which
+# runs with dontChroot:true — without these the bind silently no-ops
+# ('clevis: command not found') and TPM auto-unlock never engages even
+# though detection and the LUKS2 install succeed.
+log "INFO" "Installing TPM tooling in live environment..."
+chroot_exec "DEBIAN_FRONTEND=noninteractive apt-get install -y \
+    tpm2-tools clevis clevis-luks clevis-tpm2 xxd"
 
 # Create Calamares configuration directory
 log "INFO" "Creating Calamares configuration..."

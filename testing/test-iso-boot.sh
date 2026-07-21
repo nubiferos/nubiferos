@@ -63,6 +63,26 @@ fi
 
 qemu-img create -f qcow2 "$TARGET_DISK" 25G > /dev/null
 
+# Optional emulated TPM 2.0 (WITH_TPM=1, requires swtpm): exercises the
+# pre-launch TPM detection path — expect a 'tpm-detected' marker in the
+# serial log from ISOs built after July 2026
+TPM_ARGS=()
+SWTPM_PID=""
+if [ "${WITH_TPM:-0}" = "1" ]; then
+    if command -v swtpm > /dev/null; then
+        TPM_DIR="$ART_DIR/tpm"
+        mkdir -p "$TPM_DIR"
+        swtpm socket --tpmstate dir="$TPM_DIR" \
+            --ctrl type=unixio,path="$TPM_DIR/swtpm.sock" --tpm2 --daemon
+        TPM_ARGS=(-chardev "socket,id=chrtpm,path=$TPM_DIR/swtpm.sock"
+                  -tpmdev "emulator,id=tpm0,chardev=chrtpm"
+                  -device "tpm-tis,tpmdev=tpm0")
+        echo "Emulated TPM 2.0 enabled via swtpm"
+    else
+        echo "WITH_TPM=1 but swtpm not installed — continuing without TPM"
+    fi
+fi
+
 qemu-system-x86_64 \
     $ACCEL_ARGS \
     -m "$QEMU_RAM" -smp 2 \
@@ -72,6 +92,7 @@ qemu-system-x86_64 \
     -serial "file:$SERIAL_LOG" \
     -qmp "unix:$QMP_SOCK,server,nowait" \
     -qmp "unix:$EVENTS_SOCK,server,nowait" \
+    "${TPM_ARGS[@]}" \
     -no-reboot &
 QEMU_PID=$!
 
