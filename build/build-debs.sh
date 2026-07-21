@@ -945,6 +945,9 @@ if [ -d "$PROJECT_ROOT/components/context-indicator/gnome-extension" ]; then
     cp "$PROJECT_ROOT/components/context-indicator/gnome-extension/extension.js" "$EXTENSION_DIR/"
     cp "$PROJECT_ROOT/components/context-indicator/gnome-extension/metadata.json" "$EXTENSION_DIR/"
     cp "$PROJECT_ROOT/components/context-indicator/gnome-extension/stylesheet.css" "$EXTENSION_DIR/"
+    # Session-state display module (Phase 2 task 5.2); extension.js degrades
+    # gracefully without it, but the deb must ship it for the feature to work
+    cp "$PROJECT_ROOT/components/context-indicator/gnome-extension/sessionState.js" "$EXTENSION_DIR/"
 fi
 
 # Terminal prompt integration

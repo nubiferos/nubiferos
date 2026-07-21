@@ -17,6 +17,12 @@
     text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
 }
 
+/* Subtle top-bar hint for expiring/expired SSO sessions */
+.nubiferos-session-hint {
+    font-size: 10pt;
+    padding-left: 4px;
+}
+
 /* Provider-specific styles (fallback if inline styles don't work) */
 .nubiferos-aws {
     background-color: #FF9900;

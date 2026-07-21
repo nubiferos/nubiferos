@@ -8,6 +8,17 @@ const { GObject, St, Gio, GLib, Clutter } = imports.gi;
 const Main = imports.ui.main;
 const PanelMenu = imports.ui.panelMenu;
 const PopupMenu = imports.ui.popupMenu;
+const ExtensionUtils = imports.misc.extensionUtils;
+
+// Session-state helpers (separate module so standalone gjs can unit-test it).
+// Degrade gracefully if the module was not shipped: session display is
+// simply disabled, the rest of the indicator keeps working.
+let SessionState = null;
+try {
+    SessionState = ExtensionUtils.getCurrentExtension().imports.sessionState;
+} catch (e) {
+    log(`NubiferOS: sessionState module unavailable, session display disabled: ${e}`);
+}
 
 // Provider configurations
 const PROVIDERS = {
@@ -61,6 +72,16 @@ class ContextIndicator extends PanelMenu.Button {
         });
         
         this._box.add_child(this._label);
+
+        // Subtle top-bar hint for expiring/expired SSO sessions (Req 5.2)
+        this._sessionHint = new St.Label({
+            text: '',
+            y_align: Clutter.ActorAlign.CENTER,
+            style_class: 'nubiferos-session-hint',
+            visible: false
+        });
+        this._box.add_child(this._sessionHint);
+
         this.add_child(this._box);
         
         // Initialize D-Bus connection
@@ -119,6 +140,8 @@ class ContextIndicator extends PanelMenu.Button {
     }
     
     _loadCurrentWorkspace() {
+        this._updateSessionHint();
+
         if (!this._proxy) {
             // D-Bus unavailable — fall back to JSON
             this._loadWorkspaceFromJson();
@@ -214,6 +237,122 @@ class ContextIndicator extends PanelMenu.Button {
         this._box.set_style(style);
     }
 
+    /**
+     * Read the active workspace config JSON, or null if unavailable.
+     * Session metadata lives in the workspace JSON regardless of whether
+     * workspace state itself arrives via D-Bus, so this is also used by
+     * the session-state display.
+     */
+    _readActiveWorkspaceJson() {
+        try {
+            const homeDir = GLib.get_home_dir();
+            const currentFile = `${homeDir}/.config/nubifer/current-workspace`;
+
+            const [ok, contents] = GLib.file_get_contents(currentFile);
+            if (!ok)
+                return null;
+
+            const wsId = imports.byteArray.toString(contents).trim();
+            if (!wsId)
+                return null;
+
+            const wsFile = `${homeDir}/.config/nubifer/workspaces/${wsId}.json`;
+            const [wok, wcontents] = GLib.file_get_contents(wsFile);
+            if (!wok)
+                return null;
+
+            return JSON.parse(imports.byteArray.toString(wcontents));
+        } catch (e) {
+            // Missing/malformed files are expected states, not errors
+            return null;
+        }
+    }
+
+    /**
+     * Session display entries for the active workspace (Req 5.2).
+     * Missing/malformed `sessions` metadata yields [] - never throws.
+     */
+    _getSessionStates() {
+        if (!SessionState)
+            return [];
+        try {
+            const ws = this._readActiveWorkspaceJson();
+            if (!ws)
+                return [];
+            return SessionState.computeSessionStates(ws.sessions, Date.now());
+        } catch (e) {
+            log(`NubiferOS: Error computing session state: ${e}`);
+            return [];
+        }
+    }
+
+    _updateSessionHint() {
+        if (!this._sessionHint || !SessionState)
+            return;
+        try {
+            const worst = SessionState.worstSessionState(this._getSessionStates());
+            if (worst === 'expired') {
+                this._sessionHint.set_text('⛔');
+                this._sessionHint.show();
+            } else if (worst === 'expiring') {
+                this._sessionHint.set_text('⏳');
+                this._sessionHint.show();
+            } else {
+                this._sessionHint.hide();
+            }
+        } catch (e) {
+            log(`NubiferOS: Error updating session hint: ${e}`);
+            this._sessionHint.hide();
+        }
+    }
+
+    _rebuildSessionSection() {
+        if (!this._sessionSection)
+            return;
+        this._sessionSection.removeAll();
+
+        const states = this._getSessionStates();
+        if (!states || states.length === 0)
+            return;  // No sessions recorded -> show nothing
+
+        for (const s of states) {
+            const providerConfig = PROVIDERS[s.provider] || {
+                name: s.provider.toUpperCase(),
+                icon: '☁️'
+            };
+            const mode = s.mode.toUpperCase();
+            const prefix = `${providerConfig.icon} ${providerConfig.name} ${mode}`;
+
+            let text;
+            if (s.state === 'expired') {
+                text = `${prefix}: expired — nubifer-creds login -t ${s.provider}`;
+            } else if (s.state === 'expiring') {
+                text = s.expiresHHMM
+                    ? `${prefix}: expiring soon (${s.expiresHHMM})`
+                    : `${prefix}: expiring soon`;
+            } else {
+                text = s.expiresHHMM
+                    ? `${prefix}: active (expires ${s.expiresHHMM})`
+                    : `${prefix}: active`;
+            }
+
+            const item = new PopupMenu.PopupMenuItem(text);
+            if (s.state === 'expired') {
+                // Provider keys are validated by computeSessionStates()
+                const provider = s.provider;
+                item.connect('activate', () => {
+                    this._openTerminalWithCommand(
+                        `nubifer-creds login -t ${provider}`);
+                });
+            } else {
+                item.setSensitive(false);
+            }
+            this._sessionSection.addMenuItem(item);
+        }
+
+        this._sessionSection.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
+    }
+
     _startJsonPolling() {
         if (this._jsonPollTimerId) return;  // Already polling
 
@@ -287,12 +426,19 @@ class ContextIndicator extends PanelMenu.Button {
         const refreshItem = new PopupMenu.PopupMenuItem('🔄 Refresh');
         refreshItem.connect('activate', () => {
             this._loadCurrentWorkspace();
+            this._rebuildSessionSection();
             this._rebuildWorkspaceList();
         });
         this.menu.addMenuItem(refreshItem);
-        
+
         this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
-        
+
+        // SSO session state for the active workspace (Req 5.2).
+        // Empty (and invisible) when no sessions are recorded; rebuilt
+        // each time the menu opens - no extra polling.
+        this._sessionSection = new PopupMenu.PopupMenuSection();
+        this.menu.addMenuItem(this._sessionSection);
+
         // Workspace list section
         this._workspaceSection = new PopupMenu.PopupMenuSection();
         this.menu.addMenuItem(this._workspaceSection);
@@ -343,9 +489,11 @@ class ContextIndicator extends PanelMenu.Button {
         });
         this.menu.addMenuItem(toggleRoItem);
         
-        // Load workspace list when menu is opened
+        // Load session state + workspace list when menu is opened
         this.menu.connect('open-state-changed', (menu, open) => {
             if (open) {
+                this._rebuildSessionSection();
+                this._updateSessionHint();
                 this._rebuildWorkspaceList();
             }
         });

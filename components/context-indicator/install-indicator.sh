@@ -20,6 +20,7 @@ echo "Installing GNOME Shell extension..."
 mkdir -p "$EXTENSION_DIR"
 
 cp "$SCRIPT_DIR/gnome-extension/extension.js" "$EXTENSION_DIR/"
+cp "$SCRIPT_DIR/gnome-extension/sessionState.js" "$EXTENSION_DIR/"
 cp "$SCRIPT_DIR/gnome-extension/metadata.json" "$EXTENSION_DIR/"
 cp "$SCRIPT_DIR/gnome-extension/stylesheet.css" "$EXTENSION_DIR/"
 

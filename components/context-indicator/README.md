@@ -10,6 +10,8 @@ Visual "always know which account you're in" indicator for GNOME Shell and termi
 - ✅ Read-only mode visual indication (red border + 🔒)
 - ✅ Read-write mode visual indication (green border)
 - ✅ Dropdown menu to switch workspaces
+- ✅ SSO session state in menu (active / expiring soon / expired) with re-login shortcut
+- ✅ Subtle top-bar hint when a session is expiring (⏳) or expired (⛔)
 - ✅ Real-time updates via D-Bus signals
 - ✅ Terminal prompt integration with colors
 - ✅ Prevents account confusion
@@ -127,12 +129,37 @@ Once installed, the indicator automatically shows the current workspace:
 
 Click the indicator to open the menu:
 
+- **Session State**: SSO session state per provider for the active workspace
 - **Workspace List**: Shows all workspaces with checkmark on active one
-- **Refresh**: Reload workspace list
+- **Refresh**: Reload session state and workspace list
 - **Create New Workspace**: Opens terminal with create command
 - **Manage Workspaces**: Opens terminal with list command
 
 Click any workspace to switch to it.
+
+### Session State Display
+
+After `nubifer-creds login` records a session, the menu shows one line per
+provider for the active workspace:
+
+```
+☁️ AWS SSO: active (expires 14:32)
+⛅ Azure SSO: expiring soon (12:10)        # less than 15 minutes left
+🔵 GCP SSO: expired — nubifer-creds login -t gcp
+```
+
+- **active** — session valid; expiry shown as local `HH:MM` when known
+- **expiring soon** — less than 15 minutes remaining
+- **expired** — clicking the line opens a terminal with the re-login command
+- **nothing shown** — no sessions recorded (or metadata missing/malformed)
+
+A subtle hint also appears in the top bar next to the workspace label:
+⏳ when any session is expiring soon, ⛔ when any session is expired.
+
+Session data comes from the non-secret `sessions` key in
+`~/.config/nubifer/workspaces/<id>.json` (provider, identity, expiry —
+never tokens), written by `nubifer-creds login`/`logout`. The state is
+refreshed when the menu opens; there is no extra background polling.
 
 ### Terminal Prompt
 
@@ -333,12 +360,26 @@ sudo rm /etc/profile.d/nubiferos-prompt.sh
 components/context-indicator/
 ├── gnome-extension/
 │   ├── extension.js       # Main extension code
+│   ├── sessionState.js    # Pure session-state helpers (gjs-testable)
 │   ├── metadata.json      # Extension metadata
 │   └── stylesheet.css     # Visual styling
+├── tests/
+│   └── test_session_state.py  # Offline + gjs-backed unit tests
 ├── nubiferos-prompt.sh    # Terminal prompt integration
 ├── install-indicator.sh   # Installation script
 └── README.md              # This file
 ```
+
+### Running Tests
+
+```bash
+cd components/context-indicator
+python3 -m unittest discover -s tests -v
+```
+
+Artifact checks always run; the session-state behavior tests execute the
+real `sessionState.js` via standalone `gjs` and are skipped automatically
+when gjs is not installed. GNOME Shell itself is not required.
 
 ### Testing Changes
 
