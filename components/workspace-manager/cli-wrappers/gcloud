@@ -41,6 +41,42 @@ if [ "$NUBIFER_WORKSPACE_READ_ONLY" = "true" ]; then
     fi
 fi
 
+# Expired-session hint (modern-cloud-auth Req 2.4): if the workspace has a
+# recorded GCP SSO session whose expiry is past, print a one-line re-login
+# hint. Never blocks the command — gcloud gives its own error if needed.
+WORKSPACE_FILE="$HOME/.config/nubifer/workspaces/${NUBIFER_WORKSPACE_ID}.json"
+if [ -f "$WORKSPACE_FILE" ]; then
+    SESSION_EXPIRED=$(python3 - "$WORKSPACE_FILE" gcp 2>/dev/null << 'PYEOF'
+import json, sys
+from datetime import datetime, timezone
+try:
+    data = json.load(open(sys.argv[1]))
+except Exception:
+    data = {}
+session = (data.get('sessions') or {}).get(sys.argv[2]) or {}
+ts = (session.get('expires_at') or '').strip()
+if ts.endswith('Z'):
+    ts = ts[:-1] + '+00:00'
+elif ts.endswith('UTC'):
+    ts = ts[:-3] + '+00:00'
+expired = 'no'
+if ts:
+    try:
+        parsed = datetime.fromisoformat(ts)
+        if parsed.tzinfo is None:
+            parsed = parsed.replace(tzinfo=timezone.utc)
+        if parsed <= datetime.now(timezone.utc):
+            expired = 'yes'
+    except ValueError:
+        pass
+print(expired)
+PYEOF
+    )
+    if [ "$SESSION_EXPIRED" = "yes" ]; then
+        echo "⚠️  Workspace '${NUBIFER_WORKSPACE_NAME:-$NUBIFER_WORKSPACE_ID}': GCP session expired — run: nubifer-creds login -t gcp" >&2
+    fi
+fi
+
 # Log allowed command
 _nubifer_audit_log gcp allowed "$@" 2>/dev/null
 

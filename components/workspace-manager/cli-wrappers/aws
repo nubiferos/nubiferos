@@ -62,6 +62,85 @@ if [ "$NUBIFER_WORKSPACE_READ_ONLY" = "true" ]; then
     fi
 fi
 
+# Workspace config JSON (non-secret: region, SSO config, session metadata)
+WORKSPACE_FILE="$HOME/.config/nubifer/workspaces/${NUBIFER_WORKSPACE_ID}.json"
+
+# Modern auth check (SSO / role bindings — modern-cloud-auth Req 2.4/4.1)
+# When the workspace carries SSO configuration, a role binding, or a recorded
+# SSO session, the Session Broker's scoped AWS config (exported as
+# AWS_CONFIG_FILE by shell integration) already resolves SSO-first with the
+# 'nubifer-static' credential_process profile as the documented fallback.
+# In that case this wrapper must NOT override AWS_CONFIG_FILE with its own
+# static temp config. Also detect an expired recorded session so we can
+# print a re-login hint (never blocking — the AWS CLI gives its own error).
+MODERN_AUTH="no"
+SESSION_EXPIRED="no"
+if [ -f "$WORKSPACE_FILE" ]; then
+    MODERN_INFO=$(python3 - "$WORKSPACE_FILE" 2>/dev/null << 'PYEOF'
+import json, sys
+from datetime import datetime, timezone
+try:
+    data = json.load(open(sys.argv[1]))
+except Exception:
+    data = {}
+sso = (data.get('sso') or {}).get('aws') or {}
+session = (data.get('sessions') or {}).get('aws') or {}
+modern = 'yes' if (sso or data.get('aws_role_arn') or session) else 'no'
+expired = 'no'
+ts = (session.get('expires_at') or '').strip()
+if ts.endswith('Z'):
+    ts = ts[:-1] + '+00:00'
+elif ts.endswith('UTC'):
+    ts = ts[:-3] + '+00:00'
+if ts:
+    try:
+        parsed = datetime.fromisoformat(ts)
+        if parsed.tzinfo is None:
+            parsed = parsed.replace(tzinfo=timezone.utc)
+        if parsed <= datetime.now(timezone.utc):
+            expired = 'yes'
+    except ValueError:
+        pass
+print(modern, expired)
+PYEOF
+    )
+    case "$MODERN_INFO" in
+        yes*) MODERN_AUTH="yes" ;;
+    esac
+    case "$MODERN_INFO" in
+        *yes) SESSION_EXPIRED="yes" ;;
+    esac
+fi
+
+if [ "$MODERN_AUTH" = "yes" ]; then
+    # SSO / role passthrough: leave AWS_CONFIG_FILE alone so the broker's
+    # scoped config resolves the session (SSO > static, Req 4.1)
+    if [ "$SESSION_EXPIRED" = "yes" ]; then
+        echo "⚠️  Workspace '${NUBIFER_WORKSPACE_NAME:-$NUBIFER_WORKSPACE_ID}': AWS session expired — run: nubifer-creds login -t aws" >&2
+    fi
+
+    # Workspace context for the credential helper ('nubifer-static' fallback
+    # profile in the scoped config still uses credential_process)
+    export NUBIFER_WORKSPACE="$NUBIFER_WORKSPACE_ID"
+
+    # Disable AWS pager to prevent terminal corruption on Ctrl+C
+    export AWS_PAGER=""
+
+    # Log allowed command
+    _nubifer_audit_log aws allowed "$@" 2>/dev/null
+
+    # Run with Firejail isolation if available
+    if [ -x "$FIREJAIL_WRAPPER" ]; then
+        exec "$FIREJAIL_WRAPPER" aws /usr/bin/aws "$@"
+    else
+        exec /usr/bin/aws "$@"
+    fi
+fi
+
+# ---------------------------------------------------------------------------
+# Static-only path (legacy fallback — unchanged behavior, Req 4.1)
+# ---------------------------------------------------------------------------
+
 # Get credential name for this workspace (default to workspace name or 'default')
 CRED_NAME="${NUBIFER_AWS_CREDENTIAL:-${NUBIFER_WORKSPACE_NAME:-default}}"
 
@@ -82,7 +161,6 @@ if [ ! -f "$PASS_FILE" ]; then
 fi
 
 # Get region from workspace config (not pass - region is context, not a secret)
-WORKSPACE_FILE="$HOME/.config/nubifer/workspaces/${NUBIFER_WORKSPACE_ID}.json"
 REGION=""
 if [ -f "$WORKSPACE_FILE" ]; then
     # Try top-level 'region' first, then fall back to environment.AWS_REGION
