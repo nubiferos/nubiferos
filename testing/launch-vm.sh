@@ -120,7 +120,10 @@ QEMU_ARGS=(
     # User-mode NAT networking — the NubiferOS install fetches packages from
     # Debian mirrors during Calamares (the ISO ships a cleaned apt cache), so
     # the VM MUST have working outbound network or the package step fails 100.
-    -nic user,model=virtio-net-pci
+    # ipv6=off is CRITICAL: QEMU's user-mode IPv6 NAT is flaky, but the guest
+    # gets an IPv6 address and apt prefers IPv6 for deb.debian.org (has AAAA),
+    # so fetches fail even though IPv4 works. Forcing IPv4-only fixes it.
+    -nic user,model=virtio-net-pci,ipv6=off
     -serial "file:$SERIAL" -vga std
 )
 [ "$BOOT_DISK" = 1 ] || QEMU_ARGS+=(-cdrom "$ISO" -boot d)
