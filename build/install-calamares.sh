@@ -44,8 +44,14 @@ log "INFO" "Calamares 3.3.8 installed from backports"
 # ('clevis: command not found') and TPM auto-unlock never engages even
 # though detection and the LUKS2 install succeed.
 log "INFO" "Installing TPM tooling in live environment..."
+# clevis-initramfs provides the initramfs hook that unlocks LUKS via TPM at
+# boot — without it on the target, TPM auto-unlock cannot work even if the
+# rest of clevis is present, so it must be baked in (it was in packages.conf
+# but not the image). NOTE: the install is still network-dependent overall —
+# packages.conf fetches the dev toolchain (nodejs/npm/build-essential/etc.) at
+# install time; full offline install would require baking those in too.
 chroot_exec "DEBIAN_FRONTEND=noninteractive apt-get install -y \
-    tpm2-tools clevis clevis-luks clevis-tpm2 xxd"
+    tpm2-tools clevis clevis-luks clevis-tpm2 clevis-initramfs xxd"
 
 # TPM detection must run in the REAL boot path. The Calamares launcher
 # service (whose ExecStartPre invoked calamares-detect-tpm.sh) is dead
